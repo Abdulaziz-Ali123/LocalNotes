@@ -13,7 +13,7 @@ export default function Editor() {
     <React.Fragment>
       <ResizablePanelGroup
       direction="horizontal"
-      className="min-h-screen w-full border-none"
+      className="min-h-screen w-full border-none bg-sidebar"
       >
       <ResizablePanel defaultSize={25}>
         <div className="flex h-full items-center justify-center p-6">
