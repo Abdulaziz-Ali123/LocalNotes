@@ -42,7 +42,7 @@ export default function HomePage() {
                     Configure Settings
                     <p className='text-sm pb-3'>Edit settings like themes</p>
                   </span>
-                  <button className='bg-accent rounded-md text-base p-2 h-12 w-32 shadow-neumorph-sm active:shadow-neumorph-insert transition-all'> List Folders </button>
+                  <button className='bg-accent rounded-md text-base p-2 h-12 w-32 shadow-neumorph-sm active:shadow-neumorph-insert transition-all'> Configure </button>
               </div>
             </div>
           </div>

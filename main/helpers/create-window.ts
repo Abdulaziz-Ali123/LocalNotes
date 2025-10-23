@@ -80,6 +80,7 @@ export const createWindow = (
     },
   })
 
+  win.setMinimumSize(600,600)
   win.on('close', saveState)
 
   return win

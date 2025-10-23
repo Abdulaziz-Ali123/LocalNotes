@@ -23,7 +23,10 @@ if (isProd) {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     },
+    // remove the default titlebar
     titleBarStyle: 'hidden',
+    // expose window controls in Windows/Linux
+    ...(process.platform !== 'darwin' ? { titleBarOverlay: true } : {})
   })
 
   // for context menu the one that pops up when you right click
@@ -161,9 +164,7 @@ if (isProd) {
   const contextMenu = Menu.buildFromTemplate(contextTemplate)
 
   mainWindow.webContents.on('context-menu', (_event, params) => {
-    if (params.isEditable){
-      contextMenu.popup()
-    }
+    contextMenu.popup()
   })
 
   if (isProd) {

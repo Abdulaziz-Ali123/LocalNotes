@@ -1,7 +1,4 @@
 import React from 'react'
-import Head from 'next/head'
-import Link from 'next/link'
-import Image from 'next/image'
 import {
   ResizableHandle,
   ResizablePanel,
@@ -13,7 +10,7 @@ export default function Editor() {
     <React.Fragment>
       <ResizablePanelGroup
       direction="horizontal"
-      className="min-h-screen w-full border-none bg-sidebar"
+      className="min-h-screen w-full bg-sidebar"
       >
       <ResizablePanel defaultSize={25}>
         <div className="flex h-full items-center justify-center p-6">
@@ -22,7 +19,7 @@ export default function Editor() {
       </ResizablePanel>
       <ResizableHandle withHandle className='bg-transparent'/>
       <ResizablePanel defaultSize={75} minSize={60}>
-        <div className="flex h-full items-center justify-center p-6 rounded-3xl bg-secondary">
+        <div className="flex h-[97%] items-center justify-center p-6 rounded-3xl bg-secondary">
           <span className="font-semibold">Text Editor</span>
         </div>
       </ResizablePanel>
