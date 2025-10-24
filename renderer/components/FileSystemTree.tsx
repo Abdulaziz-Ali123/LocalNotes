@@ -375,7 +375,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
             }`}
             className="h-8 w-8 hover:bg-accent"
           >
-            <FilePlus className="h-4 w-4" />
+            <FilePlus className="h-6 w-6" />
           </Button>
           <Button
             size="icon"
@@ -386,7 +386,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
             }`}
             className="h-8 w-8 hover:bg-accent"
           >
-            <FolderPlus className="h-4 w-4" />
+            <FolderPlus className="h-6 w-6" />
           </Button>
         </div>
       </div>
@@ -436,7 +436,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
                   setContextMenu(null);
                 }}
               >
-                <FilePlus className="h-4 w-4" />
+                <FilePlus className="h-6 w-6" />
                 New File
               </button>
               <button
@@ -446,7 +446,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
                   setContextMenu(null);
                 }}
               >
-                <FolderPlus className="h-4 w-4" />
+                <FolderPlus className="h-6 w-6" />
                 New Folder
               </button>
             </>
@@ -458,7 +458,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
               setContextMenu(null);
             }}
           >
-            <Edit2 className="h-4 w-4" />
+            <Edit2 className="h-6 w-6" />
             Rename
           </button>
           <button
@@ -468,7 +468,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
               setContextMenu(null);
             }}
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-6 w-6" />
             Delete
           </button>
         </div>
