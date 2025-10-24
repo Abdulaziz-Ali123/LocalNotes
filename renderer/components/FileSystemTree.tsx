@@ -20,6 +20,9 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
   const [rootPath, setRootPath] = useState<string | null>(null);
   const [treeElements, setTreeElements] = useState<TreeViewElement[]>([]);
   const [selectedId, setSelectedId] = useState<string | undefined>();
+  const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(
+    null
+  );
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -45,6 +48,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
     const result = await window.fs.openFolderDialog();
     if (result.success && result.data) {
       setRootPath(result.data);
+      setSelectedFolderPath(result.data); // Select root by default
       loadDirectory(result.data);
     }
   };
@@ -235,7 +239,10 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
     });
   };
 
-  const handleFolderClick = async (folderId: string) => {
+  const handleFolderClick = async (folderId: string, e?: React.MouseEvent) => {
+    // Set this folder as selected
+    setSelectedFolderPath(folderId);
+
     // Only load if not already loaded
     if (!loadedFolders.has(folderId)) {
       await loadDirectory(folderId, folderId);
@@ -245,6 +252,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
   const renderTree = (elements: TreeViewElement[]): React.ReactNode => {
     return elements.map((element) => {
       if (element.children !== undefined) {
+        const isSelected = selectedFolderPath === element.id;
         return (
           <div
             key={element.id}
@@ -253,6 +261,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
             <Folder
               element={element.name}
               value={element.id}
+              isSelect={isSelected}
               onContextMenu={(e) => {
                 e.preventDefault();
                 setContextMenu({
@@ -313,6 +322,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
           const createResult = await window.fs.createFolder(newFolderPath);
           if (createResult.success) {
             setRootPath(newFolderPath);
+            setSelectedFolderPath(newFolderPath); // Select the newly created folder
             loadDirectory(newFolderPath);
           } else {
             alert(`Failed to create folder: ${createResult.error}`);
@@ -359,16 +369,20 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
       <div className="flex items-center justify-between p-2 border-b bg-sidebar/50">
         <span
           className="text-sm font-semibold truncate flex-1"
-          title={rootPath}
+          title={selectedFolderPath || rootPath}
         >
-          {rootPath.split("/").pop()}
+          {selectedFolderPath
+            ? selectedFolderPath.split("/").pop()
+            : rootPath.split("/").pop()}
         </span>
         <div className="flex gap-1">
           <Button
             size="icon"
             variant="ghost"
-            onClick={() => createNewFile(rootPath)}
-            title="New File (Ctrl+N)"
+            onClick={() => createNewFile(selectedFolderPath || rootPath)}
+            title={`New File in ${
+              selectedFolderPath ? selectedFolderPath.split("/").pop() : "root"
+            }`}
             className="h-8 w-8 hover:bg-accent"
           >
             <FilePlus className="h-4 w-4" />
@@ -376,8 +390,10 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
           <Button
             size="icon"
             variant="ghost"
-            onClick={() => createNewFolder(rootPath)}
-            title="New Folder (Ctrl+Shift+N)"
+            onClick={() => createNewFolder(selectedFolderPath || rootPath)}
+            title={`New Folder in ${
+              selectedFolderPath ? selectedFolderPath.split("/").pop() : "root"
+            }`}
             className="h-8 w-8 hover:bg-accent"
           >
             <FolderPlus className="h-4 w-4" />
@@ -387,12 +403,18 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
 
       <div
         className="h-full overflow-auto"
+        onClick={(e) => {
+          // If clicking on the container itself (not a folder), reset to root
+          if (e.target === e.currentTarget) {
+            setSelectedFolderPath(rootPath);
+          }
+        }}
         onContextMenu={(e) => {
           e.preventDefault();
           setContextMenu({
             x: e.clientX,
             y: e.clientY,
-            path: rootPath,
+            path: selectedFolderPath || rootPath,
             isDirectory: true,
           });
         }}
