@@ -53,6 +53,16 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
     }
   };
 
+  // Load folder from localStorage on mount
+  useEffect(() => {
+    const savedFolderPath = localStorage.getItem("currentFolderPath");
+    if (savedFolderPath) {
+      setRootPath(savedFolderPath);
+      setSelectedFolderPath(savedFolderPath);
+      loadDirectory(savedFolderPath);
+    }
+  }, []);
+
   const loadDirectory = async (dirPath: string, parentId?: string) => {
     const result = await window.fs.readDirectory(dirPath);
     if (result.success && result.data) {
@@ -334,33 +344,13 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
 
   if (!rootPath) {
     return (
-      <>
-        <div className="flex flex-col items-center justify-center h-full p-6 gap-4">
-          <FolderOpen className="w-16 h-16 text-muted-foreground" />
-          <p className="text-muted-foreground text-center">No folder opened</p>
-          <div className="flex gap-2">
-            <Button onClick={openFolder} variant="outline">
-              <FolderOpen className="mr-2 h-4 w-4" />
-              Open Folder
-            </Button>
-            <Button onClick={createNewFolderPrompt} variant="outline">
-              <FolderPlus className="mr-2 h-4 w-4" />
-              Create Folder
-            </Button>
-          </div>
-        </div>
-
-        <InputDialog
-          isOpen={inputDialog.isOpen}
-          title={inputDialog.title}
-          placeholder={inputDialog.placeholder}
-          defaultValue={inputDialog.defaultValue}
-          onConfirm={inputDialog.onConfirm}
-          onCancel={() =>
-            setInputDialog((prev) => ({ ...prev, isOpen: false }))
-          }
-        />
-      </>
+      <div className="flex flex-col items-center justify-center h-full p-6 gap-4">
+        <FolderOpen className="w-16 h-16 text-muted-foreground" />
+        <p className="text-muted-foreground text-center">No folder opened</p>
+        <p className="text-sm text-muted-foreground text-center">
+          Please open or create a folder from the home page
+        </p>
+      </div>
     );
   }
 
