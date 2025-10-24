@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { File, Folder, Tree, type TreeViewElement } from "./ui/file-tree";
 import { Button } from "./ui/button";
 import { FolderOpen, FilePlus, FolderPlus, Trash2, Edit2 } from "lucide-react";
+import InputDialog from "./InputDialog";
 
 interface FileSystemItem {
   name: string;
@@ -26,6 +27,19 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
     isDirectory: boolean;
   } | null>(null);
   const [loadedFolders, setLoadedFolders] = useState<Set<string>>(new Set());
+  const [inputDialog, setInputDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    placeholder: string;
+    defaultValue: string;
+    onConfirm: (value: string) => void;
+  }>({
+    isOpen: false,
+    title: "",
+    placeholder: "",
+    defaultValue: "",
+    onConfirm: () => {},
+  });
 
   const openFolder = async () => {
     const result = await window.fs.openFolderDialog();
@@ -98,41 +112,65 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
   };
 
   const createNewFolder = async (parentPath: string) => {
-    const folderName = prompt("Enter folder name:");
-    if (folderName) {
-      const newFolderPath = `${parentPath}/${folderName}`;
-      const result = await window.fs.createFolder(newFolderPath);
-      if (result.success) {
-        // Mark parent as not loaded and reload
-        setLoadedFolders((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(parentPath);
-          return newSet;
-        });
-        await loadDirectory(parentPath, parentPath);
-      } else {
-        alert(`Failed to create folder: ${result.error}`);
-      }
-    }
+    setInputDialog({
+      isOpen: true,
+      title: "Create New Folder",
+      placeholder: "Folder name",
+      defaultValue: "",
+      onConfirm: async (folderName) => {
+        setInputDialog((prev) => ({ ...prev, isOpen: false }));
+        const newFolderPath = `${parentPath}/${folderName}`;
+        const result = await window.fs.createFolder(newFolderPath);
+        if (result.success) {
+          // Mark parent as not loaded and reload
+          setLoadedFolders((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(parentPath);
+            return newSet;
+          });
+
+          // If creating in root, reload root. Otherwise reload subfolder
+          if (parentPath === rootPath) {
+            await loadDirectory(parentPath);
+          } else {
+            await loadDirectory(parentPath, parentPath);
+          }
+        } else {
+          alert(`Failed to create folder: ${result.error}`);
+        }
+      },
+    });
   };
 
   const createNewFile = async (parentPath: string) => {
-    const fileName = prompt("Enter file name:");
-    if (fileName) {
-      const newFilePath = `${parentPath}/${fileName}`;
-      const result = await window.fs.createFile(newFilePath, "");
-      if (result.success) {
-        // Mark parent as not loaded and reload
-        setLoadedFolders((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(parentPath);
-          return newSet;
-        });
-        await loadDirectory(parentPath, parentPath);
-      } else {
-        alert(`Failed to create file: ${result.error}`);
-      }
-    }
+    setInputDialog({
+      isOpen: true,
+      title: "Create New File",
+      placeholder: "File name (e.g., notes.txt)",
+      defaultValue: "",
+      onConfirm: async (fileName) => {
+        setInputDialog((prev) => ({ ...prev, isOpen: false }));
+        const newFilePath = `${parentPath}/${fileName}`;
+        const result = await window.fs.createFile(newFilePath, "");
+        if (result.success) {
+          // Mark parent as not loaded and reload
+          setLoadedFolders((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(parentPath);
+            return newSet;
+          });
+
+          // If creating in root, reload root. Otherwise reload subfolder
+          if (parentPath === rootPath) {
+            await loadDirectory(parentPath);
+          } else {
+            await loadDirectory(parentPath, parentPath);
+          }
+        } else {
+          alert(`Failed to create file: ${result.error}`);
+        }
+      },
+    });
   };
 
   const deleteItem = async (itemPath: string) => {
@@ -148,7 +186,13 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
           newSet.delete(reloadPath);
           return newSet;
         });
-        await loadDirectory(reloadPath, parentPath || undefined);
+
+        // If deleting from root, reload root. Otherwise reload subfolder
+        if (reloadPath === rootPath) {
+          await loadDirectory(reloadPath);
+        } else {
+          await loadDirectory(reloadPath, reloadPath);
+        }
       } else {
         alert(`Failed to delete item: ${result.error}`);
       }
@@ -157,24 +201,38 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
 
   const renameItem = async (oldPath: string) => {
     const oldName = oldPath.substring(oldPath.lastIndexOf("/") + 1);
-    const newName = prompt("Enter new name:", oldName);
-    if (newName && newName !== oldName) {
-      const parentPath = oldPath.substring(0, oldPath.lastIndexOf("/"));
-      const newPath = `${parentPath}/${newName}`;
-      const result = await window.fs.renameItem(oldPath, newPath);
-      if (result.success) {
-        // Reload the parent directory
-        const reloadPath = parentPath || rootPath!;
-        setLoadedFolders((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(reloadPath);
-          return newSet;
-        });
-        await loadDirectory(reloadPath, parentPath || undefined);
-      } else {
-        alert(`Failed to rename item: ${result.error}`);
-      }
-    }
+    setInputDialog({
+      isOpen: true,
+      title: "Rename",
+      placeholder: "New name",
+      defaultValue: oldName,
+      onConfirm: async (newName) => {
+        setInputDialog((prev) => ({ ...prev, isOpen: false }));
+        if (newName && newName !== oldName) {
+          const parentPath = oldPath.substring(0, oldPath.lastIndexOf("/"));
+          const newPath = `${parentPath}/${newName}`;
+          const result = await window.fs.renameItem(oldPath, newPath);
+          if (result.success) {
+            // Reload the parent directory
+            const reloadPath = parentPath || rootPath!;
+            setLoadedFolders((prev) => {
+              const newSet = new Set(prev);
+              newSet.delete(reloadPath);
+              return newSet;
+            });
+
+            // If renaming in root, reload root. Otherwise reload subfolder
+            if (reloadPath === rootPath) {
+              await loadDirectory(reloadPath);
+            } else {
+              await loadDirectory(reloadPath, reloadPath);
+            }
+          } else {
+            alert(`Failed to rename item: ${result.error}`);
+          }
+        }
+      },
+    });
   };
 
   const handleFolderClick = async (folderId: string) => {
@@ -241,39 +299,58 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
   }, []);
 
   const createNewFolderPrompt = async () => {
-    const folderName = prompt("Enter new folder name:");
-    if (folderName) {
-      const result = await window.fs.openFolderDialog();
-      if (result.success && result.data) {
-        const parentPath = result.data;
-        const newFolderPath = `${parentPath}/${folderName}`;
-        const createResult = await window.fs.createFolder(newFolderPath);
-        if (createResult.success) {
-          setRootPath(newFolderPath);
-          loadDirectory(newFolderPath);
-        } else {
-          alert(`Failed to create folder: ${createResult.error}`);
+    setInputDialog({
+      isOpen: true,
+      title: "Create New Folder",
+      placeholder: "Folder name",
+      defaultValue: "",
+      onConfirm: async (folderName) => {
+        setInputDialog((prev) => ({ ...prev, isOpen: false }));
+        const result = await window.fs.openFolderDialog();
+        if (result.success && result.data) {
+          const parentPath = result.data;
+          const newFolderPath = `${parentPath}/${folderName}`;
+          const createResult = await window.fs.createFolder(newFolderPath);
+          if (createResult.success) {
+            setRootPath(newFolderPath);
+            loadDirectory(newFolderPath);
+          } else {
+            alert(`Failed to create folder: ${createResult.error}`);
+          }
         }
-      }
-    }
+      },
+    });
   };
 
   if (!rootPath) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-6 gap-4">
-        <FolderOpen className="w-16 h-16 text-muted-foreground" />
-        <p className="text-muted-foreground text-center">No folder opened</p>
-        <div className="flex gap-2">
-          <Button onClick={openFolder} variant="outline">
-            <FolderOpen className="mr-2 h-4 w-4" />
-            Open Folder
-          </Button>
-          <Button onClick={createNewFolderPrompt} variant="outline">
-            <FolderPlus className="mr-2 h-4 w-4" />
-            Create Folder
-          </Button>
+      <>
+        <div className="flex flex-col items-center justify-center h-full p-6 gap-4">
+          <FolderOpen className="w-16 h-16 text-muted-foreground" />
+          <p className="text-muted-foreground text-center">No folder opened</p>
+          <div className="flex gap-2">
+            <Button onClick={openFolder} variant="outline">
+              <FolderOpen className="mr-2 h-4 w-4" />
+              Open Folder
+            </Button>
+            <Button onClick={createNewFolderPrompt} variant="outline">
+              <FolderPlus className="mr-2 h-4 w-4" />
+              Create Folder
+            </Button>
+          </div>
         </div>
-      </div>
+
+        <InputDialog
+          isOpen={inputDialog.isOpen}
+          title={inputDialog.title}
+          placeholder={inputDialog.placeholder}
+          defaultValue={inputDialog.defaultValue}
+          onConfirm={inputDialog.onConfirm}
+          onCancel={() =>
+            setInputDialog((prev) => ({ ...prev, isOpen: false }))
+          }
+        />
+      </>
     );
   }
 
@@ -384,6 +461,15 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
           </button>
         </div>
       )}
+
+      <InputDialog
+        isOpen={inputDialog.isOpen}
+        title={inputDialog.title}
+        placeholder={inputDialog.placeholder}
+        defaultValue={inputDialog.defaultValue}
+        onConfirm={inputDialog.onConfirm}
+        onCancel={() => setInputDialog((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }
