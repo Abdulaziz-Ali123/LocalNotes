@@ -22,14 +22,19 @@ if (isProd) {
   const mainWindow = createWindow("main", {
     width: 1000,
     height: 600,
-    webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
+      webPreferences: {
+          preload: path.join(app.getAppPath(), "app", "preload.js"),
+          contextIsolation: true,
+          nodeIntegration: false,
+          sandbox: false,
     },
     // remove the default titlebar
     titleBarStyle: "hidden",
     // expose window controls in Windows/Linux
     ...(process.platform !== "darwin" ? { titleBarOverlay: true } : {}),
   });
+
+  mainWindow.webContents.openDevTools();
 
   // for context menu the one that pops up when you right click
   const contextTemplate: any = [
@@ -238,11 +243,15 @@ ipcMain.handle("fs:deleteItem", async (event, itemPath: string) => {
 ipcMain.handle(
   "fs:renameItem",
   async (event, oldPath: string, newPath: string) => {
-    try {
-      await fs.rename(oldPath, newPath);
-      return { success: true };
+      try {
+          const exists = await fs.stat(oldPath).catch(() => null);
+          if (!exists) {
+              throw new Error('Source not found: ${oldPath}');
+          }
+          await fs.rename(oldPath, newPath);
+          return { success: true };
     } catch (error: any) {
-      return { success: false, error: error.message };
+        return { success: false, error: error.message };
     }
   }
 );
