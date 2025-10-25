@@ -2,18 +2,9 @@
 
 ## Usage
 
-### Create an App
+### Documetation
 
-```
-# with npx
-$ npx create-nextron-app my-app --example with-tailwindcss
-
-# with yarn
-$ yarn create nextron-app my-app --example with-tailwindcss
-
-# with pnpm
-$ pnpm dlx create-nextron-app my-app --example with-tailwindcss
-```
+Softwar Architecture and Sprint Documentation can be found under the Documentation folder
 
 ### Install Dependencies
 
