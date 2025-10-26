@@ -49,11 +49,11 @@ module.exports = {
           5: 'rgb(180, 142, 173)', // Nord15
         },
         sidebar: {
-          DEFAULT: 'rgb(46, 52, 64)', // Nord0
-          foreground: 'rgb(236, 239, 244)',
-          primary: 'rgb(136, 192, 208)',
-          'primary-foreground': 'rgb(46, 52, 64)',
-          accent: 'rgb(129, 161, 193)',
+          DEFAULT: 'rgba(77, 77, 77, 1)', //THIS CHANGES COLOR OF FILESYSTEM TREE BACKGROUND
+          foreground: 'rgba(244, 238, 236, 1)',
+          primary: 'rgba(182, 23, 161, 1)',
+          'primary-foreground': 'rgba(64, 47, 46, 1)',
+          accent: 'rgba(54, 81, 109, 1)',
           'accent-foreground': 'rgb(236, 239, 244)',
           border: 'rgb(59, 66, 82)',
           ring: 'rgb(129, 161, 193)',
@@ -74,3 +74,4 @@ module.exports = {
   },
   plugins: ["tw-animate-css"],
 }
+
