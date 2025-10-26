@@ -1,3 +1,8 @@
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarContent,
+} from "../components/ui/sidebar";
 import React, { useEffect, useState } from "react";
 import {
     ResizableHandle,
@@ -56,13 +61,28 @@ export default function Editor() {
     
     return (
         <React.Fragment>
+            <div className="flex flex-row">
+              {/* Activity rail / fixed */}
+              <div className="flex flex-col items-center gap-2 px-2 py-4 bg-background w-12 border-r">
+                <button className="size-10 rounded-md hover:bg-accent p-2" title="Files">📁</button>
+                <button className="size-10 rounded-md hover:bg-accent p-2" title="Search">🔍</button>
+              </div>
             <ResizablePanelGroup
                 direction="horizontal"
-                className="min-h-screen w-full bg-sidebar"
+                className="min-h-screen w-full bg-secondary"
             >
-                <ResizablePanel defaultSize={25} minSize={15}>
-                    <FileSystemTree onFileSelect={handleFileSelect} />
-                </ResizablePanel>
+                 {/* Sidebar (resizable) + Editor */}
+
+                  <ResizablePanel defaultSize={20} minSize={12}>
+                    <SidebarProvider>
+                      {/* Use non-fixed variant so the panel controls width; force w-full so Sidebar doesn't enforce its own CSS width variable */}
+                      <Sidebar collapsible="none" className="w-full">
+                        <SidebarContent className="h-full p-0">
+                          <FileSystemTree onFileSelect={handleFileSelect} />
+                        </SidebarContent>
+                      </Sidebar>
+                    </SidebarProvider>
+                  </ResizablePanel>
                 <ResizableHandle withHandle className="bg-transparent" />
                 <ResizablePanel defaultSize={75} minSize={60}>
                     <div className="flex h-full flex-col p-6 rounded-3xl bg-secondary">
@@ -110,6 +130,7 @@ export default function Editor() {
                     </div>
                 </ResizablePanel>
             </ResizablePanelGroup>
+            </div>
         </React.Fragment>
     );
 }

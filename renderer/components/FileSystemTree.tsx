@@ -92,8 +92,14 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
           return newSet;
         });
       } else {
-        // Set root elements
-        setTreeElements(elements);
+          // Wrap everything under the root folder node itself
+          const rootNode: TreeViewElement = {
+              id: dirPath,
+              name: window.fs.basename(dirPath),
+              isSelectable: true,
+              children:elements,
+          };
+        setTreeElements([rootNode]);
         setLoadedFolders(new Set([dirPath]));
       }
     }
@@ -214,40 +220,59 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
   };
 
   const renameItem = async (oldPath: string) => {
-    const oldName = oldPath.substring(oldPath.lastIndexOf("/") + 1);
-    setInputDialog({
-      isOpen: true,
-      title: "Rename",
-      placeholder: "New name",
-      defaultValue: oldName,
-      onConfirm: async (newName) => {
-        setInputDialog((prev) => ({ ...prev, isOpen: false }));
-        if (newName && newName !== oldName) {
-          const parentPath = oldPath.substring(0, oldPath.lastIndexOf("/"));
-          const newPath = `${parentPath}/${newName}`;
-          const result = await window.fs.renameItem(oldPath, newPath);
-          if (result.success) {
-            // Reload the parent directory
-            const reloadPath = parentPath || rootPath!;
-            setLoadedFolders((prev) => {
-              const newSet = new Set(prev);
-              newSet.delete(reloadPath);
-              return newSet;
-            });
+      const oldName = window.fs.basename(oldPath);               // "file.md"
+      const parentPath = window.fs.dirname(oldPath);             // "C:\folder"
 
-            // If renaming in root, reload root. Otherwise reload subfolder
-            if (reloadPath === rootPath) {
-              await loadDirectory(reloadPath);
-            } else {
-              await loadDirectory(reloadPath, reloadPath);
-            }
-          } else {
-            alert(`Failed to rename item: ${result.error}`);
-          }
-        }
-      },
-    });
+      if (!oldPath || !parentPath) {
+          alert("Invalid path: cannot rename root or outside directory.");
+          return;
+      }
+
+      setInputDialog({
+          isOpen: true,
+          title: "Rename File or Folder",
+          placeholder: "New name (include extension)",
+          defaultValue: oldName,
+          onConfirm: async (newName) => {
+              if (!newName || newName === oldName) return;
+
+              const newPath = window.fs.join(parentPath, newName.trim());
+              const result = await window.fs.renameItem(oldPath, newPath);
+
+              if (result.success) {
+                  // CASE 1: Renamed the ROOT folder itself
+                  if (oldPath === rootPath) {
+                      const newRootPath = newPath;
+                      setRootPath(newRootPath);
+                      setSelectedFolderPath(newRootPath);
+                      localStorage.setItem("currentFolderPath", newRootPath);
+
+                      // Reload tree to reflect the renamed root
+                      await loadDirectory(newRootPath);
+                      alert("Root folder renamed successfully!");
+                      return;
+                  }
+
+                  // CASE 2: Renamed a child file/folder
+                  const reloadPath = parentPath || rootPath!;
+                  setLoadedFolders((prev) => {
+                      const newSet = new Set(prev);
+                      newSet.delete(reloadPath);
+                      return newSet;
+                  });
+
+                  if (reloadPath === rootPath) {
+                      await loadDirectory(reloadPath);
+                  } else {
+                      await loadDirectory(reloadPath, reloadPath);
+                  }
+              } else {
+                  alert(`Failed to rename item: ${result.error}`);
+              }
+          },
+      });
   };
+
 
   const handleFolderClick = async (folderId: string, e?: React.MouseEvent) => {
     // Set this folder as selected
@@ -274,6 +299,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
               isSelect={isSelected}
               onContextMenu={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 setContextMenu({
                   x: e.clientX,
                   y: e.clientY,
@@ -296,6 +322,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
             onClick={() => handleFileSelect(element.id)}
             onContextMenu={(e) => {
               e.preventDefault();
+              e.stopPropagation();
               setContextMenu({
                 x: e.clientX,
                 y: e.clientY,
@@ -356,14 +383,12 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
 
   return (
     <div className="relative h-full w-full">
-      <div className="flex items-center justify-between p-2 border-b bg-sidebar/50">
+      <div className="flex items-center justify-between p-2 border-b bg-sidebar">
         <span
           className="text-sm font-semibold truncate flex-1"
-          title={selectedFolderPath || rootPath}
-        >
-          {selectedFolderPath
-            ? selectedFolderPath.split("/").pop()
-            : rootPath.split("/").pop()}
+          title={selectedFolderPath || rootPath || "No folder selected"}
+              >
+                  {selectedFolderPath || rootPath || "No folder selected"}
         </span>
         <div className="flex gap-1">
           <Button
@@ -454,6 +479,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
           <button
             className="w-full px-4 py-2 text-sm hover:bg-accent text-left flex items-center gap-2"
             onClick={() => {
+              console.log("Renaming path:", contextMenu.path, "Is directory?", contextMenu.isDirectory);
               renameItem(contextMenu.path);
               setContextMenu(null);
             }}

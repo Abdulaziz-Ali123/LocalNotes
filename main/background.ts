@@ -244,11 +244,15 @@ ipcMain.handle("fs:deleteItem", async (event, itemPath: string) => {
 ipcMain.handle(
   "fs:renameItem",
   async (event, oldPath: string, newPath: string) => {
-    try {
-      await fs.rename(oldPath, newPath);
-      return { success: true };
+      try {
+          const exists = await fs.stat(oldPath).catch(() => null);
+          if (!exists) {
+              throw new Error('Source not found: ${oldPath}');
+          }
+          await fs.rename(oldPath, newPath);
+          return { success: true };
     } catch (error: any) {
-      return { success: false, error: error.message };
+        return { success: false, error: error.message };
     }
   }
 );

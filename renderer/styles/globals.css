@@ -33,19 +33,23 @@
   --chart-3: rgb(163, 190, 140); /* Nord14 */
   --chart-4: rgb(235, 203, 139); /* Nord13 */
   --chart-5: rgb(180, 142, 173); /* Nord15 */
-  --sidebar: rgb(46, 52, 64); /* Nord0 */
+  --sidebar: rgba(71, 71, 71, 0.733);
   --sidebar-foreground: rgb(236, 239, 244);
-  --sidebar-primary: rgb(136, 192, 208);
+  --sidebar-primary: rgb(115, 146, 66);
   --sidebar-primary-foreground: rgb(46, 52, 64);
   --sidebar-accent: rgb(129, 161, 193);
   --sidebar-accent-foreground: rgb(236, 239, 244);
-  --sidebar-border: rgb(59, 66, 82);
+  --sidebar-border: rgb(64, 88, 145);
   --sidebar-ring: rgb(129, 161, 193);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --sidebar-width: 16rem;         /* expanded width */
+  --sidebar-width-collapsed: 3.5rem; /* collapsed width */
 }
+
+
 
 /* ---------------------------
    THEME VARIABLE EXPORT
@@ -90,17 +94,71 @@
   --color-sidebar-ring: var(--sidebar-ring); */
 }
 
-@layer base {
-  * {
-    @apply border-border;
+  @layer base {
+      * {
+      @apply border-border;
+    }
+    body {
+      @apply bg-background text-foreground;
+    }
   }
-  body {
-    @apply bg-background text-foreground;
+
+  .app-drag-region {
+  -webkit-app-region: drag;
   }
+
+  .dark {
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.439 0 0);
+  }
+
+@keyframes fadeInOut {
+    0% {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    10%, 90% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateY(10px);
+    }
 }
 
-.app-drag-region {
-  -webkit-app-region: drag;
+.animate-fade-in-out {
+    animation: fadeInOut 2s ease-in-out;
+}
+
+
+@keyframes fadeInOut {
+    0% {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    10%, 90% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+}
+
+.animate-fade-in-out {
+    animation: fadeInOut 2s ease-in-out;
 }
 
 

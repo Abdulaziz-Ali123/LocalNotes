@@ -30,6 +30,8 @@ const fileSystemHandler = {
   readFile: (filePath: string) => ipcRenderer.invoke("fs:readFile", filePath),
   writeFile: (filePath: string, content: string) =>
     ipcRenderer.invoke("fs:writeFile", filePath, content),
+  extname: (p: string) => path.extname(p),
+  sep: path.sep,
   openFolderDialog: () => ipcRenderer.invoke("fs:openFolderDialog"),
   basename: (filePath: string) => path.basename(filePath),
   dirname: (filePath: string) => path.dirname(filePath),
