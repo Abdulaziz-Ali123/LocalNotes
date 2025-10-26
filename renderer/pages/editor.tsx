@@ -1,54 +1,115 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
+    ResizableHandle,
+    ResizablePanel,
+    ResizablePanelGroup,
 } from "@/renderer/components/ui/resizable";
 import FileSystemTree from "@/renderer/components/FileSystemTree";
+import { Button } from "../components/ui/button";
+import { error } from "console";
 
 export default function Editor() {
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+    const [selectedFile, setSelectedFile] = useState<string | null>(null);
+    const [fileContent, setFileContent] = useState<string>("");
+    const [saveMessage, setSaveMessage] = useState<string>("");
+    const [isSaving, setIsSaving] = useState(false);
 
-  const handleFileSelect = (filePath: string) => {
-    setSelectedFile(filePath);
-    // TODO: Load file content into editor
-    console.log("Selected file:", filePath);
-  };
+    // Handle file selction from tree
+    const handleFileSelect = (filePath: string) => {
+        setSelectedFile(filePath);
+        // TODO: Load file content into editor
+        setSelectedFile(filePath);
+    };
 
-  return (
-    <React.Fragment>
-      <ResizablePanelGroup
-        direction="horizontal"
-        className="min-h-screen w-full bg-sidebar"
-      >
-        <ResizablePanel defaultSize={25} minSize={15}>
-          <FileSystemTree onFileSelect={handleFileSelect} />
-        </ResizablePanel>
-        <ResizableHandle withHandle className="bg-transparent" />
-        <ResizablePanel defaultSize={75} minSize={60}>
-          <div className="flex h-full flex-col p-6 rounded-3xl bg-secondary">
-            {selectedFile ? (
-              <div className="flex flex-col h-full">
-                <div className="text-sm font-semibold mb-2 text-muted-foreground">
-                  {selectedFile.split("/").pop()}
-                </div>
-                <div className="flex-1 bg-background rounded-lg p-4">
-                  <span className="font-semibold">Text Editor</span>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    File: {selectedFile}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <span className="font-semibold text-muted-foreground">
-                  Open a file to start editing
-                </span>
-              </div>
-            )}
-          </div>
-        </ResizablePanel>
-      </ResizablePanelGroup>
-    </React.Fragment>
-  );
+    // Load file content when selected file changes
+    useEffect(() => {
+        const loadFile = async () => {
+            if (!selectedFile) return;
+            const result = await window.fs.readFile(selectedFile);
+            if (result.success) {
+                setFileContent(result.data);
+            } else {
+                console.error("Failed to read file:", result.error);
+                setFileContent("");
+            }
+        };
+        loadFile();
+        console.log("Selected file changed:", selectedFile);
+    }, [selectedFile]);
+
+    // Hande save action
+    const handleSave = async () => {
+        if (!selectedFile) return;
+        setIsSaving(true);
+        const result = await window.fs.writeFile(selectedFile, fileContent);
+        setIsSaving(false);
+
+        if (result.success) {
+            const fileName = window.fs.basename(selectedFile);
+            setSaveMessage(`Saved "${fileName}"`);
+            setTimeout(() => setSaveMessage(""), 2000);
+        } else {
+            setSaveMessage(`Failed to save: ${result.error}`);
+            setTimeout(() => setSaveMessage(""), 3000);
+        }
+    };
+    
+    return (
+        <React.Fragment>
+            <ResizablePanelGroup
+                direction="horizontal"
+                className="min-h-screen w-full bg-sidebar"
+            >
+                <ResizablePanel defaultSize={25} minSize={15}>
+                    <FileSystemTree onFileSelect={handleFileSelect} />
+                </ResizablePanel>
+                <ResizableHandle withHandle className="bg-transparent" />
+                <ResizablePanel defaultSize={75} minSize={60}>
+                    <div className="flex h-full flex-col p-6 rounded-3xl bg-secondary">
+                        {selectedFile ? (
+                            <div className="flex flex-col h-full">
+                                {/* Header */}
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="text-sm font-semibold text-muted-foreground truncate max-w-[70%]">
+                                        {selectedFile}
+                                    </div>
+                                    <Button
+                                        onClick={handleSave}
+                                        className="bg-accent px-4 py-1 rounded-md shadow-neumorph-sm hover:shadow-neumorph-inset"
+                                        disabled={isSaving}
+                                    >
+                                        {isSaving ? "Saving..." : "Save"}
+                                    </Button>
+                                </div>
+
+                                {/* Editable area */}
+                                <textarea
+                                    key={selectedFile}
+                                    value={fileContent}
+                                    onChange={(e) => {
+                                        console.log("Typing: ", e.target.value.slice(-1));
+                                        setFileContent(e.target.value);
+                                    }}
+                                    className="flex-1 w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
+                                    spellCheck={false}
+                                    autoFocus
+                                />
+                            </div>
+                        ) : (
+                            <div className="flex h-full items-center justify-center">
+                                <span className="font-semibold text-muted-foreground">
+                                    Open a file to start editing
+                                </span>
+                            </div>
+                        )}
+                        {saveMessage && (
+                            <div className="fixed bottom-6 right-6 bg-accent text-background text-sm px-4 py-2 rounded-lg shadow-lg transition-opacity duration-300 animate-fade-in-out">
+                                {saveMessage}
+                            </div>
+                        )}
+                    </div>
+                </ResizablePanel>
+            </ResizablePanelGroup>
+        </React.Fragment>
+    );
 }

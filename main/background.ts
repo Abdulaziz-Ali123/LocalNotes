@@ -23,13 +23,19 @@ if (isProd) {
     width: 1000,
     height: 600,
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
+        preload: path.join(app.getAppPath(), "app", "preload.js"),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false, 
     },
     // remove the default titlebar
     titleBarStyle: "hidden",
     // expose window controls in Windows/Linux
     ...(process.platform !== "darwin" ? { titleBarOverlay: true } : {}),
   });
+
+  mainWindow.webContents.openDevTools({ mode: "detach" }); // opens undocked
+
 
   // for context menu the one that pops up when you right click
   const contextTemplate: any = [
