@@ -34,7 +34,8 @@ if (isProd) {
     ...(process.platform !== "darwin" ? { titleBarOverlay: true } : {}),
   });
 
-  mainWindow.webContents.openDevTools();
+  mainWindow.webContents.openDevTools({ mode: "detach" }); // opens undocked
+
 
   // for context menu the one that pops up when you right click
   const contextTemplate: any = [
