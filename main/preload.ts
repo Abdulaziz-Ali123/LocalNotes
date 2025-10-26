@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
+import path from "path";
 
 const handler = {
   send(channel: string, value: unknown) {
@@ -30,6 +31,9 @@ const fileSystemHandler = {
   writeFile: (filePath: string, content: string) =>
     ipcRenderer.invoke("fs:writeFile", filePath, content),
   openFolderDialog: () => ipcRenderer.invoke("fs:openFolderDialog"),
+  basename: (filePath: string) => path.basename(filePath),
+  dirname: (filePath: string) => path.dirname(filePath),
+  join: (...segments: string[]) => path.join(...segments),
 };
 
 contextBridge.exposeInMainWorld("ipc", handler);
