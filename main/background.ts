@@ -22,11 +22,11 @@ if (isProd) {
   const mainWindow = createWindow("main", {
     width: 1000,
     height: 600,
-      webPreferences: {
-          preload: path.join(app.getAppPath(), "app", "preload.js"),
-          contextIsolation: true,
-          nodeIntegration: false,
-          sandbox: false,
+    webPreferences: {
+        preload: path.join(app.getAppPath(), "app", "preload.js"),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false, 
     },
     // remove the default titlebar
     titleBarStyle: "hidden",
