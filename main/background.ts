@@ -281,3 +281,27 @@ ipcMain.handle("fs:openFolderDialog", async () => {
     return { success: false, error: error.message };
   }
 });
+
+//Save note content to file
+ipcMain.handle("autosave:save", async (_event, { filePath, content }) => {
+  try {
+    if (!filePath) throw new Error("Missing file path");
+    await fs.writeFile(filePath, content, "utf-8"); // no .promises
+    return { success: true };
+  } catch (error) {
+    console.error("Autosave error:", error);
+    return { success: false, error: String(error) };
+  }
+});
+
+//Load note content from file
+ipcMain.handle("autosave:load", async (_event, filePath: string) => {
+  try {
+    if (!filePath || !fsSync.existsSync(filePath)) return ""; // use fsSync for existsSync
+    const data = await fs.readFile(filePath, "utf-8"); // no .promises
+    return data;
+  } catch (error) {
+    console.error("Load error:", error);
+    return "";
+  }
+});
