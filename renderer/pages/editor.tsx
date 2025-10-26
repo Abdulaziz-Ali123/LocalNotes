@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -6,14 +6,32 @@ import {
 } from "@/renderer/components/ui/resizable";
 import FileSystemTree from "@/renderer/components/FileSystemTree";
 
+const AUTOSAVE_INTERVAL = 5000;
+
 export default function Editor() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [content, setContent] = useState("");
+  const editorRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleFileSelect = (filePath: string) => {
+  const handleFileSelect = async (filePath: string) => {
     setSelectedFile(filePath);
-    // TODO: Load file content into editor
-    console.log("Selected file:", filePath);
+
+    // Load file content using preload API
+    const fileData = await window.autosaveAPI.load(filePath);
+    setContent(fileData || "");
   };
+
+  // Autosave periodically
+  useEffect(() => {
+    if (!selectedFile) return;
+
+    const interval = setInterval(() => {
+      const current = editorRef.current?.value || content;
+      window.autosaveAPI.save(selectedFile, current);
+    }, AUTOSAVE_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, [selectedFile, content]);
 
   return (
     <React.Fragment>
@@ -32,12 +50,13 @@ export default function Editor() {
                 <div className="text-sm font-semibold mb-2 text-muted-foreground">
                   {selectedFile.split("/").pop()}
                 </div>
-                <div className="flex-1 bg-background rounded-lg p-4">
-                  <span className="font-semibold">Text Editor</span>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    File: {selectedFile}
-                  </p>
-                </div>
+                <textarea
+                  ref={editorRef}
+                  className="flex-1 bg-background rounded-lg p-4 font-mono resize-none focus:outline-none"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="Start typing..."
+                />
               </div>
             ) : (
               <div className="flex h-full items-center justify-center">
