@@ -3,7 +3,7 @@ import {
   Sidebar,
   SidebarContent,
 } from "../components/ui/sidebar";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
     ResizableHandle,
     ResizablePanel,
@@ -13,20 +13,27 @@ import FileSystemTree from "@/renderer/components/FileSystemTree";
 import { Button } from "../components/ui/button";
 import { error } from "console";
 
+const AUTOSAVE_INTERVAL = 5000;
+
 export default function Editor() {
     const [selectedFile, setSelectedFile] = useState<string | null>(null);
     const [fileContent, setFileContent] = useState<string>("");
     const [saveMessage, setSaveMessage] = useState<string>("");
     const [isSaving, setIsSaving] = useState(false);
+    const [content, setContent] = useState("");
+    const editorRef = useRef<HTMLTextAreaElement>(null);
 
     // Handle file selction from tree
-    const handleFileSelect = (filePath: string) => {
+    const handleFileSelect = async (filePath: string) => {
         setSelectedFile(filePath);
         // TODO: Load file content into editor
-        setSelectedFile(filePath);
+        // Load file content using autosaveAPI
+        const fileData = await window.autosaveAPI.load(filePath);
+        setContent(fileData || "");
     };
 
     // Load file content when selected file changes
+    
     useEffect(() => {
         const loadFile = async () => {
             if (!selectedFile) return;
@@ -41,6 +48,7 @@ export default function Editor() {
         loadFile();
         console.log("Selected file changed:", selectedFile);
     }, [selectedFile]);
+    
 
     // Hande save action
     const handleSave = async () => {
@@ -58,7 +66,18 @@ export default function Editor() {
             setTimeout(() => setSaveMessage(""), 3000);
         }
     };
-    
+
+    // Autosave periodically
+    useEffect(() => {
+    if (!selectedFile) return;
+
+    const interval = setInterval(() => {
+        window.autosaveAPI.save(selectedFile, fileContent);
+    }, AUTOSAVE_INTERVAL);
+
+    return () => clearInterval(interval);
+    }, [selectedFile, fileContent]);
+        
     return (
         <React.Fragment>
             <div className="flex flex-row">
