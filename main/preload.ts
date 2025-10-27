@@ -40,6 +40,11 @@ const fileSystemHandler = {
 
 contextBridge.exposeInMainWorld("ipc", handler);
 contextBridge.exposeInMainWorld("fs", fileSystemHandler);
+contextBridge.exposeInMainWorld("autosaveAPI", {
+  save: (filePath: string, content: string) =>
+    ipcRenderer.invoke("autosave:save", { filePath, content }),
+  load: (filePath: string) => ipcRenderer.invoke("autosave:load", filePath),
+});
 
 export type IpcHandler = typeof handler;
 export type FileSystemHandler = typeof fileSystemHandler;
