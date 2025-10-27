@@ -10,6 +10,7 @@ import {
     ResizablePanelGroup,
 } from "@/renderer/components/ui/resizable";
 import FileSystemTree from "@/renderer/components/FileSystemTree";
+import MarkdownViewer from "@/renderer/components/MarkdownViewer";
 import { Button } from "../components/ui/button";
 import { error } from "console";
 
@@ -20,16 +21,15 @@ export default function Editor() {
     const [fileContent, setFileContent] = useState<string>("");
     const [saveMessage, setSaveMessage] = useState<string>("");
     const [isSaving, setIsSaving] = useState(false);
-    const [content, setContent] = useState("");
-    const editorRef = useRef<HTMLTextAreaElement>(null);
+    const [previewMode, setPreviewMode] = useState<boolean>(true);
+    const [livePreview, setLivePreview] = useState<boolean>(false);
+
 
     // Handle file selction from tree
     const handleFileSelect = async (filePath: string) => {
         setSelectedFile(filePath);
-        // TODO: Load file content into editor
-        // Load file content using autosaveAPI
-        const fileData = await window.autosaveAPI.load(filePath);
-        setContent(fileData || "");
+        
+        setSelectedFile(filePath);
     };
 
     // Load file content when selected file changes
@@ -112,6 +112,38 @@ export default function Editor() {
                                     <div className="text-sm font-semibold text-muted-foreground truncate max-w-[70%]">
                                         {selectedFile}
                                     </div>
+                                    {/* If it's a markdown file, show preview/edit toggle */}
+                                        {selectedFile.toLowerCase().endsWith(".md") && (
+                                            <div className="flex items-center bg-background border border-border rounded-md p-1">
+                                                <button
+                                                    onClick={() => {
+                                                        setPreviewMode(false);
+                                                        setLivePreview(false);
+                                                    }}
+                                                    className={`px-2 py-1 text-xs rounded ${!previewMode && !livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setPreviewMode(true);
+                                                        setLivePreview(false);
+                                                    }}
+                                                    className={`px-2 py-1 text-xs rounded ${previewMode && !livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
+                                                >
+                                                    Preview
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setLivePreview((v) => !v);
+                                                        setPreviewMode(true);
+                                                    }}
+                                                    className={`px-2 py-1 text-xs rounded ${livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
+                                                >
+                                                    Live
+                                                </button>
+                                            </div>
+                                        )}
                                     <Button
                                         onClick={handleSave}
                                         className="bg-accent px-4 py-1 rounded-md shadow-neumorph-sm hover:shadow-neumorph-inset"
@@ -121,18 +153,54 @@ export default function Editor() {
                                     </Button>
                                 </div>
 
-                                {/* Editable area */}
-                                <textarea
-                                    key={selectedFile}
-                                    value={fileContent}
-                                    onChange={(e) => {
-                                        console.log("Typing: ", e.target.value.slice(-1));
-                                        setFileContent(e.target.value);
-                                    }}
-                                    className="flex-1 w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
-                                    spellCheck={false}
-                                    autoFocus
-                                />
+                                {/* Editable / Preview area */}
+                                <div className="flex-1 w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border overflow-auto">
+                                    {selectedFile.toLowerCase().endsWith(".md") ? (
+                                        livePreview ? (
+                                            <div className="flex h-full gap-4">
+                                                <textarea
+                                                    key={selectedFile}
+                                                    value={fileContent}
+                                                    onChange={(e) => {
+                                                        setFileContent(e.target.value);
+                                                    }}
+                                                    className="h-full w-1/2 bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
+                                                    spellCheck={false}
+                                                    autoFocus
+                                                />
+                                                <div className="h-full w-1/2 overflow-auto bg-background rounded-lg p-3 border border-border">
+                                                    <MarkdownViewer content={fileContent} />
+                                                </div>
+                                            </div>
+                                        ) : previewMode ? (
+                                            <div className="h-full overflow-auto">
+                                                <MarkdownViewer content={fileContent} />
+                                            </div>
+                                        ) : (
+                                            <textarea
+                                                key={selectedFile}
+                                                value={fileContent}
+                                                onChange={(e) => {
+                                                    setFileContent(e.target.value);
+                                                }}
+                                                className="h-full w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border-0"
+                                                spellCheck={false}
+                                                autoFocus
+                                            />
+                                        )
+                                    ) : (
+                                        <textarea
+                                            key={selectedFile}
+                                            value={fileContent}
+                                            onChange={(e) => {
+                                                setFileContent(e.target.value);
+                                            }}
+                                            className="flex-1 w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
+                                            spellCheck={false}
+                                            autoFocus
+                                        />
+                                    )}
+                                </div>
                             </div>
                         ) : (
                             <div className="flex h-full items-center justify-center">
