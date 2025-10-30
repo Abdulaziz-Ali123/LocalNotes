@@ -8,55 +8,55 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        background: 'rgb(46, 52, 64)', // Nord0
-        foreground: 'rgb(236, 239, 244)', // Nord6
+        background: 'var(--background)', // Nord0
+        foreground: 'var(--foreground)', // Nord6
         card: {
-          DEFAULT: 'rgb(46, 52, 64)', // Nord1-2
-          foreground: 'rgb(236, 239, 244)',
+          DEFAULT: 'var(--card)', // Nord1-2
+          foreground: 'var(--card-foreground)',
         },
         popover: {
-          DEFAULT: 'rgb(46, 52, 64)',
-          foreground: 'rgb(236, 239, 244)',
+          DEFAULT: 'var(--popover)',
+          foreground: 'var(--popover-foreground)',
         },
         primary: {
-          DEFAULT: 'rgb(136, 192, 208)', // Nord8
-          foreground: 'rgb(46, 52, 64)',
+          DEFAULT: 'var(--primary)', // Nord8
+          foreground: 'var(--primary-foreground)',
         },
         secondary: {
-          DEFAULT: 'rgb(59, 66, 82)', // Nord2-3
-          foreground: 'rgb(236, 239, 244)',
+          DEFAULT: 'var(--secondary)', // Nord2-3
+          foreground: 'var(--secondary-foreground)',
         },
         muted: {
-          DEFAULT: 'rgb(59, 66, 82)',
-          foreground: 'rgb(216, 222, 233)',
+          DEFAULT: 'var(--muted)',
+          foreground: 'var(--muted-foreground)',
         },
         accent: {
-          DEFAULT: 'rgb(129, 161, 193)', // Nord10
-          foreground: 'rgb(236, 239, 244)',
+          DEFAULT: 'var(--accent)', // Nord10
+          foreground: 'var(--accent-foreground)',
         },
         destructive: {
-          DEFAULT: 'rgb(191, 97, 106)', // Nord11
-          foreground: 'rgb(236, 239, 244)',
+          DEFAULT: 'var(--destructive)', // Nord11
+          foreground: 'var(--destructive-forground)',
         },
-        border: 'rgb(59, 66, 82)',
-        input: 'rgb(59, 66, 82)',
-        ring: 'rgb(129, 161, 193)',
+        border: 'var(--border)',
+        input: 'var(--input)',
+        ring: 'var(--ring)',
         chart: {
-          1: 'rgb(136, 192, 208)', // Nord8
-          2: 'rgb(143, 188, 187)', // Nord7
-          3: 'rgb(163, 190, 140)', // Nord14
-          4: 'rgb(235, 203, 139)', // Nord13
-          5: 'rgb(180, 142, 173)', // Nord15
+          1: 'var(--chart-1)', // Nord8
+          2: 'var(--chart-2)', // Nord7
+          3: 'var(--chart-3)', // Nord14
+          4: 'var(--chart-4)', // Nord13
+          5: 'var(--chart-5)', // Nord15
         },
         sidebar: {
-          DEFAULT: 'rgba(77, 77, 77, 1)', //THIS CHANGES COLOR OF FILESYSTEM TREE BACKGROUND
-          foreground: 'rgba(244, 238, 236, 1)',
-          primary: 'rgba(182, 23, 161, 1)',
-          'primary-foreground': 'rgba(64, 47, 46, 1)',
-          accent: 'rgba(54, 81, 109, 1)',
-          'accent-foreground': 'rgb(236, 239, 244)',
-          border: 'rgb(59, 66, 82)',
-          ring: 'rgb(129, 161, 193)',
+          DEFAULT: 'var(--sidebar)',
+          foreground: 'var(--sidebar-foreground)',
+          primary: 'var(--sidebar-primary)',
+          'primary-foreground': 'var(--sidebar-primary-foreground)',
+          accent: 'var(--sidebar-accent)',
+          'accent-foreground': 'var(--sidebar-accent-foreground)',
+          border: 'var(--sidebar-boarder)',
+          ring: 'var(--sidebar-ring)',
         },
       },
       radius: {

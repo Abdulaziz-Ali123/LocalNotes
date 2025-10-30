@@ -33,7 +33,7 @@
   --chart-3: rgb(163, 190, 140); /* Nord14 */
   --chart-4: rgb(235, 203, 139); /* Nord13 */
   --chart-5: rgb(180, 142, 173); /* Nord15 */
-  --sidebar: rgba(71, 71, 71, 0.733);
+  --sidebar: rgb(59, 66, 82); /* Nord2–3 */;
   --sidebar-foreground: rgb(236, 239, 244);
   --sidebar-primary: rgb(115, 146, 66);
   --sidebar-primary-foreground: rgb(46, 52, 64);
@@ -104,20 +104,13 @@
   }
 
   .app-drag-region {
-  -webkit-app-region: drag;
+    -webkit-user-select: none;
+    -webkit-app-region: drag;
   }
 
-  .dark {
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.439 0 0);
+  .app-nodrag-region {
+    -webkit-app-region: no-drag;
   }
-
 @keyframes fadeInOut {
     0% {
         opacity: 0;
@@ -138,49 +131,3 @@
 .animate-fade-in-out {
     animation: fadeInOut 2s ease-in-out;
 }
-
-
-@keyframes fadeInOut {
-    0% {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-
-    10%, 90% {
-        opacity: 1;
-        transform: translateY(0);
-    }
-
-    100% {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-}
-
-.animate-fade-in-out {
-    animation: fadeInOut 2s ease-in-out;
-}
-
-
-@keyframes fadeInOut {
-    0% {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-
-    10%, 90% {
-        opacity: 1;
-        transform: translateY(0);
-    }
-
-    100% {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-}
-
-.animate-fade-in-out {
-    animation: fadeInOut 2s ease-in-out;
-}
-
-

@@ -1,18 +1,8 @@
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarContent,
-} from "../components/ui/sidebar";
-import React, { useEffect, useState, useRef } from "react";
-import {
-    ResizableHandle,
-    ResizablePanel,
-    ResizablePanelGroup,
-} from "@/renderer/components/ui/resizable";
-import FileSystemTree from "@/renderer/components/FileSystemTree";
-import MarkdownViewer from "@/renderer/components/MarkdownViewer";
-import { Button } from "../components/ui/button";
-import { error } from "console";
+import React, { useState, useEffect } from "react";
+import { produce } from "immer";
+import { useBoundStore } from "@/renderer/store/useBoundStore";
+import { TabsSlice } from "@/renderer/types/tab-slice";
+import EditorSpace from "@/renderer/pages/editorSpace"
 
 const AUTOSAVE_INTERVAL = 5000;
 
@@ -23,42 +13,72 @@ export default function Editor() {
     const [isSaving, setIsSaving] = useState(false);
     const [previewMode, setPreviewMode] = useState<boolean>(true);
     const [livePreview, setLivePreview] = useState<boolean>(false);
+    
+    const initializeTabs = useBoundStore((state) => state.tabs.initialize);
+    
+    useEffect(() => {
+        initializeTabs();
+    }, [initializeTabs]);
 
 
     // Handle file selction from tree
     const handleFileSelect = async (filePath: string) => {
-        setSelectedFile(filePath);
+        const result = await window.fs.readFile(filePath);
+        if (!result.success) {
+            console.error("Failed to read file:", result.error);
+            return;
+        }
+
+        const selectedTabId = useBoundStore.getState().tabs.selectedTabId;
+        
+        // Update tab state directly
+        useBoundStore.setState(
+            produce((state: TabsSlice) => {
+                const tab = state.tabs.items.find((t: any) => t.id === selectedTabId);
+                if (tab) {
+                    tab.content = result.data;
+                    tab.filePath = filePath;
+                    tab.name = window.fs.basename(filePath);
+                }
+                return state;
+            })
+        );
         
         setSelectedFile(filePath);
+        setFileContent(result.data);
     };
 
     // Load file content when selected file changes
-    
+
+    // Load content when selected tab changes
+    const selectedTabId = useBoundStore((state) => state.tabs.selectedTabId);
+    const selectedTab = useBoundStore((state) => 
+        state.tabs.items.find(tab => tab.id === state.tabs.selectedTabId)
+    );
+
     useEffect(() => {
-        const loadFile = async () => {
-            if (!selectedFile) return;
-            const result = await window.fs.readFile(selectedFile);
-            if (result.success) {
-                setFileContent(result.data);
-            } else {
-                console.error("Failed to read file:", result.error);
-                setFileContent("");
-            }
-        };
-        loadFile();
-        console.log("Selected file changed:", selectedFile);
-    }, [selectedFile]);
-    
+        if (selectedTab) {
+            setSelectedFile(selectedTab.filePath);
+            setFileContent(selectedTab.content);
+        }
+    }, [selectedTabId, selectedTab]);
+
 
     // Hande save action
     const handleSave = async () => {
-        if (!selectedFile) return;
+        const selectedTabId = useBoundStore.getState().tabs.selectedTabId;
+        const tabState = useBoundStore.getState().tabs;
+        const filePath = selectedTab?.filePath || null;
+        
+        if (!filePath) return;
+        
         setIsSaving(true);
-        const result = await window.fs.writeFile(selectedFile, fileContent);
+        const result = await window.fs.writeFile(filePath, fileContent);
         setIsSaving(false);
 
         if (result.success) {
-            const fileName = window.fs.basename(selectedFile);
+            // Update tab content after successful save
+            const fileName = window.fs.basename(filePath);
             setSaveMessage(`Saved "${fileName}"`);
             setTimeout(() => setSaveMessage(""), 2000);
         } else {
@@ -69,155 +89,46 @@ export default function Editor() {
 
     // Autosave periodically
     useEffect(() => {
-    if (!selectedFile) return;
+        if (!selectedFile) return;
 
-    const interval = setInterval(() => {
-        window.autosaveAPI.save(selectedFile, fileContent);
-    }, AUTOSAVE_INTERVAL);
+        const interval = setInterval(() => {
+            window.autosaveAPI.save(selectedFile, fileContent);
+        }, AUTOSAVE_INTERVAL);
 
-    return () => clearInterval(interval);
+        return () => clearInterval(interval);
     }, [selectedFile, fileContent]);
-        
+
     return (
         <React.Fragment>
-            <div className="flex flex-row">
-              {/* Activity rail / fixed */}
-              <div className="flex flex-col items-center gap-2 px-2 py-4 bg-background w-12 border-r">
-                <button className="size-10 rounded-md hover:bg-accent p-2" title="Files">📁</button>
-                <button className="size-10 rounded-md hover:bg-accent p-2" title="Search">🔍</button>
-              </div>
-            <ResizablePanelGroup
-                direction="horizontal"
-                className="min-h-screen w-full bg-secondary"
-            >
-                 {/* Sidebar (resizable) + Editor */}
-
-                  <ResizablePanel defaultSize={20} minSize={12}>
-                    <SidebarProvider>
-                      {/* Use non-fixed variant so the panel controls width; force w-full so Sidebar doesn't enforce its own CSS width variable */}
-                      <Sidebar collapsible="none" className="w-full">
-                        <SidebarContent className="h-full p-0">
-                          <FileSystemTree onFileSelect={handleFileSelect} />
-                        </SidebarContent>
-                      </Sidebar>
-                    </SidebarProvider>
-                  </ResizablePanel>
-                <ResizableHandle withHandle className="bg-transparent" />
-                <ResizablePanel defaultSize={75} minSize={60}>
-                    <div className="flex h-full flex-col p-6 rounded-3xl bg-secondary">
-                        {selectedFile ? (
-                            <div className="flex flex-col h-full">
-                                {/* Header */}
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="text-sm font-semibold text-muted-foreground truncate max-w-[70%]">
-                                        {selectedFile}
-                                    </div>
-                                    {/* If it's a markdown file, show preview/edit toggle */}
-                                        {selectedFile.toLowerCase().endsWith(".md") && (
-                                            <div className="flex items-center bg-background border border-border rounded-md p-1">
-                                                <button
-                                                    onClick={() => {
-                                                        setPreviewMode(false);
-                                                        setLivePreview(false);
-                                                    }}
-                                                    className={`px-2 py-1 text-xs rounded ${!previewMode && !livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        setPreviewMode(true);
-                                                        setLivePreview(false);
-                                                    }}
-                                                    className={`px-2 py-1 text-xs rounded ${previewMode && !livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
-                                                >
-                                                    Preview
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        setLivePreview((v) => !v);
-                                                        setPreviewMode(true);
-                                                    }}
-                                                    className={`px-2 py-1 text-xs rounded ${livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
-                                                >
-                                                    Live
-                                                </button>
-                                            </div>
-                                        )}
-                                    <Button
-                                        onClick={handleSave}
-                                        className="bg-accent px-4 py-1 rounded-md shadow-neumorph-sm hover:shadow-neumorph-inset"
-                                        disabled={isSaving}
-                                    >
-                                        {isSaving ? "Saving..." : "Save"}
-                                    </Button>
-                                </div>
-
-                                {/* Editable / Preview area */}
-                                <div className="flex-1 w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border overflow-auto">
-                                    {selectedFile.toLowerCase().endsWith(".md") ? (
-                                        livePreview ? (
-                                            <div className="flex h-full gap-4">
-                                                <textarea
-                                                    key={selectedFile}
-                                                    value={fileContent}
-                                                    onChange={(e) => {
-                                                        setFileContent(e.target.value);
-                                                    }}
-                                                    className="h-full w-1/2 bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
-                                                    spellCheck={false}
-                                                    autoFocus
-                                                />
-                                                <div className="h-full w-1/2 overflow-auto bg-background rounded-lg p-3 border border-border">
-                                                    <MarkdownViewer content={fileContent} />
-                                                </div>
-                                            </div>
-                                        ) : previewMode ? (
-                                            <div className="h-full overflow-auto">
-                                                <MarkdownViewer content={fileContent} />
-                                            </div>
-                                        ) : (
-                                            <textarea
-                                                key={selectedFile}
-                                                value={fileContent}
-                                                onChange={(e) => {
-                                                    setFileContent(e.target.value);
-                                                }}
-                                                className="h-full w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border-0"
-                                                spellCheck={false}
-                                                autoFocus
-                                            />
-                                        )
-                                    ) : (
-                                        <textarea
-                                            key={selectedFile}
-                                            value={fileContent}
-                                            onChange={(e) => {
-                                                setFileContent(e.target.value);
-                                            }}
-                                            className="flex-1 w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
-                                            spellCheck={false}
-                                            autoFocus
-                                        />
-                                    )}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex h-full items-center justify-center">
-                                <span className="font-semibold text-muted-foreground">
-                                    Open a file to start editing
-                                </span>
-                            </div>
-                        )}
-                        {saveMessage && (
-                            <div className="fixed bottom-6 right-6 bg-accent text-background text-sm px-4 py-2 rounded-lg shadow-lg transition-opacity duration-300 animate-fade-in-out">
-                                {saveMessage}
-                            </div>
-                        )}
+            <div className="flex flex-col justify-center">
+                <div className="flex flex-row">
+                    {/* Activity rail / fixed */}
+                    <div className="flex flex-col items-center gap-10">
+                        <div className=""></div>
+                         <div className="flex flex-col items-center h-full gap-2 px-2 py-4 bg-sidebar border-r">
+                            <button className="size-10 rounded-md hover:bg-accent p-2" title="Files">📁</button>
+                            <button className="size-10 rounded-md hover:bg-accent p-2" title="Search">🔍</button>
+                        </div>
                     </div>
-                </ResizablePanel>
-            </ResizablePanelGroup>
+                    {/* space where user can edit and preview files */}
+                    <EditorSpace
+                        handleFileSelect={ handleFileSelect }
+                        selectedFile = { selectedFile }
+                        handleSave = { handleSave}
+                        isSaving = { isSaving } 
+                        setPreviewMode = { setPreviewMode }
+                        setLivePreview = { setLivePreview } 
+                        previewMode = { previewMode } 
+                        livePreview = { livePreview }
+                        fileContent = { fileContent } 
+                        setFileContent = { setFileContent}
+                        saveMessage = { saveMessage }
+                    >
+
+                    </EditorSpace>
+                </div>
             </div>
+
         </React.Fragment>
     );
 }

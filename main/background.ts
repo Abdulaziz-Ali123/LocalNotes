@@ -10,6 +10,110 @@ const isProd = process.env.NODE_ENV === "production";
 // if current os is a macbookd
 const isMac = process.platform === "darwin";
 
+// Tab management
+interface TabData {
+    id: number;
+    filePath: string | null;
+    content: string;
+}
+
+class TabManager {
+    private tabs: TabData[] = [{
+        id: 0,
+        filePath: null,
+        content: ''
+    }];
+    private selectedTabId: number = 0;
+    private nextTabId: number = 1;
+
+    getAllTabIds(): number[] {
+        return this.tabs.map(tab => tab.id);
+    }
+
+    getSelectedTabId(): number {
+        return this.selectedTabId;
+    }
+
+    getTabContent(id: number): string {
+        const tab = this.tabs.find(t => t.id === id);
+        return tab ? tab.content : '';
+    }
+
+    getTabFilePath(id: number): string | null {
+        const tab = this.tabs.find(t => t.id === id);
+        return tab ? tab.filePath : null;
+    }
+
+    setTabContent(id: number, content: string): void {
+        const tab = this.tabs.find(t => t.id === id);
+        if (tab) {
+            tab.content = content;
+        }
+    }
+
+    setTabFilePath(id: number, filePath: string | null): void {
+        const tab = this.tabs.find(t => t.id === id);
+        if (tab) {
+            tab.filePath = filePath;
+        }
+    }
+
+    select(id: number): void {
+        if (this.tabs.some(tab => tab.id === id)) {
+            this.selectedTabId = id;
+        }
+    }
+
+    close(id: number): void {
+        const index = this.tabs.findIndex(tab => tab.id === id);
+        if (index !== -1) {
+            this.tabs.splice(index, 1);
+            if (this.selectedTabId === id) {
+                const newTab = this.tabs[Math.min(index, this.tabs.length - 1)];
+                this.selectedTabId = newTab ? newTab.id : 0;
+            }
+            if (this.tabs.length === 0) {
+                this.tabs.push({
+                    id: this.nextTabId++,
+                    filePath: null,
+                    content: ''
+                });
+            }
+        }
+    }
+
+    new(): number {
+        const newId = this.nextTabId++;
+        this.tabs.push({
+            id: newId,
+            filePath: null,
+            content: ''
+        });
+        this.selectedTabId = newId;
+        return newId;
+    }
+
+    reorder(ids: number[]): void {
+        if (ids.length === this.tabs.length && ids.every(id => this.tabs.some(tab => tab.id === id))) {
+            this.tabs = ids.map(id => this.tabs.find(tab => tab.id === id)!);
+        }
+    }
+}
+
+const tabManager = new TabManager();
+
+// IPC handlers for tab management
+ipcMain.handle('tabs:getAllTabIds', () => tabManager.getAllTabIds());
+ipcMain.handle('tabs:getSelectedTabId', () => tabManager.getSelectedTabId());
+ipcMain.handle('tabs:select', (_, id: number) => tabManager.select(id));
+ipcMain.handle('tabs:close', (_, id: number) => tabManager.close(id));
+ipcMain.handle('tabs:new', () => tabManager.new());
+ipcMain.handle('tabs:reorder', (_, ids: number[]) => tabManager.reorder(ids));
+ipcMain.handle('tabs:getContent', (_, id: number) => tabManager.getTabContent(id));
+ipcMain.handle('tabs:setContent', (_, { id, content }: { id: number; content: string }) => tabManager.setTabContent(id, content));
+ipcMain.handle('tabs:getFilePath', (_, id: number) => tabManager.getTabFilePath(id));
+ipcMain.handle('tabs:setFilePath', (_, { id, filePath }: { id: number; filePath: string | null }) => tabManager.setTabFilePath(id, filePath));
+
 if (isProd) {
   serve({ directory: "app" });
 } else {
@@ -33,9 +137,6 @@ if (isProd) {
     // expose window controls in Windows/Linux
     ...(process.platform !== "darwin" ? { titleBarOverlay: true } : {}),
   });
-
-  mainWindow.webContents.openDevTools({ mode: "detach" }); // opens undocked
-
 
   // for context menu the one that pops up when you right click
   const contextTemplate: any = [
