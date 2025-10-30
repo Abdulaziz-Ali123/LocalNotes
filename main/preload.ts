@@ -38,8 +38,18 @@ const fileSystemHandler = {
   join: (...segments: string[]) => path.join(...segments),
 };
 
+const tabHandler = {
+  getAllTabIds: () => ipcRenderer.invoke('tabs:getAllTabIds'),
+  getSelectedTabId: () => ipcRenderer.invoke('tabs:getSelectedTabId'),
+  select: (id: number) => ipcRenderer.invoke('tabs:select', id),
+  close: (id: number) => ipcRenderer.invoke('tabs:close', id),
+  new: () => ipcRenderer.invoke('tabs:new'),
+  reorder: (ids: number[]) => ipcRenderer.invoke('tabs:reorder', ids)
+};
+
 contextBridge.exposeInMainWorld("ipc", handler);
 contextBridge.exposeInMainWorld("fs", fileSystemHandler);
+contextBridge.exposeInMainWorld("tabs", tabHandler);
 contextBridge.exposeInMainWorld("autosaveAPI", {
   save: (filePath: string, content: string) =>
     ipcRenderer.invoke("autosave:save", { filePath, content }),
@@ -48,3 +58,4 @@ contextBridge.exposeInMainWorld("autosaveAPI", {
 
 export type IpcHandler = typeof handler;
 export type FileSystemHandler = typeof fileSystemHandler;
+export type TabHandler = typeof tabHandler;
