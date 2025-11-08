@@ -37,6 +37,7 @@ interface MDXEditorComponentProps {
   livePreview?: boolean;
   onModeChange?: (mode: "edit" | "preview" | "live") => void;
   isMarkdownFile?: boolean;
+  showModeButtons?: boolean;
 }
 
 const MDXEditorComponent = React.forwardRef<
@@ -54,6 +55,7 @@ const MDXEditorComponent = React.forwardRef<
       livePreview,
       onModeChange,
       isMarkdownFile,
+      showModeButtons = true,
     },
     ref
   ) => {
@@ -168,7 +170,7 @@ const MDXEditorComponent = React.forwardRef<
                       alignItems: "center",
                     }}
                   >
-                    {isMarkdownFile && onModeChange && (
+                    {isMarkdownFile && onModeChange && showModeButtons && (
                       <div
                         style={{
                           display: "flex",

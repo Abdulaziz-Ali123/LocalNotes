@@ -60,37 +60,87 @@ export default function EditorSpace({
             <div className="flex flex-col h-full p-6 rounded-t-lg bg-secondary">
               {selectedFile ? (
                 <div className="flex flex-col h-full">
+                  {/* Mode toggle buttons - always visible for markdown files */}
+                  {selectedFile.toLowerCase().endsWith(".md") && (
+                    <div className="flex items-center justify-end mb-2 px-2">
+                      <div className="flex items-center bg-background border border-border rounded-md p-1">
+                        <button
+                          onClick={() => {
+                            setPreviewMode(false);
+                            setLivePreview(false);
+                          }}
+                          className={`px-2 py-1 text-xs rounded ${
+                            !previewMode && !livePreview
+                              ? "bg-accent text-background"
+                              : "text-foreground hover:bg-muted"
+                          }`}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPreviewMode(true);
+                            setLivePreview(false);
+                          }}
+                          className={`px-2 py-1 text-xs rounded ${
+                            previewMode && !livePreview
+                              ? "bg-accent text-background"
+                              : "text-foreground hover:bg-muted"
+                          }`}
+                        >
+                          Preview
+                        </button>
+                        <button
+                          onClick={() => {
+                            setLivePreview((v) => !v);
+                            setPreviewMode(true);
+                          }}
+                          className={`px-2 py-1 text-xs rounded ${
+                            livePreview
+                              ? "bg-accent text-background"
+                              : "text-foreground hover:bg-muted"
+                          }`}
+                        >
+                          Live
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Editable / Preview area */}
                   <div className="h-full flex w-full text-foreground rounded-lg overflow-auto">
                     {selectedFile.toLowerCase().endsWith(".md") ? (
                       livePreview ? (
-                        <div className="flex flex-row overflow-scroll h-[100%] gap-4 w-full">
-                          <div className="w-1/2 bg-background rounded-lg border border-border overflow-auto">
-                            <MDXEditorComponent
-                              key={selectedFile}
-                              markdown={fileContent}
-                              onChange={setFileContent}
-                              onSave={handleSave}
-                              isSaving={isSaving}
-                              previewMode={previewMode}
-                              livePreview={livePreview}
-                              onModeChange={(mode) => {
-                                if (mode === "edit") {
-                                  setPreviewMode(false);
-                                  setLivePreview(false);
-                                } else if (mode === "preview") {
-                                  setPreviewMode(true);
-                                  setLivePreview(false);
-                                } else if (mode === "live") {
-                                  setPreviewMode(true);
-                                  setLivePreview(true);
-                                }
-                              }}
-                              isMarkdownFile={true}
-                            />
-                          </div>
-                          <div className="h-full w-1/2 overflow-scroll bg-background rounded-lg p-3 border border-border">
-                            <MarkdownViewer content={fileContent} />
+                        <div className="flex flex-col h-full w-full">
+                          <div className="flex flex-row h-full gap-4 w-full">
+                            <div className="w-1/2 bg-background rounded-lg border border-border flex flex-col overflow-hidden">
+                              <MDXEditorComponent
+                                key={selectedFile}
+                                markdown={fileContent}
+                                onChange={setFileContent}
+                                onSave={handleSave}
+                                isSaving={isSaving}
+                                previewMode={previewMode}
+                                livePreview={livePreview}
+                                onModeChange={(mode) => {
+                                  if (mode === "edit") {
+                                    setPreviewMode(false);
+                                    setLivePreview(false);
+                                  } else if (mode === "preview") {
+                                    setPreviewMode(true);
+                                    setLivePreview(false);
+                                  } else if (mode === "live") {
+                                    setPreviewMode(true);
+                                    setLivePreview(true);
+                                  }
+                                }}
+                                isMarkdownFile={true}
+                                showModeButtons={false}
+                              />
+                            </div>
+                            <div className="h-full w-1/2 overflow-scroll bg-background rounded-lg p-3 border border-border">
+                              <MarkdownViewer content={fileContent} />
+                            </div>
                           </div>
                         </div>
                       ) : previewMode ? (
@@ -120,6 +170,7 @@ export default function EditorSpace({
                               }
                             }}
                             isMarkdownFile={true}
+                            showModeButtons={false}
                           />
                         </div>
                       )

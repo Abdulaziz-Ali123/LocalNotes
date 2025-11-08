@@ -139,6 +139,16 @@
   width: 100%;
   height: 100%;
   min-height: 500px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mdx-editor-wrapper > div {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* Match MDXEditor with Nord theme */
@@ -152,6 +162,10 @@
   background-color: rgb(59, 66, 82) !important;
   border-bottom: 1px solid rgb(59, 66, 82) !important;
   padding: 0.5rem !important;
+  position: relative !important;
+  z-index: 10 !important;
+  flex-shrink: 0 !important;
+  min-height: 40px !important;
 }
 
 .mdxeditor-toolbar button,
