@@ -416,3 +416,21 @@ ipcMain.handle("autosave:load", async (_event, filePath: string) => {
     return "";
   }
 });
+
+ipcMain.handle("fs:exists", async (_event, targetPath: string) => {
+  try {
+    const exists = fsSync.existsSync(targetPath);
+    return { success: true, data: exists };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+});
+
+ipcMain.handle("fs:isDirectory", async (_, path: string) => {
+  try {
+    const stat = await fs.stat(path);
+    return { success: true, data: stat.isDirectory() };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
