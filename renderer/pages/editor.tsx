@@ -2,6 +2,8 @@ import {
   SidebarProvider,
   Sidebar,
   SidebarContent,
+  SidebarTrigger,
+  useSidebar,
 } from "../components/ui/sidebar";
 import React, { useEffect, useState, useRef } from "react";
 import {
@@ -12,6 +14,7 @@ import {
 import FileSystemTree from "@/renderer/components/FileSystemTree";
 import MarkdownViewer from "@/renderer/components/MarkdownViewer";
 import { Button } from "../components/ui/button";
+import SearchComponent from "@/renderer/components/SearchComponent";
 import { error } from "console";
 
 const AUTOSAVE_INTERVAL = 5000;
@@ -67,6 +70,23 @@ export default function Editor() {
         }
     };
 
+    const [activeSidebarPanel, setActiveSidebarPanel] = useState<"file" | "search" | null>("file");
+    const handleSidebarButtonClick = (panel: "file" | "search") => {
+        if (sidebarCollapsed) {
+            // If sidebar is collapsed, open and show the panel
+            setSidebarCollapsed(false);
+            setActiveSidebarPanel(panel);
+        } else {
+            if (activeSidebarPanel === panel) {
+            // Same panel is already active, close sidebar
+            setSidebarCollapsed(true);
+            setActiveSidebarPanel(null);
+            } else {
+            // Different panel clicked, switch active panel
+            setActiveSidebarPanel(panel);
+            }
+        }};
+
     // Autosave periodically
     useEffect(() => {
     if (!selectedFile) return;
@@ -77,33 +97,77 @@ export default function Editor() {
 
     return () => clearInterval(interval);
     }, [selectedFile, fileContent]);
+
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+    // optional: If you want the Search button to toggle as well, create separate handlers
+    const toggleSidebar = () => setSidebarCollapsed((s) => !s);
+    const openSidebar = () => setSidebarCollapsed(false);
         
     return (
         <React.Fragment>
             <div className="flex flex-row">
-              {/* Activity rail / fixed */}
-              <div className="flex flex-col items-center gap-2 px-2 py-4 bg-background w-12 border-r">
-                <button className="size-10 rounded-md hover:bg-accent p-2" title="Files">📁</button>
-                <button className="size-10 rounded-md hover:bg-accent p-2" title="Search">🔍</button>
+              {/* Activity rail / fixed; controls the size of the left bar containing the buttons*/}
+              <div className="flex flex-col items-center gap-2 px-2 py-4 bg-background w-18 border-r"> {/* justify-center can be added here to make it vertically centered */}
+                <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSidebarButtonClick("file")}
+                className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Files">
+                    <img src="/assets/file_explorer.png" alt="Files" className="w-16 h-16 object-contain" />
+                </button>
+                <button 
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSidebarButtonClick("search")}
+                className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Search">
+                    <img src="/assets/search.png" alt="Search" className="w-16 h-16 object-contain" />
+                </button>
+                <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Export">
+                    <img src="/assets/export.png" alt="Export" className="w-16 h-16 object-contain" />
+                </button>
+                <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Ai Assistant - Coming Soon">
+                    <img src="/assets/ai_helper.png" alt="AI" className="w-16 h-16 object-contain" />
+                </button>
+                 <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Share with Friends">
+                    <img src="/assets/share.png" alt="Share" className="w-16 h-16 object-contain" />
+                </button>
+                 <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Settings">
+                    <img src="/assets/settings.png" alt="Settings" className="w-16 h-16 object-contain" />
+                </button>
+                 <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="File Change History">
+                    <img src="/assets/folder.png" alt="Folder" className="w-16 h-16 object-contain" />
+                </button>
               </div>
             <ResizablePanelGroup
                 direction="horizontal"
                 className="min-h-screen w-full bg-secondary"
             >
                  {/* Sidebar (resizable) + Editor */}
-
-                  <ResizablePanel defaultSize={20} minSize={12}>
+                {!sidebarCollapsed ? (
+                <>
+                  <ResizablePanel defaultSize={20} minSize={12}
+                    className={`transition-all duration-200 ease-in-out ${
+                    sidebarCollapsed ? "w-0 max-w-0 overflow-hidden" : "w-full"
+                    }`}>
                     <SidebarProvider>
                       {/* Use non-fixed variant so the panel controls width; force w-full so Sidebar doesn't enforce its own CSS width variable */}
                       <Sidebar collapsible="none" className="w-full">
                         <SidebarContent className="h-full p-0">
-                          <FileSystemTree onFileSelect={handleFileSelect} />
+                        {!sidebarCollapsed && (
+                            <>
+                            {activeSidebarPanel === "file" && <FileSystemTree onFileSelect={handleFileSelect} />}
+                            {activeSidebarPanel === "search" && <SearchComponent onFileSelect={handleFileSelect} />}
+                            </>
+                        )}
                         </SidebarContent>
                       </Sidebar>
                     </SidebarProvider>
                   </ResizablePanel>
-                <ResizableHandle withHandle className="bg-transparent" />
-                <ResizablePanel defaultSize={75} minSize={60}>
+                {!sidebarCollapsed && <ResizableHandle withHandle className="bg-transparent" />}
+                </>
+                ) : null}
+                    <ResizablePanel defaultSize={sidebarCollapsed ? 100 : 75} minSize={60}>
                     <div className="flex h-full flex-col p-6 rounded-3xl bg-secondary">
                         {selectedFile ? (
                             <div className="flex flex-col h-full">
@@ -154,7 +218,7 @@ export default function Editor() {
                                 </div>
 
                                 {/* Editable / Preview area */}
-                                <div className="flex-1 w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border overflow-auto">
+                                <div className="flex-1 w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border">
                                     {selectedFile.toLowerCase().endsWith(".md") ? (
                                         livePreview ? (
                                             <div className="flex h-full gap-4">
@@ -195,7 +259,7 @@ export default function Editor() {
                                             onChange={(e) => {
                                                 setFileContent(e.target.value);
                                             }}
-                                            className="flex-1 w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
+                                            className="h-full w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
                                             spellCheck={false}
                                             autoFocus
                                         />
