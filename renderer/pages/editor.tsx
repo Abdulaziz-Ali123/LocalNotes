@@ -16,6 +16,11 @@ import MarkdownViewer from "@/renderer/components/MarkdownViewer";
 import { Button } from "../components/ui/button";
 import SearchComponent from "@/renderer/components/SearchComponent";
 import { error } from "console";
+import React, { useState, useEffect } from "react";
+import { produce } from "immer";
+import { useBoundStore } from "@/renderer/store/useBoundStore";
+import { TabsSlice } from "@/renderer/types/tab-slice";
+import EditorSpace from "@/renderer/pages/editorSpace"
 
 const AUTOSAVE_INTERVAL = 5000;
 
@@ -26,42 +31,72 @@ export default function Editor() {
     const [isSaving, setIsSaving] = useState(false);
     const [previewMode, setPreviewMode] = useState<boolean>(true);
     const [livePreview, setLivePreview] = useState<boolean>(false);
+    
+    const initializeTabs = useBoundStore((state) => state.tabs.initialize);
+    
+    useEffect(() => {
+        initializeTabs();
+    }, [initializeTabs]);
 
 
     // Handle file selction from tree
     const handleFileSelect = async (filePath: string) => {
-        setSelectedFile(filePath);
+        const result = await window.fs.readFile(filePath);
+        if (!result.success) {
+            console.error("Failed to read file:", result.error);
+            return;
+        }
+
+        const selectedTabId = useBoundStore.getState().tabs.selectedTabId;
+        
+        // Update tab state directly
+        useBoundStore.setState(
+            produce((state: TabsSlice) => {
+                const tab = state.tabs.items.find((t: any) => t.id === selectedTabId);
+                if (tab) {
+                    tab.content = result.data;
+                    tab.filePath = filePath;
+                    tab.name = window.fs.basename(filePath);
+                }
+                return state;
+            })
+        );
         
         setSelectedFile(filePath);
+        setFileContent(result.data);
     };
 
     // Load file content when selected file changes
-    
+
+    // Load content when selected tab changes
+    const selectedTabId = useBoundStore((state) => state.tabs.selectedTabId);
+    const selectedTab = useBoundStore((state) => 
+        state.tabs.items.find(tab => tab.id === state.tabs.selectedTabId)
+    );
+
     useEffect(() => {
-        const loadFile = async () => {
-            if (!selectedFile) return;
-            const result = await window.fs.readFile(selectedFile);
-            if (result.success) {
-                setFileContent(result.data);
-            } else {
-                console.error("Failed to read file:", result.error);
-                setFileContent("");
-            }
-        };
-        loadFile();
-        console.log("Selected file changed:", selectedFile);
-    }, [selectedFile]);
-    
+        if (selectedTab) {
+            setSelectedFile(selectedTab.filePath);
+            setFileContent(selectedTab.content);
+        }
+    }, [selectedTabId, selectedTab]);
+
 
     // Hande save action
     const handleSave = async () => {
-        if (!selectedFile) return;
+        const selectedTabId = useBoundStore.getState().tabs.selectedTabId;
+        const tabState = useBoundStore.getState().tabs;
+        const filePath = selectedTab?.filePath || null;
+        
+        if (!filePath) return;
+        
         setIsSaving(true);
-        const result = await window.fs.writeFile(selectedFile, fileContent);
+        const result = await window.fs.writeFile(filePath, fileContent);
         setIsSaving(false);
 
         if (result.success) {
-            const fileName = window.fs.basename(selectedFile);
+            // Update tab content after successful save
+            const fileName = window.fs.basename(filePath);
             setSaveMessage(`Saved "${fileName}"`);
             setTimeout(() => setSaveMessage(""), 2000);
         } else {
@@ -89,13 +124,13 @@ export default function Editor() {
 
     // Autosave periodically
     useEffect(() => {
-    if (!selectedFile) return;
+        if (!selectedFile) return;
 
-    const interval = setInterval(() => {
-        window.autosaveAPI.save(selectedFile, fileContent);
-    }, AUTOSAVE_INTERVAL);
+        const interval = setInterval(() => {
+            window.autosaveAPI.save(selectedFile, fileContent);
+        }, AUTOSAVE_INTERVAL);
 
-    return () => clearInterval(interval);
+        return () => clearInterval(interval);
     }, [selectedFile, fileContent]);
 
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -279,9 +314,25 @@ export default function Editor() {
                             </div>
                         )}
                     </div>
-                </ResizablePanel>
-            </ResizablePanelGroup>
+                    {/* space where user can edit and preview files */}
+                    <EditorSpace
+                        handleFileSelect={ handleFileSelect }
+                        selectedFile = { selectedFile }
+                        handleSave = { handleSave}
+                        isSaving = { isSaving } 
+                        setPreviewMode = { setPreviewMode }
+                        setLivePreview = { setLivePreview } 
+                        previewMode = { previewMode } 
+                        livePreview = { livePreview }
+                        fileContent = { fileContent } 
+                        setFileContent = { setFileContent}
+                        saveMessage = { saveMessage }
+                    >
+
+                    </EditorSpace>
+                </div>
             </div>
+
         </React.Fragment>
     );
 }

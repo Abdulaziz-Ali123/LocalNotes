@@ -553,7 +553,7 @@ useEffect(() => {
 
   return (
     <div className="relative h-full w-full">
-      <div className="flex items-center justify-between p-2 border-b bg-sidebar">
+      <div className="flex items-center justify-between p-2 border-b">
         <span
           className="text-sm font-semibold truncate flex-1"
           title={selectedFolderPath || rootPath || "No folder selected"}
