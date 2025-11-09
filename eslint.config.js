@@ -1,7 +1,9 @@
-﻿import js from "@eslint/js";
-import tseslint from "@typescript-eslint/eslint-plugin";
+﻿// eslint.config.js
+import js from "@eslint/js";
 import parser from "@typescript-eslint/parser";
+import tseslint from "@typescript-eslint/eslint-plugin";
 import react from "eslint-plugin-react";
+import prettier from "eslint-config-prettier";
 
 export default [
     js.configs.recommended,
@@ -24,6 +26,8 @@ export default [
             "@typescript-eslint/no-unused-vars": "warn",
         },
     },
+    prettier, // disables stylistic rules that Prettier handles
 ];
+
 
 
