@@ -54,8 +54,8 @@ export default function HomePage() {
 
   return (
     <React.Fragment>
-    <div className='flex flex-col justify-center items-center'>
-      {/* this is is the region that will allow dragging the window*/}
+      <div className="flex flex-col justify-center items-center">
+        {/* this is is the region that will allow dragging the window*/}
         <div className="w-full p-5 app-drag-region"> </div>
         <div className="h-screen flex justify-center items-center">
           <div className="p-5 h-auto w-[600px] flex items-center flex-col justify-center rounded-2xl shadow-neumorph bg-secondary">
@@ -122,10 +122,11 @@ export default function HomePage() {
           placeholder={inputDialog.placeholder}
           defaultValue={inputDialog.defaultValue}
           onConfirm={inputDialog.onConfirm}
-          onCancel={() => setInputDialog((prev) => ({ ...prev, isOpen: false }))}
+          onCancel={() =>
+            setInputDialog((prev) => ({ ...prev, isOpen: false }))
+          }
         />
       </div>
-      
     </React.Fragment>
   );
 }

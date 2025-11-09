@@ -39,12 +39,12 @@ const fileSystemHandler = {
 };
 
 const tabHandler = {
-  getAllTabIds: () => ipcRenderer.invoke('tabs:getAllTabIds'),
-  getSelectedTabId: () => ipcRenderer.invoke('tabs:getSelectedTabId'),
-  select: (id: number) => ipcRenderer.invoke('tabs:select', id),
-  close: (id: number) => ipcRenderer.invoke('tabs:close', id),
-  new: () => ipcRenderer.invoke('tabs:new'),
-  reorder: (ids: number[]) => ipcRenderer.invoke('tabs:reorder', ids)
+  getAllTabIds: () => ipcRenderer.invoke("tabs:getAllTabIds"),
+  getSelectedTabId: () => ipcRenderer.invoke("tabs:getSelectedTabId"),
+  select: (id: number) => ipcRenderer.invoke("tabs:select", id),
+  close: (id: number) => ipcRenderer.invoke("tabs:close", id),
+  new: () => ipcRenderer.invoke("tabs:new"),
+  reorder: (ids: number[]) => ipcRenderer.invoke("tabs:reorder", ids),
 };
 
 contextBridge.exposeInMainWorld("ipc", handler);

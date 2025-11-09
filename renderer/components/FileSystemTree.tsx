@@ -21,7 +21,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
   const [treeElements, setTreeElements] = useState<TreeViewElement[]>([]);
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(
-    null
+    null,
   );
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -92,13 +92,13 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
           return newSet;
         });
       } else {
-          // Wrap everything under the root folder node itself
-          const rootNode: TreeViewElement = {
-              id: dirPath,
-              name: window.fs.basename(dirPath),
-              isSelectable: true,
-              children:elements,
-          };
+        // Wrap everything under the root folder node itself
+        const rootNode: TreeViewElement = {
+          id: dirPath,
+          name: window.fs.basename(dirPath),
+          isSelectable: true,
+          children: elements,
+        };
         setTreeElements([rootNode]);
         setLoadedFolders(new Set([dirPath]));
       }
@@ -108,7 +108,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
   const updateTreeChildren = (
     tree: TreeViewElement[],
     targetId: string,
-    newChildren: TreeViewElement[]
+    newChildren: TreeViewElement[],
   ): TreeViewElement[] => {
     return tree.map((node) => {
       if (node.id === targetId) {
@@ -220,59 +220,58 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
   };
 
   const renameItem = async (oldPath: string) => {
-      const oldName = window.fs.basename(oldPath);               // "file.md"
-      const parentPath = window.fs.dirname(oldPath);             // "C:\folder"
+    const oldName = window.fs.basename(oldPath); // "file.md"
+    const parentPath = window.fs.dirname(oldPath); // "C:\folder"
 
-      if (!oldPath || !parentPath) {
-          alert("Invalid path: cannot rename root or outside directory.");
-          return;
-      }
+    if (!oldPath || !parentPath) {
+      alert("Invalid path: cannot rename root or outside directory.");
+      return;
+    }
 
-      setInputDialog({
-          isOpen: true,
-          title: "Rename File or Folder",
-          placeholder: "New name (include extension)",
-          defaultValue: oldName,
-          onConfirm: async (newName) => {
-              if (!newName || newName === oldName) return;
+    setInputDialog({
+      isOpen: true,
+      title: "Rename File or Folder",
+      placeholder: "New name (include extension)",
+      defaultValue: oldName,
+      onConfirm: async (newName) => {
+        if (!newName || newName === oldName) return;
 
-              const newPath = window.fs.join(parentPath, newName.trim());
-              const result = await window.fs.renameItem(oldPath, newPath);
+        const newPath = window.fs.join(parentPath, newName.trim());
+        const result = await window.fs.renameItem(oldPath, newPath);
 
-              if (result.success) {
-                  // CASE 1: Renamed the ROOT folder itself
-                  if (oldPath === rootPath) {
-                      const newRootPath = newPath;
-                      setRootPath(newRootPath);
-                      setSelectedFolderPath(newRootPath);
-                      localStorage.setItem("currentFolderPath", newRootPath);
+        if (result.success) {
+          // CASE 1: Renamed the ROOT folder itself
+          if (oldPath === rootPath) {
+            const newRootPath = newPath;
+            setRootPath(newRootPath);
+            setSelectedFolderPath(newRootPath);
+            localStorage.setItem("currentFolderPath", newRootPath);
 
-                      // Reload tree to reflect the renamed root
-                      await loadDirectory(newRootPath);
-                      alert("Root folder renamed successfully!");
-                      return;
-                  }
+            // Reload tree to reflect the renamed root
+            await loadDirectory(newRootPath);
+            alert("Root folder renamed successfully!");
+            return;
+          }
 
-                  // CASE 2: Renamed a child file/folder
-                  const reloadPath = parentPath || rootPath!;
-                  setLoadedFolders((prev) => {
-                      const newSet = new Set(prev);
-                      newSet.delete(reloadPath);
-                      return newSet;
-                  });
+          // CASE 2: Renamed a child file/folder
+          const reloadPath = parentPath || rootPath!;
+          setLoadedFolders((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(reloadPath);
+            return newSet;
+          });
 
-                  if (reloadPath === rootPath) {
-                      await loadDirectory(reloadPath);
-                  } else {
-                      await loadDirectory(reloadPath, reloadPath);
-                  }
-              } else {
-                  alert(`Failed to rename item: ${result.error}`);
-              }
-          },
-      });
+          if (reloadPath === rootPath) {
+            await loadDirectory(reloadPath);
+          } else {
+            await loadDirectory(reloadPath, reloadPath);
+          }
+        } else {
+          alert(`Failed to rename item: ${result.error}`);
+        }
+      },
+    });
   };
-
 
   const handleFolderClick = async (folderId: string, e?: React.MouseEvent) => {
     // Set this folder as selected
@@ -387,8 +386,8 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
         <span
           className="text-sm font-semibold truncate flex-1"
           title={selectedFolderPath || rootPath || "No folder selected"}
-              >
-                  {selectedFolderPath || rootPath || "No folder selected"}
+        >
+          {selectedFolderPath || rootPath || "No folder selected"}
         </span>
         <div className="flex gap-1">
           <Button
@@ -479,7 +478,12 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
           <button
             className="w-full px-4 py-2 text-sm hover:bg-accent text-left flex items-center gap-2"
             onClick={() => {
-              console.log("Renaming path:", contextMenu.path, "Is directory?", contextMenu.isDirectory);
+              console.log(
+                "Renaming path:",
+                contextMenu.path,
+                "Is directory?",
+                contextMenu.isDirectory,
+              );
               renameItem(contextMenu.path);
               setContextMenu(null);
             }}

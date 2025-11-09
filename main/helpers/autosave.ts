@@ -1,12 +1,10 @@
-import fs from 'fs';
-import path from 'path';
-import { app } from 'electron';
-
+import fs from "fs";
+import path from "path";
+import { app } from "electron";
 
 //Path to local autosave file.
 
-const autosavePath = path.join(app.getPath('userData'), 'autosave.json');
-
+const autosavePath = path.join(app.getPath("userData"), "autosave.json");
 
 //Save the note content to a local file.
 
@@ -16,26 +14,25 @@ export function saveNoteLocally(content: string) {
       content,
       savedAt: new Date().toISOString(),
     };
-    fs.writeFileSync(autosavePath, JSON.stringify(payload, null, 2), 'utf-8');
-    console.log('[Autosave] Note saved to', autosavePath);
+    fs.writeFileSync(autosavePath, JSON.stringify(payload, null, 2), "utf-8");
+    console.log("[Autosave] Note saved to", autosavePath);
   } catch (error) {
-    console.error('[Autosave] Error saving note:', error);
+    console.error("[Autosave] Error saving note:", error);
   }
 }
 
-
 //Load the most recently autosaved note.
- 
+
 export function loadSavedNote(): string | null {
   try {
     if (fs.existsSync(autosavePath)) {
-      const raw = fs.readFileSync(autosavePath, 'utf-8');
+      const raw = fs.readFileSync(autosavePath, "utf-8");
       const data = JSON.parse(raw);
-      return data.content || '';
+      return data.content || "";
     }
     return null;
   } catch (error) {
-    console.error('[Autosave] Error loading note:', error);
+    console.error("[Autosave] Error loading note:", error);
     return null;
   }
 }
