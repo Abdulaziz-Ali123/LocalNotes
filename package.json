@@ -6,8 +6,11 @@
   "author": "Yoshihide Shiono <shiono.yoshihide@gmail.com>",
   "main": "app/background.js",
   "scripts": {
-    "dev": "nextron",
+    "dev": "nextron dev",
     "build": "nextron build",
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
