@@ -3,10 +3,7 @@
 import * as React from "react";
 import { cn } from "../../lib/util";
 
-export function Separator({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+export function Separator({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       role="separator"

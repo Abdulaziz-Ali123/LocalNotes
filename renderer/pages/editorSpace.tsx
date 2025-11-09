@@ -9,11 +9,7 @@ import MarkdownViewer from "@/renderer/components/MarkdownViewer";
 import { Button } from "@/renderer/components/ui/button";
 import { X } from "lucide-react";
 import TabBar from "@/renderer/components/TabBar";
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarContent,
-} from "../components/ui/sidebar";
+import { SidebarProvider, Sidebar, SidebarContent } from "../components/ui/sidebar";
 
 export default function EditorSpace({
   handleFileSelect,
@@ -30,10 +26,7 @@ export default function EditorSpace({
 }) {
   return (
     <React.Fragment>
-      <ResizablePanelGroup
-        direction="horizontal"
-        className="min-h-screen w-full bg-secondary"
-      >
+      <ResizablePanelGroup direction="horizontal" className="min-h-screen w-full bg-secondary">
         {/* Sidebar (resizable) + Editor */}
 
         <ResizablePanel defaultSize={25} minSize={20} className="bg-background">

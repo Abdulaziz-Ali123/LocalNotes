@@ -22,6 +22,6 @@ export const useBoundStore = create(
         ({
           tabs: {},
         }) as Pick<Store, "tabs">,
-    },
-  ),
+    }
+  )
 );

@@ -20,9 +20,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
   const [rootPath, setRootPath] = useState<string | null>(null);
   const [treeElements, setTreeElements] = useState<TreeViewElement[]>([]);
   const [selectedId, setSelectedId] = useState<string | undefined>();
-  const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(
-    null,
-  );
+  const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -108,7 +106,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
   const updateTreeChildren = (
     tree: TreeViewElement[],
     targetId: string,
-    newChildren: TreeViewElement[],
+    newChildren: TreeViewElement[]
   ): TreeViewElement[] => {
     return tree.map((node) => {
       if (node.id === targetId) {
@@ -288,10 +286,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
       if (element.children !== undefined) {
         const isSelected = selectedFolderPath === element.id;
         return (
-          <div
-            key={element.id}
-            onClickCapture={() => handleFolderClick(element.id)}
-          >
+          <div key={element.id} onClickCapture={() => handleFolderClick(element.id)}>
             <Folder
               element={element.name}
               value={element.id}
@@ -307,9 +302,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
                 });
               }}
             >
-              {element.children &&
-                element.children.length > 0 &&
-                renderTree(element.children)}
+              {element.children && element.children.length > 0 && renderTree(element.children)}
             </Folder>
           </div>
         );
@@ -482,7 +475,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
                 "Renaming path:",
                 contextMenu.path,
                 "Is directory?",
-                contextMenu.isDirectory,
+                contextMenu.isDirectory
               );
               renameItem(contextMenu.path);
               setContextMenu(null);

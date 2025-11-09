@@ -40,7 +40,7 @@ export default function Editor() {
           tab.name = window.fs.basename(filePath);
         }
         return state;
-      }),
+      })
     );
 
     setSelectedFile(filePath);
@@ -52,7 +52,7 @@ export default function Editor() {
   // Load content when selected tab changes
   const selectedTabId = useBoundStore((state) => state.tabs.selectedTabId);
   const selectedTab = useBoundStore((state) =>
-    state.tabs.items.find((tab) => tab.id === state.tabs.selectedTabId),
+    state.tabs.items.find((tab) => tab.id === state.tabs.selectedTabId)
   );
 
   useEffect(() => {
@@ -104,16 +104,10 @@ export default function Editor() {
           <div className="flex flex-col items-center gap-10">
             <div className=""></div>
             <div className="flex flex-col items-center h-full gap-2 px-2 py-4 bg-sidebar border-r">
-              <button
-                className="size-10 rounded-md hover:bg-accent p-2"
-                title="Files"
-              >
+              <button className="size-10 rounded-md hover:bg-accent p-2" title="Files">
                 📁
               </button>
-              <button
-                className="size-10 rounded-md hover:bg-accent p-2"
-                title="Search"
-              >
+              <button className="size-10 rounded-md hover:bg-accent p-2" title="Search">
                 🔍
               </button>
             </div>

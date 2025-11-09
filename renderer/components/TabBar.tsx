@@ -11,9 +11,7 @@ export default function TabBar() {
   const add = useBoundStore((state) => state.tabs.add);
   const reorderTabs = useBoundStore((state) => state.tabs.reorder);
   const selectedTabId = useBoundStore((state) => state.tabs.selectedTabId);
-  const selectedTabIndex = useBoundStore(
-    (state) => state.tabs.selectedTabIndex,
-  );
+  const selectedTabIndex = useBoundStore((state) => state.tabs.selectedTabIndex);
 
   return (
     <React.Fragment>
@@ -35,9 +33,7 @@ export default function TabBar() {
                   isSelected={selectedTabId === item.id}
                   onClick={() => setSelectedTab(item)}
                   onRemove={() => remove(item)}
-                  showSeperator={
-                    index !== selectedTabIndex - 1 && tabs.length > 2
-                  }
+                  showSeperator={index !== selectedTabIndex - 1 && tabs.length > 2}
                 />
               ))}
 

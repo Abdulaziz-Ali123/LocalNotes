@@ -114,21 +114,13 @@ ipcMain.handle("tabs:select", (_, id: number) => tabManager.select(id));
 ipcMain.handle("tabs:close", (_, id: number) => tabManager.close(id));
 ipcMain.handle("tabs:new", () => tabManager.new());
 ipcMain.handle("tabs:reorder", (_, ids: number[]) => tabManager.reorder(ids));
-ipcMain.handle("tabs:getContent", (_, id: number) =>
-  tabManager.getTabContent(id),
+ipcMain.handle("tabs:getContent", (_, id: number) => tabManager.getTabContent(id));
+ipcMain.handle("tabs:setContent", (_, { id, content }: { id: number; content: string }) =>
+  tabManager.setTabContent(id, content)
 );
-ipcMain.handle(
-  "tabs:setContent",
-  (_, { id, content }: { id: number; content: string }) =>
-    tabManager.setTabContent(id, content),
-);
-ipcMain.handle("tabs:getFilePath", (_, id: number) =>
-  tabManager.getTabFilePath(id),
-);
-ipcMain.handle(
-  "tabs:setFilePath",
-  (_, { id, filePath }: { id: number; filePath: string | null }) =>
-    tabManager.setTabFilePath(id, filePath),
+ipcMain.handle("tabs:getFilePath", (_, id: number) => tabManager.getTabFilePath(id));
+ipcMain.handle("tabs:setFilePath", (_, { id, filePath }: { id: number; filePath: string | null }) =>
+  tabManager.setTabFilePath(id, filePath)
 );
 
 if (isProd) {
@@ -247,12 +239,7 @@ if (isProd) {
         { role: "minimize" },
         { role: "zoom" },
         ...(isMac
-          ? [
-              { type: "separator" },
-              { role: "front" },
-              { type: "separator" },
-              { role: "window" },
-            ]
+          ? [{ type: "separator" }, { role: "front" }, { type: "separator" }, { role: "window" }]
           : [{ role: "close" }]),
       ],
     },
@@ -316,7 +303,7 @@ ipcMain.handle("fs:readDirectory", async (event, dirPath: string) => {
           size: stats.size,
           modified: stats.mtime,
         };
-      }),
+      })
     );
     return { success: true, data: items };
   } catch (error: any) {
@@ -333,17 +320,14 @@ ipcMain.handle("fs:createFolder", async (event, folderPath: string) => {
   }
 });
 
-ipcMain.handle(
-  "fs:createFile",
-  async (event, filePath: string, content: string = "") => {
-    try {
-      await fs.writeFile(filePath, content, "utf-8");
-      return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
-  },
-);
+ipcMain.handle("fs:createFile", async (event, filePath: string, content: string = "") => {
+  try {
+    await fs.writeFile(filePath, content, "utf-8");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
 
 ipcMain.handle("fs:deleteItem", async (event, itemPath: string) => {
   try {
@@ -359,21 +343,18 @@ ipcMain.handle("fs:deleteItem", async (event, itemPath: string) => {
   }
 });
 
-ipcMain.handle(
-  "fs:renameItem",
-  async (event, oldPath: string, newPath: string) => {
-    try {
-      const exists = await fs.stat(oldPath).catch(() => null);
-      if (!exists) {
-        throw new Error("Source not found: ${oldPath}");
-      }
-      await fs.rename(oldPath, newPath);
-      return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+ipcMain.handle("fs:renameItem", async (event, oldPath: string, newPath: string) => {
+  try {
+    const exists = await fs.stat(oldPath).catch(() => null);
+    if (!exists) {
+      throw new Error("Source not found: ${oldPath}");
     }
-  },
-);
+    await fs.rename(oldPath, newPath);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
 
 ipcMain.handle("fs:readFile", async (event, filePath: string) => {
   try {
@@ -384,17 +365,14 @@ ipcMain.handle("fs:readFile", async (event, filePath: string) => {
   }
 });
 
-ipcMain.handle(
-  "fs:writeFile",
-  async (event, filePath: string, content: string) => {
-    try {
-      await fs.writeFile(filePath, content, "utf-8");
-      return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
-  },
-);
+ipcMain.handle("fs:writeFile", async (event, filePath: string, content: string) => {
+  try {
+    await fs.writeFile(filePath, content, "utf-8");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
 
 ipcMain.handle("fs:openFolderDialog", async () => {
   try {

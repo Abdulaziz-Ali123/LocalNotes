@@ -11,13 +11,7 @@ interface Props {
   onRemove: () => void;
 }
 
-export const Tab = ({
-  item,
-  onClick,
-  onRemove,
-  isSelected,
-  showSeperator,
-}: Props) => {
+export const Tab = ({ item, onClick, onRemove, isSelected, showSeperator }: Props) => {
   return (
     <Reorder.Item
       value={item}
@@ -40,7 +34,7 @@ export const Tab = ({
       className={cn(
         isSelected ? "bg-secondary text-foreground" : "bg-background ",
         "app-nodrag-region",
-        "w-full pl-4 relative cursor-pointer h-8 flex justify-between items-center flex-1 overflow-hidden select-none rounded-t-md",
+        "w-full pl-4 relative cursor-pointer h-8 flex justify-between items-center flex-1 overflow-hidden select-none rounded-t-md"
       )}
       onClick={onClick}
     >

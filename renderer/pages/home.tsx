@@ -73,9 +73,7 @@ export default function HomePage() {
               <div className="flex flex-row justify-between items-center py-3">
                 <span>
                   Create New Folder
-                  <p className="text-sm pb-3">
-                    Create a new folder to hold your notes
-                  </p>
+                  <p className="text-sm pb-3">Create a new folder to hold your notes</p>
                 </span>
                 <button
                   onClick={handleCreateFolder}
@@ -89,9 +87,7 @@ export default function HomePage() {
               <div className="flex flex-row justify-between items-center py-3">
                 <span>
                   Open an Existing Folder
-                  <p className="text-sm pb-3">
-                    Open an existing folder that hold your notes
-                  </p>
+                  <p className="text-sm pb-3">Open an existing folder that hold your notes</p>
                 </span>
                 <button
                   onClick={handleOpenFolder}
@@ -122,9 +118,7 @@ export default function HomePage() {
           placeholder={inputDialog.placeholder}
           defaultValue={inputDialog.defaultValue}
           onConfirm={inputDialog.onConfirm}
-          onCancel={() =>
-            setInputDialog((prev) => ({ ...prev, isOpen: false }))
-          }
+          onCancel={() => setInputDialog((prev) => ({ ...prev, isOpen: false }))}
         />
       </div>
     </React.Fragment>

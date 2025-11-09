@@ -3,9 +3,7 @@ import { TabInfo } from "@/renderer/types/tabs";
 import { produce } from "immer";
 import { StateCreator } from "zustand";
 
-export const createTabSlice: StateCreator<TabsSlice, [], [], TabsSlice> = (
-  set,
-) => ({
+export const createTabSlice: StateCreator<TabsSlice, [], [], TabsSlice> = (set) => ({
   tabs: {
     items: [
       {
@@ -39,13 +37,12 @@ export const createTabSlice: StateCreator<TabsSlice, [], [], TabsSlice> = (
             name: tab.filePath ? window.fs.basename(tab.filePath) : "Untitled",
           }));
 
-          state.tabs.selectedTabId =
-            selectedTabId === -1 ? ids[0] : selectedTabId;
+          state.tabs.selectedTabId = selectedTabId === -1 ? ids[0] : selectedTabId;
 
           state.tabs.selectedTabIndex = state.tabs.items.findIndex(
-            (tab) => state.tabs.selectedTabId === tab.id,
+            (tab) => state.tabs.selectedTabId === tab.id
           );
-        }),
+        })
       );
     },
     setSelectedTab: async (tab: TabInfo) => {
@@ -54,10 +51,8 @@ export const createTabSlice: StateCreator<TabsSlice, [], [], TabsSlice> = (
       set(
         produce((state: TabsSlice) => {
           state.tabs.selectedTabId = tab.id;
-          state.tabs.selectedTabIndex = state.tabs.items.findIndex(
-            (item) => tab.id === item.id,
-          );
-        }),
+          state.tabs.selectedTabIndex = state.tabs.items.findIndex((item) => tab.id === item.id);
+        })
       );
     },
     remove: (tab: TabInfo) =>
@@ -77,8 +72,7 @@ export const createTabSlice: StateCreator<TabsSlice, [], [], TabsSlice> = (
             if (index === -1) {
               state.tabs.selectedTabId = state.tabs.items[0].id;
             } else if (index === state.tabs.items.length - 1) {
-              state.tabs.selectedTabId =
-                state.tabs.items[state.tabs.items.length - 2].id;
+              state.tabs.selectedTabId = state.tabs.items[state.tabs.items.length - 2].id;
             } else {
               state.tabs.selectedTabId = state.tabs.items[index + 1].id;
             }
@@ -88,7 +82,7 @@ export const createTabSlice: StateCreator<TabsSlice, [], [], TabsSlice> = (
           window.tabs.select(state.tabs.selectedTabId);
           state.tabs.items.splice(index, 1);
           window.tabs.close(tab.id);
-        }),
+        })
       ),
     add: async () => {
       const id = await window.tabs.new();
@@ -104,7 +98,7 @@ export const createTabSlice: StateCreator<TabsSlice, [], [], TabsSlice> = (
           });
           state.tabs.selectedTabId = id;
           state.tabs.selectedTabIndex = state.tabs.items.length - 1;
-        }),
+        })
       );
     },
     reorder: (tabs: TabInfo[]) => {
@@ -113,9 +107,9 @@ export const createTabSlice: StateCreator<TabsSlice, [], [], TabsSlice> = (
         produce((state: TabsSlice) => {
           state.tabs.items = tabs;
           state.tabs.selectedTabIndex = tabs.findIndex(
-            (tab) => state.tabs.selectedTabId === tab.id,
+            (tab) => state.tabs.selectedTabId === tab.id
           );
-        }),
+        })
       );
     },
   },
