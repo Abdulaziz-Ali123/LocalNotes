@@ -17,8 +17,11 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,json,css,md}": [
-      "eslint --fix --max-warnings=0",
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,css,md}": [
       "prettier --write"
     ]
   },
