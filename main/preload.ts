@@ -6,8 +6,7 @@ const handler = {
     ipcRenderer.send(channel, value);
   },
   on(channel: string, callback: (...args: unknown[]) => void) {
-    const subscription = (_event: IpcRendererEvent, ...args: unknown[]) =>
-      callback(...args);
+    const subscription = (_event: IpcRendererEvent, ...args: unknown[]) => callback(...args);
     ipcRenderer.on(channel, subscription);
 
     return () => {
@@ -17,14 +16,11 @@ const handler = {
 };
 
 const fileSystemHandler = {
-  readDirectory: (dirPath: string) =>
-    ipcRenderer.invoke("fs:readDirectory", dirPath),
-  createFolder: (folderPath: string) =>
-    ipcRenderer.invoke("fs:createFolder", folderPath),
+  readDirectory: (dirPath: string) => ipcRenderer.invoke("fs:readDirectory", dirPath),
+  createFolder: (folderPath: string) => ipcRenderer.invoke("fs:createFolder", folderPath),
   createFile: (filePath: string, content?: string) =>
     ipcRenderer.invoke("fs:createFile", filePath, content),
-  deleteItem: (itemPath: string) =>
-    ipcRenderer.invoke("fs:deleteItem", itemPath),
+  deleteItem: (itemPath: string) => ipcRenderer.invoke("fs:deleteItem", itemPath),
   renameItem: (oldPath: string, newPath: string) =>
     ipcRenderer.invoke("fs:renameItem", oldPath, newPath),
   readFile: (filePath: string) => ipcRenderer.invoke("fs:readFile", filePath),
@@ -36,15 +32,17 @@ const fileSystemHandler = {
   basename: (filePath: string) => path.basename(filePath),
   dirname: (filePath: string) => path.dirname(filePath),
   join: (...segments: string[]) => path.join(...segments),
+  exists: async (targetPath: string) => ipcRenderer.invoke("fs:exists", targetPath),
+  isDirectory: (path: string) => ipcRenderer.invoke("fs:isDirectory", path),
 };
 
 const tabHandler = {
-  getAllTabIds: () => ipcRenderer.invoke('tabs:getAllTabIds'),
-  getSelectedTabId: () => ipcRenderer.invoke('tabs:getSelectedTabId'),
-  select: (id: number) => ipcRenderer.invoke('tabs:select', id),
-  close: (id: number) => ipcRenderer.invoke('tabs:close', id),
-  new: () => ipcRenderer.invoke('tabs:new'),
-  reorder: (ids: number[]) => ipcRenderer.invoke('tabs:reorder', ids)
+  getAllTabIds: () => ipcRenderer.invoke("tabs:getAllTabIds"),
+  getSelectedTabId: () => ipcRenderer.invoke("tabs:getSelectedTabId"),
+  select: (id: number) => ipcRenderer.invoke("tabs:select", id),
+  close: (id: number) => ipcRenderer.invoke("tabs:close", id),
+  new: () => ipcRenderer.invoke("tabs:new"),
+  reorder: (ids: number[]) => ipcRenderer.invoke("tabs:reorder", ids),
 };
 
 contextBridge.exposeInMainWorld("ipc", handler);

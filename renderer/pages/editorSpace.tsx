@@ -10,11 +10,7 @@ import MDXEditorComponent from "@/renderer/components/MDXEditorComponent";
 import { Button } from "@/renderer/components/ui/button";
 import { X } from "lucide-react";
 import TabBar from "@/renderer/components/TabBar";
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarContent,
-} from "../components/ui/sidebar";
+import { SidebarProvider, Sidebar, SidebarContent } from "../components/ui/sidebar";
 
 export default function EditorSpace({
   handleFileSelect,
@@ -31,10 +27,7 @@ export default function EditorSpace({
 }) {
   return (
     <React.Fragment>
-      <ResizablePanelGroup
-        direction="horizontal"
-        className="min-h-screen w-full bg-secondary"
-      >
+      <ResizablePanelGroup direction="horizontal" className="min-h-screen w-full bg-secondary">
         {/* Sidebar (resizable) + Editor */}
 
         <ResizablePanel defaultSize={25} minSize={20} className="bg-background">
@@ -69,11 +62,7 @@ export default function EditorSpace({
                             setPreviewMode(false);
                             setLivePreview(false);
                           }}
-                          className={`px-2 py-1 text-xs rounded ${
-                            !previewMode && !livePreview
-                              ? "bg-accent text-background"
-                              : "text-foreground hover:bg-muted"
-                          }`}
+                          className={`px-2 py-1 text-xs rounded ${!previewMode && !livePreview ? "bg-accent text-background" : "text-foreground hover:bg-muted"}`}
                         >
                           Edit
                         </button>
@@ -82,11 +71,7 @@ export default function EditorSpace({
                             setPreviewMode(true);
                             setLivePreview(false);
                           }}
-                          className={`px-2 py-1 text-xs rounded ${
-                            previewMode && !livePreview
-                              ? "bg-accent text-background"
-                              : "text-foreground hover:bg-muted"
-                          }`}
+                          className={`px-2 py-1 text-xs rounded ${previewMode && !livePreview ? "bg-accent text-background" : "text-foreground hover:bg-muted"}`}
                         >
                           Preview
                         </button>
@@ -95,11 +80,7 @@ export default function EditorSpace({
                             setLivePreview((v) => !v);
                             setPreviewMode(true);
                           }}
-                          className={`px-2 py-1 text-xs rounded ${
-                            livePreview
-                              ? "bg-accent text-background"
-                              : "text-foreground hover:bg-muted"
-                          }`}
+                          className={`px-2 py-1 text-xs rounded ${livePreview ? "bg-accent text-background" : "text-foreground hover:bg-muted"}`}
                         >
                           Live
                         </button>

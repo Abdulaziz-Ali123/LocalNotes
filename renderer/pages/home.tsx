@@ -54,8 +54,8 @@ export default function HomePage() {
 
   return (
     <React.Fragment>
-    <div className='flex flex-col justify-center items-center'>
-      {/* this is is the region that will allow dragging the window*/}
+      <div className="flex flex-col justify-center items-center">
+        {/* this is is the region that will allow dragging the window*/}
         <div className="w-full p-5 app-drag-region"> </div>
         <div className="h-screen flex justify-center items-center">
           <div className="p-5 h-auto w-[600px] flex items-center flex-col justify-center rounded-2xl shadow-neumorph bg-secondary">
@@ -73,9 +73,7 @@ export default function HomePage() {
               <div className="flex flex-row justify-between items-center py-3">
                 <span>
                   Create New Folder
-                  <p className="text-sm pb-3">
-                    Create a new folder to hold your notes
-                  </p>
+                  <p className="text-sm pb-3">Create a new folder to hold your notes</p>
                 </span>
                 <button
                   onClick={handleCreateFolder}
@@ -89,9 +87,7 @@ export default function HomePage() {
               <div className="flex flex-row justify-between items-center py-3">
                 <span>
                   Open an Existing Folder
-                  <p className="text-sm pb-3">
-                    Open an existing folder that hold your notes
-                  </p>
+                  <p className="text-sm pb-3">Open an existing folder that hold your notes</p>
                 </span>
                 <button
                   onClick={handleOpenFolder}
@@ -125,7 +121,6 @@ export default function HomePage() {
           onCancel={() => setInputDialog((prev) => ({ ...prev, isOpen: false }))}
         />
       </div>
-      
     </React.Fragment>
   );
 }
