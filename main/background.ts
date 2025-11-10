@@ -1,5 +1,5 @@
 import path from "path";
-import { app, ipcMain, Menu, dialog } from "electron";
+import { app, ipcMain, Menu, dialog, shell } from "electron";
 import serve from "electron-serve";
 import { createWindow } from "./helpers";
 import fs from "fs/promises";
@@ -255,7 +255,6 @@ if (isProd) {
         {
           label: "Learn More",
           click: async () => {
-            const { shell } = require("electron");
             await shell.openExternal("https://electronjs.org");
           },
         },
