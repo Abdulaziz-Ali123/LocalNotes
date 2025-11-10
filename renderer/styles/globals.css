@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 @import "tw-animate-css";
+@import "@mdxeditor/editor/style.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -129,4 +130,231 @@
 
 .animate-fade-in-out {
   animation: fadeInOut 2s ease-in-out;
+}
+
+/* ---------------------------
+   MDX EDITOR CUSTOMIZATION
+---------------------------- */
+.mdx-editor-wrapper {
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mdx-editor-wrapper > div {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Match MDXEditor with Nord theme */
+[data-lexical-editor="true"] {
+  background-color: rgb(46, 52, 64) !important;
+  color: rgb(236, 239, 244) !important;
+}
+
+/* Toolbar styling */
+.mdxeditor-toolbar {
+  background-color: rgb(59, 66, 82) !important;
+  border-bottom: 1px solid rgb(59, 66, 82) !important;
+  padding: 0.5rem !important;
+  position: relative !important;
+  z-index: 10 !important;
+  flex-shrink: 0 !important;
+  min-height: 40px !important;
+}
+
+.mdxeditor-toolbar button,
+.mdxeditor-toolbar button svg,
+.mdxeditor-toolbar [role="button"] {
+  color: rgb(236, 239, 244) !important;
+  background-color: transparent !important;
+  border: none !important;
+}
+
+.mdxeditor-toolbar button:hover,
+.mdxeditor-toolbar [role="button"]:hover {
+  background-color: rgb(129, 161, 193) !important;
+  color: rgb(46, 52, 64) !important;
+}
+
+.mdxeditor-toolbar button:hover svg {
+  color: rgb(46, 52, 64) !important;
+}
+
+.mdxeditor-toolbar button[data-toolbar-item-active="true"],
+.mdxeditor-toolbar button[aria-pressed="true"],
+.mdxeditor-toolbar button.active,
+.mdxeditor-toolbar [role="button"][aria-pressed="true"] {
+  background-color: rgb(136, 192, 208) !important;
+  color: rgb(46, 52, 64) !important;
+}
+
+.mdxeditor-toolbar button[data-toolbar-item-active="true"] svg,
+.mdxeditor-toolbar button[aria-pressed="true"] svg,
+.mdxeditor-toolbar button.active svg {
+  color: rgb(46, 52, 64) !important;
+}
+
+.mdxeditor-toolbar select {
+  background-color: rgb(46, 52, 64) !important;
+  color: rgb(236, 239, 244) !important;
+  border: 1px solid rgb(59, 66, 82) !important;
+}
+
+.mdxeditor-toolbar select:hover {
+  background-color: rgb(59, 66, 82) !important;
+  border-color: rgb(129, 161, 193) !important;
+}
+
+/* Dropdown menus in toolbar */
+.mdxeditor-toolbar [role="menu"],
+.mdxeditor-toolbar [role="listbox"] {
+  background-color: rgb(46, 52, 64) !important;
+  border: 1px solid rgb(59, 66, 82) !important;
+}
+
+.mdxeditor-toolbar [role="menuitem"],
+.mdxeditor-toolbar [role="option"] {
+  color: rgb(236, 239, 244) !important;
+  background-color: transparent !important;
+}
+
+.mdxeditor-toolbar [role="menuitem"]:hover,
+.mdxeditor-toolbar [role="option"]:hover,
+.mdxeditor-toolbar [role="menuitem"][data-highlighted],
+.mdxeditor-toolbar [role="option"][data-highlighted] {
+  background-color: rgb(129, 161, 193) !important;
+  color: rgb(46, 52, 64) !important;
+}
+
+/* Editor content area */
+.mdxeditor-root-contenteditable {
+  background-color: rgb(46, 52, 64) !important;
+  color: rgb(236, 239, 244) !important;
+}
+
+/* Links */
+.mdxeditor a {
+  color: rgb(136, 192, 208) !important;
+}
+
+/* Code blocks */
+.mdxeditor pre {
+  background-color: rgb(59, 66, 82) !important;
+  border: 1px solid rgb(59, 66, 82) !important;
+}
+
+.mdxeditor code {
+  background-color: rgb(59, 66, 82) !important;
+  color: rgb(216, 222, 233) !important;
+}
+
+/* Tables */
+.mdxeditor table {
+  border-color: rgb(59, 66, 82) !important;
+}
+
+.mdxeditor th,
+.mdxeditor td {
+  border-color: rgb(59, 66, 82) !important;
+}
+
+/* Blockquotes */
+.mdxeditor blockquote {
+  border-left-color: rgb(129, 161, 193) !important;
+  color: rgb(216, 222, 233) !important;
+}
+
+/* Dialogs/Popups */
+.mdxeditor-popup-container {
+  background-color: rgb(46, 52, 64) !important;
+  border: 1px solid rgb(59, 66, 82) !important;
+  color: rgb(236, 239, 244) !important;
+}
+
+.mdxeditor-popup-container input,
+.mdxeditor-popup-container textarea {
+  background-color: rgb(59, 66, 82) !important;
+  color: rgb(236, 239, 244) !important;
+  border: 1px solid rgb(59, 66, 82) !important;
+}
+
+/* Tooltips */
+.mdxeditor-toolbar [data-radix-popper-content-wrapper] {
+  z-index: 9999 !important;
+}
+
+.mdxeditor [role="tooltip"] {
+  background-color: rgb(59, 66, 82) !important;
+  color: rgb(236, 239, 244) !important;
+  border: 1px solid rgb(129, 161, 193) !important;
+  padding: 0.25rem 0.5rem !important;
+  border-radius: 0.25rem !important;
+  font-size: 0.875rem !important;
+  z-index: 9999 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Toolbar separator */
+.mdxeditor-toolbar-separator {
+  background-color: rgb(59, 66, 82) !important;
+  margin: 0 0.25rem !important;
+}
+
+/* Catch-all for any remaining toolbar elements with white backgrounds */
+.mdxeditor-toolbar * {
+  border-color: transparent !important;
+}
+
+.mdxeditor-toolbar input,
+.mdxeditor-toolbar textarea {
+  background-color: rgb(46, 52, 64) !important;
+  color: rgb(236, 239, 244) !important;
+  border: 1px solid rgb(59, 66, 82) !important;
+}
+
+/* Fix for toolbar icons and their containers */
+.mdxeditor-toolbar button > *,
+.mdxeditor-toolbar [role="button"] > * {
+  background-color: transparent !important;
+}
+
+/* Custom mode buttons in toolbar */
+.mdxeditor-toolbar button[style]:hover {
+  opacity: 0.9;
+  transition: opacity 0.2s;
+}
+
+/* Source/Diff mode */
+.mdxeditor-diff-source-wrapper {
+  background-color: rgb(46, 52, 64) !important;
+}
+
+.mdxeditor-source-editor {
+  background-color: rgb(46, 52, 64) !important;
+  color: rgb(236, 239, 244) !important;
+}
+
+/* Scrollbar styling for MDXEditor */
+.mdxeditor ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.mdxeditor ::-webkit-scrollbar-track {
+  background: rgb(59, 66, 82);
+}
+
+.mdxeditor ::-webkit-scrollbar-thumb {
+  background: rgb(129, 161, 193);
+  border-radius: 4px;
+}
+
+.mdxeditor ::-webkit-scrollbar-thumb:hover {
+  background: rgb(136, 192, 208);
 }

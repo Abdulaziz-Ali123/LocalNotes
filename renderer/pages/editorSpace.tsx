@@ -6,6 +6,7 @@ import {
 } from "@/renderer/components/ui/resizable";
 import FileSystemTree from "@/renderer/components/FileSystemTree";
 import MarkdownViewer from "@/renderer/components/MarkdownViewer";
+import MDXEditorComponent from "@/renderer/components/MDXEditorComponent";
 import { Button } from "@/renderer/components/ui/button";
 import { X } from "lucide-react";
 import TabBar from "@/renderer/components/TabBar";
@@ -52,26 +53,16 @@ export default function EditorSpace({
             <div className="flex flex-col h-full p-6 rounded-t-lg bg-secondary">
               {selectedFile ? (
                 <div className="flex flex-col h-full">
-                  {/* Header */}
-                  <div className="flex flex-row-reverse items-center justify-left mb-2 pl-2">
-                    <div className="pl-4">
-                      <Button
-                        onClick={handleSave}
-                        className="bg-accent px-4 py-1 rounded-md shadow-neumorph-sm hover:shadow-neumorph-inset"
-                        disabled={isSaving}
-                      >
-                        Save
-                      </Button>
-                    </div>
-                    {/* If it's a markdown file, show preview/edit toggle */}
-                    {selectedFile.toLowerCase().endsWith(".md") && (
+                  {/* Mode toggle buttons - always visible for markdown files */}
+                  {selectedFile.toLowerCase().endsWith(".md") && (
+                    <div className="flex items-center justify-end mb-2 px-2">
                       <div className="flex items-center bg-background border border-border rounded-md p-1">
                         <button
                           onClick={() => {
                             setPreviewMode(false);
                             setLivePreview(false);
                           }}
-                          className={`px-2 py-1 text-xs rounded ${!previewMode && !livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
+                          className={`px-2 py-1 text-xs rounded ${!previewMode && !livePreview ? "bg-accent text-background" : "text-foreground hover:bg-muted"}`}
                         >
                           Edit
                         </button>
@@ -80,7 +71,7 @@ export default function EditorSpace({
                             setPreviewMode(true);
                             setLivePreview(false);
                           }}
-                          className={`px-2 py-1 text-xs rounded ${previewMode && !livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
+                          className={`px-2 py-1 text-xs rounded ${previewMode && !livePreview ? "bg-accent text-background" : "text-foreground hover:bg-muted"}`}
                         >
                           Preview
                         </button>
@@ -89,60 +80,103 @@ export default function EditorSpace({
                             setLivePreview((v) => !v);
                             setPreviewMode(true);
                           }}
-                          className={`px-2 py-1 text-xs rounded ${livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
+                          className={`px-2 py-1 text-xs rounded ${livePreview ? "bg-accent text-background" : "text-foreground hover:bg-muted"}`}
                         >
                           Live
                         </button>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   {/* Editable / Preview area */}
-                  <div className=" h-full flex w-full text-foreground rounded-lg p-3 font-mono text-md resize-none focus:outline-none border border-border overflow-auto">
+                  <div className="h-full flex w-full text-foreground rounded-lg overflow-auto">
                     {selectedFile.toLowerCase().endsWith(".md") ? (
                       livePreview ? (
-                        <div className="flex flex-row overflow-scroll h-[100%] gap-4">
-                          <textarea
-                            key={selectedFile}
-                            value={fileContent}
-                            onChange={(e) => {
-                              setFileContent(e.target.value);
-                            }}
-                            className="h-[60%] w-1/2 bg-background text-foreground rounded-lg p-3 font-mono text-md resize-none focus:outline-none border border-border"
-                            spellCheck={false}
-                            autoFocus
-                          />
-                          <div className="h-[60%] w-1/2 overflow-scroll bg-background rounded-lg p-3 border border-border">
-                            <MarkdownViewer content={fileContent} />
+                        <div className="flex flex-col h-full w-full">
+                          <div className="flex flex-row h-full gap-4 w-full">
+                            <div className="w-1/2 bg-background rounded-lg border border-border flex flex-col overflow-hidden">
+                              <MDXEditorComponent
+                                key={selectedFile}
+                                markdown={fileContent}
+                                onChange={setFileContent}
+                                onSave={handleSave}
+                                isSaving={isSaving}
+                                previewMode={previewMode}
+                                livePreview={livePreview}
+                                onModeChange={(mode) => {
+                                  if (mode === "edit") {
+                                    setPreviewMode(false);
+                                    setLivePreview(false);
+                                  } else if (mode === "preview") {
+                                    setPreviewMode(true);
+                                    setLivePreview(false);
+                                  } else if (mode === "live") {
+                                    setPreviewMode(true);
+                                    setLivePreview(true);
+                                  }
+                                }}
+                                isMarkdownFile={true}
+                                showModeButtons={false}
+                              />
+                            </div>
+                            <div className="h-full w-1/2 overflow-scroll bg-background rounded-lg p-3 border border-border">
+                              <MarkdownViewer content={fileContent} />
+                            </div>
                           </div>
                         </div>
                       ) : previewMode ? (
-                        <div className="flex h-[60%] gap-4 overflow-auto">
+                        <div className="flex h-full gap-4 overflow-auto w-full p-3">
                           <MarkdownViewer content={fileContent} />
                         </div>
                       ) : (
+                        <div className="w-full bg-background rounded-lg border border-border">
+                          <MDXEditorComponent
+                            key={selectedFile}
+                            markdown={fileContent}
+                            onChange={setFileContent}
+                            onSave={handleSave}
+                            isSaving={isSaving}
+                            previewMode={previewMode}
+                            livePreview={livePreview}
+                            onModeChange={(mode) => {
+                              if (mode === "edit") {
+                                setPreviewMode(false);
+                                setLivePreview(false);
+                              } else if (mode === "preview") {
+                                setPreviewMode(true);
+                                setLivePreview(false);
+                              } else if (mode === "live") {
+                                setPreviewMode(true);
+                                setLivePreview(true);
+                              }
+                            }}
+                            isMarkdownFile={true}
+                            showModeButtons={false}
+                          />
+                        </div>
+                      )
+                    ) : (
+                      <div className="flex flex-col w-full h-full">
+                        <div className="flex justify-end mb-2 px-2">
+                          <Button
+                            onClick={handleSave}
+                            className="bg-accent px-4 py-1 rounded-md shadow-neumorph-sm hover:shadow-neumorph-inset"
+                            disabled={isSaving}
+                          >
+                            Save
+                          </Button>
+                        </div>
                         <textarea
                           key={selectedFile}
                           value={fileContent}
                           onChange={(e) => {
                             setFileContent(e.target.value);
                           }}
-                          className="w-full bg-background text-foreground rounded-lg p-3 font-mono text-md resize-none focus:outline-none border-0"
+                          className="flex-1 w-full bg-background text-foreground rounded-lg p-3 font-mono text-md resize-none focus:outline-none border border-border"
                           spellCheck={false}
                           autoFocus
                         />
-                      )
-                    ) : (
-                      <textarea
-                        key={selectedFile}
-                        value={fileContent}
-                        onChange={(e) => {
-                          setFileContent(e.target.value);
-                        }}
-                        className="flex-1 w-full bg-background text-foreground rounded-lg p-3 font-mono text-md resize-none focus:outline-none border border-border"
-                        spellCheck={false}
-                        autoFocus
-                      />
+                      </div>
                     )}
                   </div>
                 </div>
