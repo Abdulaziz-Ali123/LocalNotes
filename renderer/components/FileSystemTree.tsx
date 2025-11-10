@@ -24,7 +24,11 @@ interface FileSystemTreeProps {
   isVisible?: boolean;
 }
 
-export default function FileSystemTree({ onFileSelect, autoOpen = true, isVisible = true, }: FileSystemTreeProps) {
+export default function FileSystemTree({
+  onFileSelect,
+  autoOpen = true,
+  isVisible = true,
+}: FileSystemTreeProps) {
   const [rootPath, setRootPath] = useState<string | null>(null);
   const [treeElements, setTreeElements] = useState<TreeViewElement[]>([]);
   const [selectedId, setSelectedId] = useState<string | undefined>();
@@ -44,7 +48,7 @@ export default function FileSystemTree({ onFileSelect, autoOpen = true, isVisibl
   const [matchCase, setMatchCase] = useState<boolean>(false);
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [searchResults, setSearchResults] = useState<Set<string>>(new Set());
-  
+
   const [inputDialog, setInputDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -62,7 +66,7 @@ export default function FileSystemTree({ onFileSelect, autoOpen = true, isVisibl
   // Search through file contents
   const searchFileContents = async (dirPath: string, query: string): Promise<SearchResult[]> => {
     const results: SearchResult[] = [];
-    
+
     try {
       const dirResult = await window.fs.readDirectory(dirPath);
       if (!dirResult.success || !dirResult.data) return results;
@@ -84,7 +88,7 @@ export default function FileSystemTree({ onFileSelect, autoOpen = true, isVisibl
 
               if (useRegex) {
                 try {
-                  const flags = matchCase ? 'g' : 'gi';
+                  const flags = matchCase ? "g" : "gi";
                   const regex = new RegExp(query, flags);
                   const found = content.match(regex);
                   matches = found ? found.length : 0;
@@ -128,7 +132,7 @@ export default function FileSystemTree({ onFileSelect, autoOpen = true, isVisibl
 
     try {
       const results = await searchFileContents(rootPath, searchQuery);
-      const resultPaths = new Set(results.map(r => r.path));
+      const resultPaths = new Set(results.map((r) => r.path));
       setSearchResults(resultPaths);
     } catch (e) {
       console.error("Search error:", e);
@@ -145,14 +149,17 @@ export default function FileSystemTree({ onFileSelect, autoOpen = true, isVisibl
   };
 
   // Filter tree based on search results
-  const filterTreeByResults = (elements: TreeViewElement[], results: Set<string>): TreeViewElement[] => {
+  const filterTreeByResults = (
+    elements: TreeViewElement[],
+    results: Set<string>
+  ): TreeViewElement[] => {
     if (results.size === 0) return elements;
 
     return elements.reduce<TreeViewElement[]>((acc, element) => {
       if (element.children !== undefined) {
         // It's a folder
         const filteredChildren = filterTreeByResults(element.children, results);
-        
+
         // Include folder if it has matching children
         if (filteredChildren.length > 0) {
           acc.push({
@@ -166,7 +173,7 @@ export default function FileSystemTree({ onFileSelect, autoOpen = true, isVisibl
           acc.push(element);
         }
       }
-      
+
       return acc;
     }, []);
   };
@@ -190,26 +197,26 @@ export default function FileSystemTree({ onFileSelect, autoOpen = true, isVisibl
 
   // Load folder from localStorage on mount
   // 1) If autoOpen is true (default), load saved folder on mount
-useEffect(() => {
-  if (!autoOpen) {
-    setIsInitializing(false);
-    return;
-  }
-  
-  const savedFolderPath = localStorage.getItem("currentFolderPath");
-  if (savedFolderPath) {
-    setRootPath(savedFolderPath);
-    setSelectedFolderPath(savedFolderPath);
-    loadDirectory(savedFolderPath);
-    setIsInitializing(false);
-  } else {
-    // Delay showing "no folder" message
-    const timer = setTimeout(() => {
+  useEffect(() => {
+    if (!autoOpen) {
       setIsInitializing(false);
-    }, 300);
-    return () => clearTimeout(timer);
-  }
-}, [autoOpen]);
+      return;
+    }
+
+    const savedFolderPath = localStorage.getItem("currentFolderPath");
+    if (savedFolderPath) {
+      setRootPath(savedFolderPath);
+      setSelectedFolderPath(savedFolderPath);
+      loadDirectory(savedFolderPath);
+      setIsInitializing(false);
+    } else {
+      // Delay showing "no folder" message
+      const timer = setTimeout(() => {
+        setIsInitializing(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [autoOpen]);
 
   // 2) If sidebar becomes visible and we don't already have a rootPath, restore saved folder
   useEffect(() => {
@@ -227,45 +234,56 @@ useEffect(() => {
 
   const loadDirectory = async (dirPath: string, parentId?: string) => {
     const result = await window.fs.readDirectory(dirPath);
-    if (result.success && result.data) {
-      const items: FileSystemItem[] = result.data;
+    if (!result.success || !result.data) return;
 
-      // Convert to TreeViewElement format
-      const elements: TreeViewElement[] = items
-        .sort((a, b) => {
-          // Folders first, then files
-          if (a.isDirectory && !b.isDirectory) return -1;
-          if (!a.isDirectory && b.isDirectory) return 1;
-          return a.name.localeCompare(b.name);
-        })
-        .map((item) => ({
-          id: item.path,
-          name: item.name,
-          isSelectable: true,
-          children: item.isDirectory ? [] : undefined,
-        }));
+    const items: TreeViewElement[] = result.data
+      .sort((a, b) => {
+        if (a.isDirectory && !b.isDirectory) return -1;
+        if (!a.isDirectory && b.isDirectory) return 1;
+        return a.name.localeCompare(b.name);
+      })
+      .map((item) => ({
+        id: item.path,
+        name: item.name,
+        isSelectable: true,
+        children: item.isDirectory ? [] : undefined,
+      }));
 
-      if (parentId) {
-        // Update children of a specific folder
-        setTreeElements((prev) => updateTreeChildren(prev, parentId, elements));
-        setLoadedFolders((prev) => {
-          const newSet = new Set(prev);
-          newSet.add(parentId);
-          return newSet;
-        });
-      } else {
-        // Wrap everything under the root folder node itself
-        const rootNode: TreeViewElement = {
-          id: dirPath,
-          name: window.fs.basename(dirPath),
-          isSelectable: true,
-          children: elements,
+    if (parentId) {
+      setTreeElements((prev) => {
+        const updateNode = (tree: TreeViewElement[]): TreeViewElement[] => {
+          return tree.map((node) => {
+            if (node.id === parentId) {
+              // Merge new children with already loaded subfolders
+              const existingChildrenMap = new Map(node.children?.map((c) => [c.id, c]) || []);
+              const mergedChildren = items.map((item) => {
+                if (existingChildrenMap.has(item.id)) {
+                  // Preserve children for subfolders
+                  const existing = existingChildrenMap.get(item.id)!;
+                  return { ...item, children: existing.children };
+                }
+                return item;
+              });
+              return { ...node, children: mergedChildren };
+            }
+            if (node.children) {
+              return { ...node, children: updateNode(node.children) };
+            }
+            return node;
+          });
         };
-        setTreeElements([rootNode]);
-        setLoadedFolders(new Set([dirPath]));
-        setRootPath(dirPath);
-        localStorage.setItem("currentFolderPath", dirPath); // <-- persist
-      }
+        return updateNode(prev);
+      });
+
+      setLoadedFolders((prev) => new Set(prev).add(parentId));
+    } else {
+      // root node
+      setTreeElements([
+        { id: dirPath, name: window.fs.basename(dirPath), isSelectable: true, children: items },
+      ]);
+      setLoadedFolders(new Set([dirPath]));
+      setRootPath(dirPath);
+      localStorage.setItem("currentFolderPath", dirPath); // <-- persist
     }
   };
 
@@ -447,16 +465,129 @@ useEffect(() => {
     }
   };
 
+  // Handle drag start
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, sourcePath: string) => {
+    e.stopPropagation();
+    e.dataTransfer.setData("text/plain", sourcePath);
+    console.log("Dragging:", sourcePath);
+  };
+
+  // Handle drag over (to allow drop)
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  // Handle drop event
+  const handleDrop = async (
+    e: React.DragEvent<HTMLDivElement>,
+    targetPath: string,
+    isTargetFolder: boolean
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const sourcePath = e.dataTransfer.getData("text/plain");
+    if (!sourcePath || sourcePath === targetPath) return;
+
+    const destinationFolder = isTargetFolder ? targetPath : window.fs.dirname(targetPath);
+    const newPath = window.fs.join(destinationFolder, window.fs.basename(sourcePath));
+    if (newPath === sourcePath) return;
+
+    const parentExists = await window.fs.exists(destinationFolder);
+    if (!parentExists?.success || !parentExists.data) return;
+
+    const result = await window.fs.renameItem(sourcePath, newPath);
+    if (!result.success) {
+      alert(`Failed to move item: ${result.error}`);
+      return;
+    }
+
+    const sourceParent = window.fs.dirname(sourcePath);
+    const isDir = (await window.fs.isDirectory(newPath)).data;
+
+    // Track folders to reload
+    let foldersToReload: string[] = [];
+
+    if (isDir) {
+      // Folder was moved
+      foldersToReload = [sourceParent, destinationFolder, newPath];
+    } else {
+      // File was moved
+      foldersToReload =
+        sourceParent === destinationFolder ? [sourceParent] : [sourceParent, destinationFolder];
+    }
+
+    // Save the current open and selected state
+    const prevLoaded = new Set(loadedFolders);
+    const prevSelected = selectedFolderPath;
+
+    // Remove stale entries to force refresh
+    setLoadedFolders((prev) => {
+      const set = new Set(prev);
+      foldersToReload.forEach((f) => set.delete(f));
+      return set;
+    });
+
+    // Wait a moment to ensure FS updates are visible
+    setTimeout(async () => {
+      for (const f of foldersToReload) {
+        await loadDirectory(f, f);
+      }
+
+      // Restore open folders and selection
+      setLoadedFolders((prev) => {
+        const set = new Set(prev);
+        prevLoaded.forEach((f) => set.add(f));
+        foldersToReload.forEach((f) => set.add(f)); // ensure newly moved ones are open
+        return set;
+      });
+
+      setSelectedFolderPath((prev) => {
+        if (prev === sourcePath) return newPath; // if the moved folder was selected, update it
+        return prevSelected;
+      });
+    }, 100);
+  };
+
   const renderTree = (elements: TreeViewElement[]): React.ReactNode => {
     return elements.map((element) => {
-      if (element.children !== undefined) {
-        const isSelected = selectedFolderPath === element.id;
-        return (
-          <div key={element.id} onClickCapture={() => handleFolderClick(element.id)}>
-            <Folder
-              element={element.name}
+      const isFolder = element.children !== undefined;
+      const isSelected = selectedFolderPath === element.id;
+
+      return (
+        <div
+          key={element.id}
+          draggable
+          onDragStart={(e) => handleDragStart(e, element.id)}
+          onDragOver={(e) => handleDragOver(e)}
+          onDrop={(e) => handleDrop(e, element.id, isFolder)}
+        >
+          {isFolder ? (
+            <div onClickCapture={() => handleFolderClick(element.id)}>
+              <Folder
+                element={element.name}
+                value={element.id}
+                isSelect={isSelected}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setContextMenu({
+                    x: e.clientX,
+                    y: e.clientY,
+                    path: element.id,
+                    isDirectory: true,
+                  });
+                }}
+              >
+                {element.children && element.children.length > 0 && renderTree(element.children)}
+              </Folder>
+            </div>
+          ) : (
+            <File
+              key={element.id}
               value={element.id}
-              isSelect={isSelected}
+              onClick={() => handleFileSelect(element.id)}
               onContextMenu={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -464,35 +595,15 @@ useEffect(() => {
                   x: e.clientX,
                   y: e.clientY,
                   path: element.id,
-                  isDirectory: true,
+                  isDirectory: false,
                 });
               }}
             >
-              {element.children && element.children.length > 0 && renderTree(element.children)}
-            </Folder>
-          </div>
-        );
-      } else {
-        return (
-          <File
-            key={element.id}
-            value={element.id}
-            onClick={() => handleFileSelect(element.id)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setContextMenu({
-                x: e.clientX,
-                y: e.clientY,
-                path: element.id,
-                isDirectory: false,
-              });
-            }}
-          >
-            <p>{element.name}</p>
-          </File>
-        );
-      }
+              <p>{element.name}</p>
+            </File>
+          )}
+        </div>
+      );
     });
   };
 
