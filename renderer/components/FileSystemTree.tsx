@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { File, Folder, Tree, type TreeViewElement } from "./ui/file-tree";
 import { Button } from "./ui/button";
-import { FolderOpen, FilePlus, FolderPlus, Trash2, Edit2 } from "lucide-react";
+import { Input } from "./ui/input";
+import { FolderOpen, FilePlus, FolderPlus, Trash2, Edit2, Search, X } from "lucide-react";
 import InputDialog from "./InputDialog";
 
 interface FileSystemItem {
@@ -12,17 +13,26 @@ interface FileSystemItem {
   modified: Date;
 }
 
-interface FileSystemTreeProps {
-  onFileSelect?: (filePath: string) => void;
+interface SearchResult {
+  path: string;
+  matches: number;
 }
 
-export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
+interface FileSystemTreeProps {
+  onFileSelect?: (filePath: string) => void;
+  autoOpen?: boolean;
+  isVisible?: boolean;
+}
+
+export default function FileSystemTree({
+  onFileSelect,
+  autoOpen = true,
+  isVisible = true,
+}: FileSystemTreeProps) {
   const [rootPath, setRootPath] = useState<string | null>(null);
   const [treeElements, setTreeElements] = useState<TreeViewElement[]>([]);
   const [selectedId, setSelectedId] = useState<string | undefined>();
-  const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(
-    null
-  );
+  const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -30,6 +40,15 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
     isDirectory: boolean;
   } | null>(null);
   const [loadedFolders, setLoadedFolders] = useState<Set<string>>(new Set());
+  const [isInitializing, setIsInitializing] = useState<boolean>(true);
+
+  // Search states
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [useRegex, setUseRegex] = useState<boolean>(false);
+  const [matchCase, setMatchCase] = useState<boolean>(false);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [searchResults, setSearchResults] = useState<Set<string>>(new Set());
+
   const [inputDialog, setInputDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -44,24 +63,174 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
     onConfirm: () => {},
   });
 
+  // Search through file contents
+  const searchFileContents = async (dirPath: string, query: string): Promise<SearchResult[]> => {
+    const results: SearchResult[] = [];
+
+    try {
+      const dirResult = await window.fs.readDirectory(dirPath);
+      if (!dirResult.success || !dirResult.data) return results;
+
+      const items: FileSystemItem[] = dirResult.data;
+
+      for (const item of items) {
+        if (item.isDirectory) {
+          // Recursively search subdirectories
+          const subResults = await searchFileContents(item.path, query);
+          results.push(...subResults);
+        } else {
+          // Search file content
+          try {
+            const fileResult = await window.fs.readFile(item.path);
+            if (fileResult.success && fileResult.data) {
+              const content = fileResult.data as string;
+              let matches = 0;
+
+              if (useRegex) {
+                try {
+                  const flags = matchCase ? "g" : "gi";
+                  const regex = new RegExp(query, flags);
+                  const found = content.match(regex);
+                  matches = found ? found.length : 0;
+                } catch (e) {
+                  // Invalid regex, skip
+                  continue;
+                }
+              } else {
+                const searchText = matchCase ? content : content.toLowerCase();
+                const searchQuery = matchCase ? query : query.toLowerCase();
+                let pos = 0;
+                while ((pos = searchText.indexOf(searchQuery, pos)) !== -1) {
+                  matches++;
+                  pos += searchQuery.length;
+                }
+              }
+
+              if (matches > 0) {
+                results.push({ path: item.path, matches });
+              }
+            }
+          } catch (e) {
+            // Skip files that can't be read (binary files, etc.)
+            continue;
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error searching directory:", e);
+    }
+
+    return results;
+  };
+
+  // Trigger search
+  const handleSearch = async () => {
+    if (!searchQuery.trim() || !rootPath) return;
+
+    setIsSearching(true);
+    setSearchResults(new Set());
+
+    try {
+      const results = await searchFileContents(rootPath, searchQuery);
+      const resultPaths = new Set(results.map((r) => r.path));
+      setSearchResults(resultPaths);
+    } catch (e) {
+      console.error("Search error:", e);
+      alert("An error occurred while searching");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Clear search
+  const clearSearch = () => {
+    setSearchQuery("");
+    setSearchResults(new Set());
+  };
+
+  // Filter tree based on search results
+  const filterTreeByResults = (
+    elements: TreeViewElement[],
+    results: Set<string>
+  ): TreeViewElement[] => {
+    if (results.size === 0) return elements;
+
+    return elements.reduce<TreeViewElement[]>((acc, element) => {
+      if (element.children !== undefined) {
+        // It's a folder
+        const filteredChildren = filterTreeByResults(element.children, results);
+
+        // Include folder if it has matching children
+        if (filteredChildren.length > 0) {
+          acc.push({
+            ...element,
+            children: filteredChildren,
+          });
+        }
+      } else {
+        // It's a file - include if in results
+        if (results.has(element.id)) {
+          acc.push(element);
+        }
+      }
+
+      return acc;
+    }, []);
+  };
+
+  const filteredTreeElements = useMemo(() => {
+    if (searchResults.size === 0) {
+      return treeElements;
+    }
+    return filterTreeByResults(treeElements, searchResults);
+  }, [treeElements, searchResults]);
+
   const openFolder = async () => {
     const result = await window.fs.openFolderDialog();
     if (result.success && result.data) {
       setRootPath(result.data);
+      localStorage.setItem("currentFolderPath", result.data); // <-- persist
       setSelectedFolderPath(result.data); // Select root by default
       loadDirectory(result.data);
     }
   };
 
   // Load folder from localStorage on mount
+  // 1) If autoOpen is true (default), load saved folder on mount
   useEffect(() => {
+    if (!autoOpen) {
+      setIsInitializing(false);
+      return;
+    }
+
+    const savedFolderPath = localStorage.getItem("currentFolderPath");
+    if (savedFolderPath) {
+      setRootPath(savedFolderPath);
+      setSelectedFolderPath(savedFolderPath);
+      loadDirectory(savedFolderPath);
+      setIsInitializing(false);
+    } else {
+      // Delay showing "no folder" message
+      const timer = setTimeout(() => {
+        setIsInitializing(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [autoOpen]);
+
+  // 2) If sidebar becomes visible and we don't already have a rootPath, restore saved folder
+  useEffect(() => {
+    if (!isVisible) return; // only act when becoming visible
+    if (rootPath) return; // already loaded, nothing to do
+
     const savedFolderPath = localStorage.getItem("currentFolderPath");
     if (savedFolderPath) {
       setRootPath(savedFolderPath);
       setSelectedFolderPath(savedFolderPath);
       loadDirectory(savedFolderPath);
     }
-  }, []);
+    // only fire when isVisible changes, or rootPath changes
+  }, [isVisible, rootPath]);
 
   const loadDirectory = async (dirPath: string, parentId?: string) => {
     const result = await window.fs.readDirectory(dirPath);
@@ -86,9 +255,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
           return tree.map((node) => {
             if (node.id === parentId) {
               // Merge new children with already loaded subfolders
-              const existingChildrenMap = new Map(
-                node.children?.map((c) => [c.id, c]) || []
-              );
+              const existingChildrenMap = new Map(node.children?.map((c) => [c.id, c]) || []);
               const mergedChildren = items.map((item) => {
                 if (existingChildrenMap.has(item.id)) {
                   // Preserve children for subfolders
@@ -115,6 +282,8 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
         { id: dirPath, name: window.fs.basename(dirPath), isSelectable: true, children: items },
       ]);
       setLoadedFolders(new Set([dirPath]));
+      setRootPath(dirPath);
+      localStorage.setItem("currentFolderPath", dirPath); // <-- persist
     }
   };
 
@@ -233,59 +402,58 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
   };
 
   const renameItem = async (oldPath: string) => {
-      const oldName = window.fs.basename(oldPath);               // "file.md"
-      const parentPath = window.fs.dirname(oldPath);             // "C:\folder"
+    const oldName = window.fs.basename(oldPath); // "file.md"
+    const parentPath = window.fs.dirname(oldPath); // "C:\folder"
 
-      if (!oldPath || !parentPath) {
-          alert("Invalid path: cannot rename root or outside directory.");
-          return;
-      }
+    if (!oldPath || !parentPath) {
+      alert("Invalid path: cannot rename root or outside directory.");
+      return;
+    }
 
-      setInputDialog({
-          isOpen: true,
-          title: "Rename File or Folder",
-          placeholder: "New name (include extension)",
-          defaultValue: oldName,
-          onConfirm: async (newName) => {
-              if (!newName || newName === oldName) return;
+    setInputDialog({
+      isOpen: true,
+      title: "Rename File or Folder",
+      placeholder: "New name (include extension)",
+      defaultValue: oldName,
+      onConfirm: async (newName) => {
+        if (!newName || newName === oldName) return;
 
-              const newPath = window.fs.join(parentPath, newName.trim());
-              const result = await window.fs.renameItem(oldPath, newPath);
+        const newPath = window.fs.join(parentPath, newName.trim());
+        const result = await window.fs.renameItem(oldPath, newPath);
 
-              if (result.success) {
-                  // CASE 1: Renamed the ROOT folder itself
-                  if (oldPath === rootPath) {
-                      const newRootPath = newPath;
-                      setRootPath(newRootPath);
-                      setSelectedFolderPath(newRootPath);
-                      localStorage.setItem("currentFolderPath", newRootPath);
+        if (result.success) {
+          // CASE 1: Renamed the ROOT folder itself
+          if (oldPath === rootPath) {
+            const newRootPath = newPath;
+            setRootPath(newRootPath);
+            setSelectedFolderPath(newRootPath);
+            localStorage.setItem("currentFolderPath", newRootPath);
 
-                      // Reload tree to reflect the renamed root
-                      await loadDirectory(newRootPath);
-                      alert("Root folder renamed successfully!");
-                      return;
-                  }
+            // Reload tree to reflect the renamed root
+            await loadDirectory(newRootPath);
+            alert("Root folder renamed successfully!");
+            return;
+          }
 
-                  // CASE 2: Renamed a child file/folder
-                  const reloadPath = parentPath || rootPath!;
-                  setLoadedFolders((prev) => {
-                      const newSet = new Set(prev);
-                      newSet.delete(reloadPath);
-                      return newSet;
-                  });
+          // CASE 2: Renamed a child file/folder
+          const reloadPath = parentPath || rootPath!;
+          setLoadedFolders((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(reloadPath);
+            return newSet;
+          });
 
-                  if (reloadPath === rootPath) {
-                      await loadDirectory(reloadPath);
-                  } else {
-                      await loadDirectory(reloadPath, reloadPath);
-                  }
-              } else {
-                  alert(`Failed to rename item: ${result.error}`);
-              }
-          },
-      });
+          if (reloadPath === rootPath) {
+            await loadDirectory(reloadPath);
+          } else {
+            await loadDirectory(reloadPath, reloadPath);
+          }
+        } else {
+          alert(`Failed to rename item: ${result.error}`);
+        }
+      },
+    });
   };
-
 
   const handleFolderClick = async (folderId: string, e?: React.MouseEvent) => {
     // Set this folder as selected
@@ -322,9 +490,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
     const sourcePath = e.dataTransfer.getData("text/plain");
     if (!sourcePath || sourcePath === targetPath) return;
 
-    const destinationFolder = isTargetFolder
-      ? targetPath
-      : window.fs.dirname(targetPath);
+    const destinationFolder = isTargetFolder ? targetPath : window.fs.dirname(targetPath);
     const newPath = window.fs.join(destinationFolder, window.fs.basename(sourcePath));
     if (newPath === sourcePath) return;
 
@@ -349,9 +515,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
     } else {
       // File was moved
       foldersToReload =
-        sourceParent === destinationFolder
-          ? [sourceParent]
-          : [sourceParent, destinationFolder];
+        sourceParent === destinationFolder ? [sourceParent] : [sourceParent, destinationFolder];
     }
 
     // Save the current open and selected state
@@ -398,7 +562,6 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
           onDragStart={(e) => handleDragStart(e, element.id)}
           onDragOver={(e) => handleDragOver(e)}
           onDrop={(e) => handleDrop(e, element.id, isFolder)}
-          onClickCapture={() => handleFolderClick(element.id)}
         >
           {isFolder ? (
             <div onClickCapture={() => handleFolderClick(element.id)}>
@@ -417,13 +580,12 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
                   });
                 }}
               >
-                {element.children &&
-                  element.children.length > 0 &&
-                  renderTree(element.children)}
+                {element.children && element.children.length > 0 && renderTree(element.children)}
               </Folder>
             </div>
           ) : (
             <File
+              key={element.id}
               value={element.id}
               onClick={() => handleFileSelect(element.id)}
               onContextMenu={(e) => {
@@ -466,6 +628,7 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
           const createResult = await window.fs.createFolder(newFolderPath);
           if (createResult.success) {
             setRootPath(newFolderPath);
+            localStorage.setItem("currentFolderPath", newFolderPath); // <-- persist
             setSelectedFolderPath(newFolderPath); // Select the newly created folder
             loadDirectory(newFolderPath);
           } else {
@@ -475,6 +638,10 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
       },
     });
   };
+
+  if (isInitializing) {
+    return null;
+  }
 
   if (!rootPath) {
     return (
@@ -494,8 +661,8 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
         <span
           className="text-sm font-semibold truncate flex-1"
           title={selectedFolderPath || rootPath || "No folder selected"}
-              >
-                  {selectedFolderPath || rootPath || "No folder selected"}
+        >
+          {selectedFolderPath || rootPath || "No folder selected"}
         </span>
         <div className="flex gap-1">
           <Button
@@ -586,7 +753,12 @@ export default function FileSystemTree({ onFileSelect }: FileSystemTreeProps) {
           <button
             className="w-full px-4 py-2 text-sm hover:bg-accent text-left flex items-center gap-2"
             onClick={() => {
-              console.log("Renaming path:", contextMenu.path, "Is directory?", contextMenu.isDirectory);
+              console.log(
+                "Renaming path:",
+                contextMenu.path,
+                "Is directory?",
+                contextMenu.isDirectory
+              );
               renameItem(contextMenu.path);
               setContextMenu(null);
             }}

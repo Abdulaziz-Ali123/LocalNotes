@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { cn } from "../../lib/util"
+import * as React from "react";
+import { cn } from "../../lib/util";
 
 export function Separator({ className, ...props }: React.ComponentProps<"div">) {
   return (
@@ -11,7 +11,7 @@ export function Separator({ className, ...props }: React.ComponentProps<"div">) 
       {...props}
       className={cn("h-px w-full bg-border my-2", className)}
     />
-  )
+  );
 }
 
-export default Separator
+export default Separator;

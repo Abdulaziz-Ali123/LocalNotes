@@ -61,19 +61,7 @@ export function FileTree() {
     <Tree
       className="bg-background overflow-hidden rounded-md p-2"
       initialSelectedId="7"
-      initialExpandedItems={[
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8",
-        "9",
-        "10",
-        "11",
-      ]}
+      initialExpandedItems={["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"]}
       elements={ELEMENTS}
     >
       <Folder element="src" value="1">
