@@ -11,6 +11,7 @@ import { Button } from "@/renderer/components/ui/button";
 import { X } from "lucide-react";
 import TabBar from "@/renderer/components/TabBar";
 import { SidebarProvider, Sidebar, SidebarContent } from "../components/ui/sidebar";
+import CanvasEditor from "@/renderer/components/CanvasEditor";
 
 export default function EditorSpace({
   handleFileSelect,
@@ -155,6 +156,27 @@ export default function EditorSpace({
                           />
                         </div>
                       )
+                    ) : selectedFile.toLowerCase().endsWith(".canvas") ? (
+                      <div className="flex flex-col w-full h-full">
+                        <div className="flex justify-end mb-2 px-2">
+                          <Button
+                            onClick={handleSave}
+                            className="bg-accent px-4 py-1 rounded-md shadow-neumorph-sm hover:shadow-neumorph-inset"
+                            disabled={isSaving}
+                          >
+                            Save
+                          </Button>
+                        </div>
+                        <div className="flex-1">
+                          {/* Canvas drawing editor */}
+                          <CanvasEditor
+                            value={fileContent}
+                            onChange={setFileContent}
+                            onSave={handleSave}
+                            isSaving={isSaving}
+                          />
+                        </div>
+                      </div>
                     ) : (
                       <div className="flex flex-col w-full h-full">
                         <div className="flex justify-end mb-2 px-2">

@@ -18,6 +18,7 @@ import SearchComponent from "@/renderer/components/SearchComponent";
 import { produce } from "immer";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { TabsSlice } from "@/renderer/types/tab-slice";
+import CanvasEditor from "@/renderer/components/CanvasEditor";
 
 const AUTOSAVE_INTERVAL = 5000;
 
@@ -141,14 +142,14 @@ export default function Editor() {
         {/* Activity rail / fixed; controls the size of the left bar containing the buttons*/}
         <div className="flex flex-col items-center gap-2 px-2 py-4 bg-background w-18 border-r">
           {/* justify-center can be added here to make it vertically centered */}
-          <button
-            type="button"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => handleSidebarButtonClick("file")}
-            className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
-            title="Files"
-          >
-                    <img src="/assets/file_explorer.png" alt="Files" className="w-16 h-16 object-contain" />
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => handleSidebarButtonClick("file")}
+              className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
+              title="Files"
+            >
+                      <img src="/assets/file_explorer.png" alt="Files" className="w-16 h-16 object-contain" />
                 </button>
                 <button 
                 type="button"
@@ -210,38 +211,37 @@ export default function Editor() {
                                     <div className="text-sm font-semibold text-muted-foreground truncate max-w-[70%]">
                                         {selectedFile}
                                     </div>
-                                    {/* If it's a markdown file, show preview/edit toggle */}
-                                        {selectedFile.toLowerCase().endsWith(".md") && (
-                                            <div className="flex items-center bg-background border border-border rounded-md p-1">
-                                                <button
-                                                    onClick={() => {
-                                                        setPreviewMode(false);
-                                                        setLivePreview(false);
-                                                    }}
-                                                    className={`px-2 py-1 text-xs rounded ${!previewMode && !livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        setPreviewMode(true);
-                                                        setLivePreview(false);
-                                                    }}
-                                                    className={`px-2 py-1 text-xs rounded ${previewMode && !livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
-                                                >
-                                                    Preview
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        setLivePreview((v) => !v);
-                                                        setPreviewMode(true);
-                                                    }}
-                                                    className={`px-2 py-1 text-xs rounded ${livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
-                                                >
-                                                    Live
-                                                </button>
-                                            </div>
-                                        )}
+                                    {selectedFile.toLowerCase().endsWith(".md") && (
+                                        <div className="flex items-center bg-background border border-border rounded-md p-1">
+                                            <button
+                                                onClick={() => {
+                                                    setPreviewMode(false);
+                                                    setLivePreview(false);
+                                                }}
+                                                className={`px-2 py-1 text-xs rounded ${!previewMode && !livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setPreviewMode(true);
+                                                    setLivePreview(false);
+                                                }}
+                                                className={`px-2 py-1 text-xs rounded ${previewMode && !livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
+                                            >
+                                                Preview
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setLivePreview((v) => !v);
+                                                    setPreviewMode(true);
+                                                }}
+                                                className={`px-2 py-1 text-xs rounded ${livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
+                                            >
+                                                Live
+                                            </button>
+                                        </div>
+                                    )}
                                     <Button
                                         onClick={handleSave}
                                         className="bg-accent px-4 py-1 rounded-md shadow-neumorph-sm hover:shadow-neumorph-inset"
@@ -252,7 +252,7 @@ export default function Editor() {
                                 </div>
 
                                 {/* Editable / Preview area */}
-                                <div className="flex-1 w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border">
+                                <div className="flex-1 w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border overflow-y-auto">
                                     {selectedFile.toLowerCase().endsWith(".md") ? (
                                         livePreview ? (
                                             <div className="flex h-full gap-4">
@@ -281,11 +281,23 @@ export default function Editor() {
                                                 onChange={(e) => {
                                                     setFileContent(e.target.value);
                                                 }}
-                                                className="h-full w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border-0"
+                                                className="h-full w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
                                                 spellCheck={false}
                                                 autoFocus
                                             />
                                         )
+                                    ) : selectedFile.toLowerCase().endsWith(".canvas") ? (
+                                        <div className="flex flex-col w-full h-full">
+                                            {/* Optional: you already have a Save button in the header */}
+                                            <div className="flex-1">
+                                                <CanvasEditor
+                                                    value={fileContent}
+                                                    onChange={setFileContent}
+                                                    onSave={handleSave}
+                                                    isSaving={isSaving}
+                                                />
+                                            </div>
+                                        </div>
                                     ) : (
                                         <textarea
                                             key={selectedFile}
