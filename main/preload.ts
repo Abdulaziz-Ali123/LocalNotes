@@ -34,6 +34,10 @@ const fileSystemHandler = {
   join: (...segments: string[]) => path.join(...segments),
   exists: async (targetPath: string) => ipcRenderer.invoke("fs:exists", targetPath),
   isDirectory: (path: string) => ipcRenderer.invoke("fs:isDirectory", path),
+  openFileDialog: () => ipcRenderer.invoke("fs:openFileDialog"),
+  copyFilesTo: (srcPaths: string[], destFolder: string) =>
+    ipcRenderer.invoke("fs:copyFilesTo", srcPaths, destFolder),
+  downloadImage: (imageUrl: string) => ipcRenderer.invoke("fs:downloadImage", imageUrl),
 };
 
 const tabHandler = {
