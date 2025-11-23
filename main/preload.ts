@@ -29,6 +29,10 @@ const fileSystemHandler = {
   extname: (p: string) => path.extname(p),
   sep: path.sep,
   openFolderDialog: () => ipcRenderer.invoke("fs:openFolderDialog"),
+  selectImportFiles: () => ipcRenderer.invoke("fs:selectImportFiles"),
+  mergeFiles: (sourceFiles: string[], targetFile: string) => ipcRenderer.invoke("fs:mergeFiles", sourceFiles, targetFile),
+  importFolder: (src: string, dest: string) => ipcRenderer.invoke("fs:importFolder", src, dest),
+  copyFile: (src: string, dest: string) => ipcRenderer.invoke("fs:copyFile", src, dest),
   basename: (filePath: string) => path.basename(filePath),
   dirname: (filePath: string) => path.dirname(filePath),
   join: (...segments: string[]) => path.join(...segments),
@@ -53,6 +57,8 @@ contextBridge.exposeInMainWorld("autosaveAPI", {
     ipcRenderer.invoke("autosave:save", { filePath, content }),
   load: (filePath: string) => ipcRenderer.invoke("autosave:load", filePath),
 });
+
+
 
 export type IpcHandler = typeof handler;
 export type FileSystemHandler = typeof fileSystemHandler;

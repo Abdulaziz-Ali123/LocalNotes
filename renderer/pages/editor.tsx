@@ -5,7 +5,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "../components/ui/sidebar";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
     ResizableHandle,
     ResizablePanel,
@@ -29,39 +29,64 @@ export default function Editor() {
   const [isSaving, setIsSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState<boolean>(true);
   const [livePreview, setLivePreview] = useState<boolean>(false);
-
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showImportToNoteModal, setShowImportToNoteModal] = useState<{ visible: boolean; importFiles: string[]; }>({ visible: false, importFiles: [] });
+  const [availableNotes, setAvailableNotes] = useState<string[]>([]);
+  const [selectedTargetNote, setSelectedTargetNote] = useState<string>("");
   const initializeTabs = useBoundStore((state) => state.tabs.initialize);
+
+    // Add this ref at the top with your other state
+    const exportMenuRef = useRef<HTMLDivElement>(null);
+
+    // Add this useEffect
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+                setShowExportMenu(false);
+            }
+        };
+
+        if (showExportMenu) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showExportMenu]);
 
   useEffect(() => {
     initializeTabs();
   }, [initializeTabs]);
 
   // Handle file selction from tree
-  const handleFileSelect = async (filePath: string) => {
-    const result = await window.fs.readFile(filePath);
-    if (!result.success) {
-      console.error("Failed to read file:", result.error);
-      return;
-    }
-
-    const selectedTabId = useBoundStore.getState().tabs.selectedTabId;
-
-    // Update tab state directly
-    useBoundStore.setState(
-      produce((state: TabsSlice) => {
-        const tab = state.tabs.items.find((t: any) => t.id === selectedTabId);
-        if (tab) {
-          tab.content = result.data;
-          tab.filePath = filePath;
-          tab.name = window.fs.basename(filePath);
+    const handleFileSelect = async (filePath: string) => {
+        const result = await window.fs.readFile(filePath);
+        if (!result.success) {
+            console.error("Failed to read file:", result.error);
+            return;
         }
-        return state;
-      })
-    );
 
-    setSelectedFile(filePath);
-    setFileContent(result.data);
-  };
+        const selectedTabId = useBoundStore.getState().tabs.selectedTabId;
+
+        // Update tab state directly
+        useBoundStore.setState(
+            produce((state: TabsSlice) => {
+                const tab = state.tabs.items.find((t: any) => t.id === selectedTabId);
+                if (tab) {
+                    tab.content = result.data;
+                    tab.filePath = filePath;
+                    tab.name = window.fs.basename(filePath);
+                    tab.fileType = result.type; // 'text' or 'binary'
+                    tab.mimeType = result.mimeType; // For images
+                }
+                return state;
+            })
+        );
+
+        setSelectedFile(filePath);
+        setFileContent(result.data);
+    };
 
   // Load file content when selected file changes
 
@@ -136,6 +161,122 @@ export default function Editor() {
     return () => clearInterval(interval);
   }, [selectedFile, fileContent]);
 
+   const handleImportFiles = async () => {
+        const result = await window.fs.selectImportFiles(); // new IPC
+        if (!result.success || result.paths.length === 0) return;
+
+        const targetRoot = localStorage.getItem("currentFolderPath");
+
+        for (const filePath of result.paths) {
+            const fileName = window.fs.basename(filePath);
+            const destPath = window.fs.join(targetRoot, fileName);
+            await window.fs.copyFile(filePath, destPath);
+        }
+
+        alert("File(s) imported successfully");
+        window.location.reload();
+   };
+
+  const handleImportFolder = async () => {
+        const importResult = await window.fs.openFolderDialog();
+        if (!importResult.success || !importResult.data) return;
+
+        const importFolder = importResult.data;
+        const targetRoot = localStorage.getItem("currentFolderPath");
+
+        if (!targetRoot) {
+            alert("No project folder is currently open.");
+            return;
+        }
+
+        const copyResult = await window.fs.importFolder(importFolder, targetRoot);
+
+        if (copyResult.success) {
+            alert("Notes imported successfully!");
+            window.location.reload(); // Reload tree
+        } else {
+            alert(`Import failed: ${copyResult.error}`);
+        }
+    };
+
+    const getAllSupportedNotes = async (folderPath: string): Promise<string[]> => {
+        const result = await window.fs.readDirectory(folderPath);
+        if (!result.success) return [];
+
+        const files: string[] = [];
+        const supportedExtensions = [".md", ".txt", ".pdf", ".docx"];
+
+        for (const item of result.data) {
+            if (item.isDirectory) {
+                const subFiles = await getAllSupportedNotes(item.path);
+                files.push(...subFiles);
+            } else {
+                const lower = item.name.toLowerCase();
+                if (supportedExtensions.some((ext) => lower.endsWith(ext))) {
+                    files.push(item.path);
+                }
+            }
+        }
+
+        return files;
+    };
+
+
+    const handleImportIntoExistingNote = async () => {
+        const result = await window.fs.selectImportFiles();
+        if (!result.success) return;
+
+        const importFiles = result.paths;
+
+        const root = localStorage.getItem("currentFolderPath");
+        const noteFiles = await getAllSupportedNotes(root);
+
+        setAvailableNotes(noteFiles);
+        setSelectedTargetNote(noteFiles[0] ?? "");
+        setShowImportToNoteModal({ visible: true, importFiles });
+    };
+
+
+    const handleConfirmMerge = async () => {
+        if (showImportToNoteModal.importFiles.length === 0) {
+            alert("No files selected to import.");
+            return;
+        }
+
+        if (!selectedTargetNote) {
+            alert("Please select a target note.");
+            return;
+        }
+
+        const targetRoot = localStorage.getItem("currentFolderPath");
+
+        // First, copy all the files to the workspace
+        const copiedFiles: string[] = [];
+        for (const filePath of showImportToNoteModal.importFiles) {
+            const fileName = window.fs.basename(filePath);
+            const destPath = window.fs.join(targetRoot, fileName);
+
+            await window.fs.copyFile(filePath, destPath);
+            copiedFiles.push(fileName); // Store just the filename, not full path
+        }
+
+        // Then merge with the relative filenames
+        await window.fs.mergeFiles(
+            copiedFiles, // Use the new filenames instead of original paths
+            selectedTargetNote
+        );
+
+        alert("Imported into note successfully.");
+
+        // If editor has this note open, reload content
+        if (selectedFile === selectedTargetNote) {
+            const content = await window.fs.readFile(selectedTargetNote);
+            setFileContent(content.data);
+        }
+
+        setShowImportToNoteModal({ visible: false, importFiles: [] });
+    };
+
   return (
     <React.Fragment>
       <div className="flex flex-row">
@@ -158,9 +299,22 @@ export default function Editor() {
                 className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Search">
                     <img src="/assets/search.png" alt="Search" className="w-16 h-16 object-contain" />
                 </button>
-                <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Export">
+                <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setShowExportMenu((prev) => !prev)}
+                className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" 
+                title="Export / Import">
                     <img src="/assets/export.png" alt="Export" className="w-16 h-16 object-contain" />
-                </button>
+                  </button>
+                  {showExportMenu && (
+                      <div ref={exportMenuRef}  className="absolute left-20 top-24 bg-background border rounded-md shadow-md p-2 z-50 w-40">
+                          <button onClick={handleImportFiles}>Import File(s)</button>
+                          <button onClick={handleImportFolder}>Import Folder</button>
+                          <button onClick={handleImportIntoExistingNote}>Import into Existing Note</button>
+                      </div>
+                  )}
+
                 <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Ai Assistant - Coming Soon">
                     <img src="/assets/ai_helper.png" alt="AI" className="w-16 h-16 object-contain" />
                 </button>
@@ -251,66 +405,62 @@ export default function Editor() {
                                     </Button>
                                 </div>
 
-                                {/* Editable / Preview area */}
-                                <div className="flex-1 w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border overflow-y-auto">
-                                    {selectedFile.toLowerCase().endsWith(".md") ? (
-                                        livePreview ? (
-                                            <div className="flex h-full gap-4">
-                                                <textarea
-                                                    key={selectedFile}
-                                                    value={fileContent}
-                                                    onChange={(e) => {
-                                                        setFileContent(e.target.value);
-                                                    }}
-                                                    className="h-full w-1/2 bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
-                                                    spellCheck={false}
-                                                    autoFocus
-                                                />
-                                                <div className="h-full w-1/2 overflow-auto bg-background rounded-lg p-3 border border-border">
-                                                    <MarkdownViewer content={fileContent} />
-                                                </div>
-                                            </div>
-                                        ) : previewMode ? (
-                                            <div className="h-full overflow-auto">
-                                                <MarkdownViewer content={fileContent} />
-                                            </div>
-                                        ) : (
-                                            <textarea
-                                                key={selectedFile}
-                                                value={fileContent}
-                                                onChange={(e) => {
-                                                    setFileContent(e.target.value);
-                                                }}
-                                                className="h-full w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
-                                                spellCheck={false}
-                                                autoFocus
-                                            />
-                                        )
-                                    ) : selectedFile.toLowerCase().endsWith(".canvas") ? (
-                                        <div className="flex flex-col w-full h-full">
-                                            {/* Optional: you already have a Save button in the header */}
-                                            <div className="flex-1">
-                                                <CanvasEditor
-                                                    value={fileContent}
-                                                    onChange={setFileContent}
-                                                    onSave={handleSave}
-                                                    isSaving={isSaving}
-                                                />
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <textarea
-                                            key={selectedFile}
-                                            value={fileContent}
-                                            onChange={(e) => {
-                                                setFileContent(e.target.value);
-                                            }}
-                                            className="h-full w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
-                                            spellCheck={false}
-                                            autoFocus
-                                        />
-                                    )}
-                                </div>
+                                
+                                  {/* Editable / Preview area */}
+                                  <div className="flex-1 w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border">
+                                      {selectedFile.toLowerCase().match(/\.(png|jpg|jpeg|gif|bmp|svg|webp|ico)$/) ? (
+                                          // Display image
+                                          <div className="flex items-center justify-center h-full">
+                                              <img
+                                                  src={`data:${selectedTab?.mimeType || 'image/png'};base64,${fileContent}`}  // Add curly braces
+                                                  alt={window.fs.basename(selectedFile)}
+                                                  className="max-w-full max-h-full object-contain"
+                                              />
+                                          </div>
+                                      ) : selectedFile.toLowerCase().endsWith(".md") ? (
+                                          // Existing markdown logic
+                                          livePreview ? (
+                                              <div className="flex h-full gap-4">
+                                                  {/* ... your existing markdown live preview code ... */}
+                                              </div>
+                                          ) : previewMode ? (
+                                              <div className="h-full overflow-y-auto">
+                                                  <MarkdownViewer content={fileContent} />
+                                              </div>
+                                          ) : (
+                                              <textarea
+                                                  key={selectedFile}
+                                                  value={fileContent}
+                                                  onChange={(e) => setFileContent(e.target.value)}
+                                                  className="h-full w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
+                                                  spellCheck={false}
+                                                  autoFocus
+                                              />
+                                          )
+                                      ) : selectedFile.toLowerCase().endsWith(".canvas") ? (
+                                          // Existing canvas logic
+                                          <div className="flex flex-col w-full h-full">
+                                              <div className="flex-1">
+                                                  <CanvasEditor
+                                                      value={fileContent}
+                                                      onChange={setFileContent}
+                                                      onSave={handleSave}
+                                                      isSaving={isSaving}
+                                                  />
+                                              </div>
+                                          </div>
+                                      ) : (
+                                          // Text editor for other files
+                                          <textarea
+                                              key={selectedFile}
+                                              value={fileContent}
+                                              onChange={(e) => setFileContent(e.target.value)}
+                                              className="h-full w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
+                                              spellCheck={false}
+                                              autoFocus
+                                          />
+                                      )}
+                                  </div>
                             </div>
                         ) : (
                             <div className="flex h-full items-center justify-center">
@@ -327,7 +477,47 @@ export default function Editor() {
                     </div>
                     </ResizablePanel>
             </ResizablePanelGroup>
-      </div>
+          </div>
+
+          {showImportToNoteModal.visible && (
+              <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+                  <div className="bg-background border rounded-lg p-4 w-96">
+
+                      <h2 className="font-semibold mb-2 text-lg">
+                          Import into existing note
+                      </h2>
+
+                      <label className="block text-sm mb-1">Choose note:</label>
+                      <select
+                          className="w-full border p-2 rounded mb-4"
+                          value={selectedTargetNote}
+                          onChange={(e) => setSelectedTargetNote(e.target.value)}
+                      >
+                          {availableNotes.map((path) => (
+                              <option key={path} value={path}>
+                                  {path.split("/").pop()}
+                              </option>
+                          ))}
+                      </select>
+
+                      <div className="flex justify-end gap-2">
+                          <button
+                              onClick={() => setShowImportToNoteModal({ visible: false, importFiles: [] })}
+                              className="px-3 py-1 border rounded"
+                          >
+                              Cancel
+                          </button>
+
+                          <button
+                              onClick={handleConfirmMerge}
+                              className="px-3 py-1 bg-accent text-background rounded"
+                          >
+                              Import
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          )}
     </React.Fragment>
   );
 }
