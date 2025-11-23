@@ -29,6 +29,7 @@ const fileSystemHandler = {
   extname: (p: string) => path.extname(p),
   sep: path.sep,
   openFolderDialog: () => ipcRenderer.invoke("fs:openFolderDialog"),
+  openSaveDialog: () => ipcRenderer.invoke("fs:openSaveDialog"),
   basename: (filePath: string) => path.basename(filePath),
   dirname: (filePath: string) => path.dirname(filePath),
   join: (...segments: string[]) => path.join(...segments),
