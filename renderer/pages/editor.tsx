@@ -18,6 +18,7 @@ import SearchComponent from "@/renderer/components/SearchComponent";
 import { produce } from "immer";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { TabsSlice } from "@/renderer/types/tab-slice";
+import { useTheme } from "@/renderer/lib/theme";
 
 const AUTOSAVE_INTERVAL = 5000;
 
@@ -28,6 +29,8 @@ export default function Editor() {
   const [isSaving, setIsSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState<boolean>(true);
   const [livePreview, setLivePreview] = useState<boolean>(false);
+  const { theme, setTheme } = useTheme();
+  const themeIcon = theme === "nord" ? "/assets/theme.png" : theme === "light" ? "/assets/theme.png" : "/assets/theme.png";
 
   const initializeTabs = useBoundStore((state) => state.tabs.initialize);
 
@@ -135,6 +138,25 @@ export default function Editor() {
     return () => clearInterval(interval);
   }, [selectedFile, fileContent]);
 
+  useEffect(() => {
+    const unsubscribe = window.ipc.on("fs:itemDeleted", (deletedPath: string) => {
+      if (deletedPath === selectedFile) {
+        setSelectedFile(null);
+        setFileContent("");
+      }
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [selectedFile]);
+
+  const toggleTheme = () => {
+    if (theme === "nord") setTheme("light");
+    else if (theme === "light") setTheme("dark");
+    else setTheme("nord");
+  };
+
   return (
     <React.Fragment>
       <div className="flex flex-row">
@@ -172,6 +194,15 @@ export default function Editor() {
                  <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="File Change History">
                     <img src="/assets/folder.png" alt="Folder" className="w-16 h-16 object-contain" />
                 </button>
+                <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={toggleTheme}
+            className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
+            title={`Theme: ${theme.charAt(0).toUpperCase() + theme.slice(1)}`}
+          >
+            <img src={themeIcon} alt="Theme" className="w-16 h-16 object-contain" />
+          </button>
               </div>
             <ResizablePanelGroup
                 direction="horizontal"
