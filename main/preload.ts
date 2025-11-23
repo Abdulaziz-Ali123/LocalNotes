@@ -53,6 +53,28 @@ contextBridge.exposeInMainWorld("autosaveAPI", {
     ipcRenderer.invoke("autosave:save", { filePath, content }),
   load: (filePath: string) => ipcRenderer.invoke("autosave:load", filePath),
 });
+contextBridge.exposeInMainWorld("fileEvents", {
+  onDeleted: (callback) =>
+    ipcRenderer.on("file:deleted", (_, path) => callback(path)),
+});
+contextBridge.exposeInMainWorld("ipc", {
+  on(channel, callback) {
+    const subscription = (_event, ...args) => callback(...args);
+    ipcRenderer.on(channel, subscription);
+
+    return () => {
+      ipcRenderer.removeListener(channel, subscription);
+    };
+  },
+
+  send(channel, data) {
+    ipcRenderer.send(channel, data);
+  },
+
+  invoke(channel, data) {
+    return ipcRenderer.invoke(channel, data);
+  }
+});
 
 export type IpcHandler = typeof handler;
 export type FileSystemHandler = typeof fileSystemHandler;

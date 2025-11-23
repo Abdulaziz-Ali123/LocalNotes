@@ -14,6 +14,8 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Skeleton } from "./skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip";
 
+import ThemeSelector from "@/renderer/components/ui/ThemeSelector";
+
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SIDEBAR_WIDTH = "16rem";
@@ -320,13 +322,29 @@ function SidebarHeader({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function SidebarFooter({ className, ...props }: React.ComponentProps<"div">) {
+  const { theme, setTheme } = require("@/renderer/lib/theme").useTheme();
+  const toggleTheme = () => {
+    // Cycle through nord -> light -> dark -> nord
+    if (theme === "nord") setTheme("light");
+    else if (theme === "light") setTheme("dark");
+    else setTheme("nord");
+  };
   return (
     <div
       data-slot="sidebar-footer"
       data-sidebar="footer"
       className={cn("flex flex-col gap-2 p-2", className)}
       {...props}
-    />
+    >
+      {/* ...existing footer content... */}
+      <ThemeSelector />
+      <button
+        className="mt-2 px-3 py-2 rounded bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent/80 transition"
+        onClick={toggleTheme}
+      >
+        Toggle Theme
+      </button>
+    </div>
   );
 }
 

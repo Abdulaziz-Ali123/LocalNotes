@@ -331,11 +331,15 @@ ipcMain.handle("fs:createFile", async (event, filePath: string, content: string 
 ipcMain.handle("fs:deleteItem", async (event, itemPath: string) => {
   try {
     const stats = await fs.stat(itemPath);
+
     if (stats.isDirectory()) {
       await fs.rm(itemPath, { recursive: true, force: true });
     } else {
       await fs.unlink(itemPath);
     }
+
+    event.sender.send("fs:itemDeleted", itemPath);
+
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
