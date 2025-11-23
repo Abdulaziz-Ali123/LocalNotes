@@ -4,6 +4,8 @@ import serve from "electron-serve";
 import { createWindow } from "./helpers";
 import fs from "fs/promises";
 import fsSync from "fs";
+import http from "http";
+import https from "https";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -384,6 +386,106 @@ ipcMain.handle("fs:openFolderDialog", async () => {
     return { success: true, data: result.filePaths[0] };
   } catch (error: any) {
     return { success: false, error: error.message };
+  }
+});
+
+// Open file selection dialog (multi-select) and return selected file paths
+ipcMain.handle("fs:openFileDialog", async () => {
+  try {
+    const result = await dialog.showOpenDialog({
+      properties: ["openFile", "multiSelections"],
+    });
+    if (result.canceled) {
+      return { success: false, canceled: true };
+    }
+    return { success: true, paths: result.filePaths };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Copy provided files into destination folder
+ipcMain.handle("fs:copyFilesTo", async (_event, srcPaths: string[], destFolder: string) => {
+  try {
+    if (!Array.isArray(srcPaths) || srcPaths.length === 0) {
+      return { success: false, error: "No source files provided" };
+    }
+    if (!destFolder) {
+      return { success: false, error: "No destination folder provided" };
+    }
+
+    await Promise.all(
+      srcPaths.map(async (src) => {
+        const base = path.basename(src);
+        const target = path.join(destFolder, base);
+        // If target exists, overwrite
+        await fs.copyFile(src, target);
+      })
+    );
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Download an image (remote URL, data URL or local file) and save to user-chosen location
+ipcMain.handle("fs:downloadImage", async (_event, imageUrl: string) => {
+  try {
+    if (!imageUrl) throw new Error("No image URL provided");
+
+    // derive a sensible default filename
+    let defaultName = "image";
+    try {
+      const u = new URL(imageUrl);
+      const base = path.basename(u.pathname);
+      if (base) defaultName = base;
+    } catch (e) {
+      // not a valid URL, maybe a local path
+      const base = path.basename(imageUrl || "");
+      if (base) defaultName = base;
+    }
+
+    const { canceled, filePath } = await dialog.showSaveDialog({ defaultPath: defaultName });
+    if (canceled || !filePath) return { success: false, canceled: true };
+
+    // data URL (base64)
+    if (imageUrl.startsWith("data:")) {
+      const matches = imageUrl.match(/^data:(.+);base64,(.*)$/);
+      if (!matches) throw new Error("Invalid data URL");
+      const data = Buffer.from(matches[2], "base64");
+      await fs.writeFile(filePath, data);
+      return { success: true, data: filePath };
+    }
+
+    // local file path (file:// or existing path)
+    if (imageUrl.startsWith("file://") || fsSync.existsSync(imageUrl)) {
+      const src = imageUrl.startsWith("file://") ? new URL(imageUrl).pathname : imageUrl;
+      await fs.copyFile(src, filePath);
+      return { success: true, data: filePath };
+    }
+
+    // remote http/https
+    await new Promise<void>((resolve, reject) => {
+      const client = imageUrl.startsWith("https") ? https : http;
+      const request = client.get(imageUrl, (response) => {
+        if (!response || (response.statusCode && response.statusCode >= 400)) {
+          return reject(new Error(`Failed to download image, status ${response?.statusCode}`));
+        }
+        const fileStream = fsSync.createWriteStream(filePath);
+        response.pipe(fileStream);
+        fileStream.on("finish", () => {
+          fileStream.close();
+          resolve();
+        });
+        fileStream.on("error", (err) => reject(err));
+      });
+      request.on("error", (err) => reject(err));
+    });
+
+    return { success: true, data: filePath };
+  } catch (error: any) {
+    return { success: false, error: error?.message || String(error) };
   }
 });
 
