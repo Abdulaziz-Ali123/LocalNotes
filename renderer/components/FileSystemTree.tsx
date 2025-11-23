@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { File, Folder, Tree, type TreeViewElement } from "./ui/file-tree";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { FolderOpen, FilePlus, FolderPlus, Trash2, Edit2, Search, X } from "lucide-react";
+import { FolderOpen, FilePlus, FolderPlus, Trash2, Edit2, Search, X, Upload } from "lucide-react";
 import InputDialog from "./InputDialog";
 
 interface FileSystemItem {
@@ -375,6 +375,38 @@ export default function FileSystemTree({
     });
   };
 
+  const importFiles = async () => {
+    const dest = selectedFolderPath || rootPath;
+    if (!dest) {
+      alert("No destination folder selected");
+      return;
+    }
+
+    const result = await window.fs.openFileDialog();
+    if (!result || !result.success || result.canceled) return;
+    const srcPaths: string[] = result.paths || [];
+    if (srcPaths.length === 0) return;
+
+    const copyResult = await window.fs.copyFilesTo(srcPaths, dest);
+    if (!copyResult || !copyResult.success) {
+      alert(`Failed to import files: ${copyResult?.error || "unknown error"}`);
+      return;
+    }
+
+    // Force reload of destination folder
+    setLoadedFolders((prev) => {
+      const newSet = new Set(prev);
+      newSet.delete(dest);
+      return newSet;
+    });
+
+    if (dest === rootPath) {
+      await loadDirectory(dest);
+    } else {
+      await loadDirectory(dest, dest);
+    }
+  };
+
   const deleteItem = async (itemPath: string) => {
     const confirmed = confirm(`Are you sure you want to delete this item?`);
     if (confirmed) {
@@ -686,6 +718,17 @@ export default function FileSystemTree({
             className="h-8 w-8 hover:bg-accent"
           >
             <FolderPlus className="h-6 w-6" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={importFiles}
+            title={`Import files into ${
+              selectedFolderPath ? selectedFolderPath.split("/").pop() : "root"
+            }`}
+            className="h-8 w-8 hover:bg-accent"
+          >
+            <Upload className="h-6 w-6" />
           </Button>
         </div>
       </div>
