@@ -29,6 +29,40 @@ export default function MarkdownViewer({ content }: Props) {
             ) : (
               <code className="block bg-gray-900 p-4 rounded mb-4 overflow-x-auto" {...props} />
             ),
+          img: ({ node, ...props }: any) => {
+            const src = props.src as string;
+            const alt = props.alt as string | undefined;
+
+            const handleDownload = async (e: React.MouseEvent) => {
+              e.stopPropagation();
+              try {
+                // call preload-exposed API
+                const res = await window.fs.downloadImage(src);
+                if (res && res.success) {
+                  alert(`Saved: ${res.data}`);
+                } else if (res && res.canceled) {
+                  // user cancelled; do nothing
+                } else {
+                  alert(`Download failed: ${res?.error ?? "Unknown error"}`);
+                }
+              } catch (err: any) {
+                alert(`Download failed: ${String(err)}`);
+              }
+            };
+
+            return (
+              <div className="relative inline-block">
+                <img src={src} alt={alt} className="max-w-full rounded" />
+                <button
+                  onClick={handleDownload}
+                  title="Download image"
+                  className="absolute top-1 right-1 bg-gray-800 text-white text-xs p-1 rounded opacity-90 hover:opacity-100"
+                >
+                  ↓
+                </button>
+              </div>
+            );
+          },
         }}
       >
         {content}
