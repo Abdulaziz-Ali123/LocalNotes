@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
-import { getStoredTheme, storeTheme, applyTheme } from "@/renderer/lib/theme";
+import { getStoredTheme, storeTheme, applyTheme, ThemeType } from "@/renderer/lib/theme";
 
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState<"light" | "dark">(getStoredTheme());
+  const [theme, setTheme] = useState<ThemeType>(getStoredTheme() || "nord");
 
   function toggleTheme() {
-    const next = theme === "light" ? "dark" : "light";
+    let next: ThemeType = "nord";
+    if (theme === "nord") next = "light";
+    else if (theme === "light") next = "dark";
+    else next = "nord";
+    
     setTheme(next);
     applyTheme(next);
     storeTheme(next);
@@ -28,7 +32,7 @@ export default function ThemeToggle() {
         color: "var(--text-color)",
       }}
     >
-      {theme === "light" ? "🌙 Dark Mode" : "☀️ Light Mode"}
+      {theme === "light" ? "🌙 Dark Mode" : theme === "dark" ? "☀️ Light Mode" : "❄️ Nord Mode"}
     </button>
   );
 }
