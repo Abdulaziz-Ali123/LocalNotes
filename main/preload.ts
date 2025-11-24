@@ -29,6 +29,7 @@ const fileSystemHandler = {
   extname: (p: string) => path.extname(p),
   sep: path.sep,
   openFolderDialog: () => ipcRenderer.invoke("fs:openFolderDialog"),
+  openSaveDialog: () => ipcRenderer.invoke("fs:openSaveDialog"),
   selectImportFiles: () => ipcRenderer.invoke("fs:selectImportFiles"),
   mergeFiles: (sourceFiles: string[], targetFile: string) => ipcRenderer.invoke("fs:mergeFiles", sourceFiles, targetFile),
   importFolder: (src: string, dest: string) => ipcRenderer.invoke("fs:importFolder", src, dest),

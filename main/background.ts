@@ -360,7 +360,7 @@ ipcMain.handle("fs:renameItem", async (event, oldPath: string, newPath: string) 
 });
 
 ipcMain.handle("fs:readFile", async (event, filePath: string) => {
-    try {
+  try {
         const ext = path.extname(filePath).toLowerCase();
 
         // Define file types
@@ -369,7 +369,7 @@ ipcMain.handle("fs:readFile", async (event, filePath: string) => {
 
         // Read as text
         if (textExtensions.includes(ext)) {
-            const content = await fs.readFile(filePath, "utf-8");
+    const content = await fs.readFile(filePath, "utf-8");
             return { success: true, data: content, type: 'text' };
         }
 
@@ -404,9 +404,9 @@ ipcMain.handle("fs:readFile", async (event, filePath: string) => {
             error: `Unsupported file type: ${ext}`
         };
 
-    } catch (error: any) {
-        return { success: false, error: error.message };
-    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
 });
 
 ipcMain.handle("fs:writeFile", async (event, filePath: string, content: string) => {
@@ -562,5 +562,3 @@ ipcMain.handle("fs:importFolder", async (event, sourcePath: string, targetPath: 
         return { success: false, error: err.message };
     }
 });
-
-
