@@ -30,6 +30,10 @@ const fileSystemHandler = {
   sep: path.sep,
   openFolderDialog: () => ipcRenderer.invoke("fs:openFolderDialog"),
   openSaveDialog: () => ipcRenderer.invoke("fs:openSaveDialog"),
+  selectImportFiles: () => ipcRenderer.invoke("fs:selectImportFiles"),
+  mergeFiles: (sourceFiles: string[], targetFile: string) => ipcRenderer.invoke("fs:mergeFiles", sourceFiles, targetFile),
+  importFolder: (src: string, dest: string) => ipcRenderer.invoke("fs:importFolder", src, dest),
+  copyFile: (src: string, dest: string) => ipcRenderer.invoke("fs:copyFile", src, dest),
   basename: (filePath: string) => path.basename(filePath),
   dirname: (filePath: string) => path.dirname(filePath),
   join: (...segments: string[]) => path.join(...segments),
@@ -54,6 +58,30 @@ contextBridge.exposeInMainWorld("autosaveAPI", {
     ipcRenderer.invoke("autosave:save", { filePath, content }),
   load: (filePath: string) => ipcRenderer.invoke("autosave:load", filePath),
 });
+contextBridge.exposeInMainWorld("fileEvents", {
+  onDeleted: (callback) =>
+    ipcRenderer.on("file:deleted", (_, path) => callback(path)),
+});
+contextBridge.exposeInMainWorld("ipc", {
+  on(channel, callback) {
+    const subscription = (_event, ...args) => callback(...args);
+    ipcRenderer.on(channel, subscription);
+
+    return () => {
+      ipcRenderer.removeListener(channel, subscription);
+    };
+  },
+
+  send(channel, data) {
+    ipcRenderer.send(channel, data);
+  },
+
+  invoke(channel, data) {
+    return ipcRenderer.invoke(channel, data);
+  }
+});
+
+
 
 export type IpcHandler = typeof handler;
 export type FileSystemHandler = typeof fileSystemHandler;

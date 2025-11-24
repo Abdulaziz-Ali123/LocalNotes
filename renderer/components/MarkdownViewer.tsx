@@ -9,6 +9,65 @@ type Props = {
 };
 
 export default function MarkdownViewer({ content }: Props) {
+    const [processedContent, setProcessedContent] = useState(content);
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    useEffect(() => {
+        const processImages = async () => {
+            // Prevent re-processing while already processing
+            if (isProcessing) return;
+
+            setIsProcessing(true);
+
+            try {
+                const currentFolder = localStorage.getItem("currentFolderPath");
+                if (!currentFolder) {
+                    setProcessedContent(content);
+                    setIsProcessing(false);
+                    return;
+                }
+
+                let newContent = content;
+
+                // Find all image references: ![alt](src)
+                const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+                const matches = Array.from(content.matchAll(imageRegex));
+
+                for (const match of matches) {
+                    const [fullMatch, alt, src] = match;
+
+                    // Skip if already a data URI or external URL
+                    if (src.startsWith('http') || src.startsWith('data:')) {
+                        continue;
+                    }
+
+                    try {
+                        // Resolve relative path
+                        const imagePath = window.fs.join(currentFolder, src);
+                        const result = await window.fs.readFile(imagePath);
+
+                        if (result.success && result.type === 'binary') {
+                            const base64Image = `data:${result.mimeType};base64,${result.data}`;
+                            newContent = newContent.replace(fullMatch, `![${alt}](${base64Image})`);
+                        }
+                    } catch (err) {
+                        console.error(`Failed to load image: ${src}`, err);
+                        // Keep original markdown if image fails to load
+                    }
+                }
+
+                setProcessedContent(newContent);
+            } catch (err) {
+                console.error("Error processing images:", err);
+                setProcessedContent(content);
+            } finally {
+                setIsProcessing(false);
+            }
+        };
+
+        processImages();
+    }, [content]); // Remove isProcessing from dependencies
+
   return (
     <div className="prose prose-sm max-w-full overflow-auto markdown-body">
       <ReactMarkdown
@@ -29,9 +88,12 @@ export default function MarkdownViewer({ content }: Props) {
             ) : (
               <code className="block bg-gray-900 p-4 rounded mb-4 overflow-x-auto" {...props} />
             ),
+                    img: ({ node, ...props }) => (
+                        <img className="max-w-full h-auto my-4" {...props} />
+                    ),
         }}
       >
-        {content}
+                {processedContent}
       </ReactMarkdown>
     </div>
   );

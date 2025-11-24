@@ -3,7 +3,7 @@ import { app, ipcMain, Menu, dialog, shell } from "electron";
 import serve from "electron-serve";
 import { createWindow } from "./helpers";
 import fs from "fs/promises";
-import fsSync from "fs";
+import * as fsSync from "fs";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -331,11 +331,15 @@ ipcMain.handle("fs:createFile", async (event, filePath: string, content: string 
 ipcMain.handle("fs:deleteItem", async (event, itemPath: string) => {
   try {
     const stats = await fs.stat(itemPath);
+
     if (stats.isDirectory()) {
       await fs.rm(itemPath, { recursive: true, force: true });
     } else {
       await fs.unlink(itemPath);
     }
+
+    event.sender.send("fs:itemDeleted", itemPath);
+
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -357,8 +361,49 @@ ipcMain.handle("fs:renameItem", async (event, oldPath: string, newPath: string) 
 
 ipcMain.handle("fs:readFile", async (event, filePath: string) => {
   try {
+        const ext = path.extname(filePath).toLowerCase();
+
+        // Define file types
+        const textExtensions = ['.md', '.txt', '.json', '.js', '.ts', '.css', '.html', '.canvas', '.xml', '.yaml', '.yml'];
+        const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.ico'];
+
+        // Read as text
+        if (textExtensions.includes(ext)) {
     const content = await fs.readFile(filePath, "utf-8");
-    return { success: true, data: content };
+            return { success: true, data: content, type: 'text' };
+        }
+
+        // Read as binary (base64) for images
+        if (imageExtensions.includes(ext)) {
+            const buffer = await fs.readFile(filePath);
+            const base64 = buffer.toString('base64');
+
+            // Map extensions to proper MIME types
+            const mimeTypes: { [key: string]: string } = {
+                '.png': 'image/png',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.gif': 'image/gif',
+                '.bmp': 'image/bmp',
+                '.svg': 'image/svg+xml',
+                '.webp': 'image/webp',
+                '.ico': 'image/x-icon'
+            };
+
+            return {
+                success: true,
+                data: base64,
+                type: 'binary',
+                mimeType: mimeTypes[ext] || 'image/png'
+            };
+        }
+
+        // Unsupported file type
+        return {
+            success: false,
+            error: `Unsupported file type: ${ext}`
+        };
+
   } catch (error: any) {
     return { success: false, error: error.message };
   }
@@ -427,4 +472,93 @@ ipcMain.handle("fs:isDirectory", async (_, path: string) => {
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
+});
+
+ipcMain.handle("fs:selectImportFiles", async () => {
+    const result = await dialog.showOpenDialog({
+        properties: ["openFile", "multiSelections"],
+        filters: [
+            {
+                name: "Notes & Images",
+                extensions: ["md", "docx", "txt", "pdf", "canvas", "png", "jpg", "jpeg", "gif", "webp"],
+            },
+        ],
+    });
+    if (result.canceled) return { success: false };
+    return { success: true, paths: result.filePaths };
+});
+
+
+ipcMain.handle("fs:mergeFiles", async (event, fileNames: string[], targetNotePath: string) => {
+    try {
+        let targetContent = await fs.readFile(targetNotePath, "utf-8");
+
+        for (const fileName of fileNames) {
+            const ext = path.extname(fileName).toLowerCase();
+
+            // Check if it's an image
+            if (['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp'].includes(ext)) {
+                // Append markdown image syntax with just the filename
+                targetContent += `\n\n![${fileName}](${fileName})\n`;
+            } else {
+                // For text files, read and append content
+                const fullPath = path.join(path.dirname(targetNotePath), fileName);
+                const content = await fs.readFile(fullPath, "utf-8");
+                targetContent += `\n\n${content}\n`;
+            }
+        }
+
+        await fs.writeFile(targetNotePath, targetContent, "utf-8");
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+});
+
+// Change copyFile to async
+ipcMain.handle("fs:copyFile", async (event, src, dest) => {
+    try {
+        await fs.copyFile(src, dest);  // Add await and use fs.copyFile
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle("fs:importFolder", async (event, sourcePath: string, targetPath: string) => {
+    try {
+        // Get the folder name from the source path
+        const folderName = path.basename(sourcePath);
+
+        // Create the destination path with the folder name
+        const destPath = path.join(targetPath, folderName);
+
+        // Recursively copy folder contents
+        const copyFolderRecursive = async (src: string, dest: string) => {
+            // Create destination directory if it doesn't exist
+            if (!fsSync.existsSync(dest)) {
+                await fs.mkdir(dest, { recursive: true });
+            }
+
+            const entries = await fs.readdir(src, { withFileTypes: true });
+
+            for (const entry of entries) {
+                const srcPath = path.join(src, entry.name);
+                const destPath = path.join(dest, entry.name);
+
+                if (entry.isDirectory()) {
+                    await copyFolderRecursive(srcPath, destPath);
+                } else {
+                    await fs.copyFile(srcPath, destPath);
+                }
+            }
+        };
+
+        // Start copying from source to the new folder in target
+        await copyFolderRecursive(sourcePath, destPath);
+
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
 });
