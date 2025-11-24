@@ -5,7 +5,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "../components/ui/sidebar";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
     ResizableHandle,
     ResizablePanel,
@@ -20,8 +20,9 @@ import { produce } from "immer";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { TabsSlice } from "@/renderer/types/tab-slice";
 import CanvasEditor from "@/renderer/components/CanvasEditor";
-
 import { useKeyboardShortcuts } from "@/renderer/components/hooks/keyboardshortcuts";
+import { CiFileOn, CiSearch, CiExport, CiShare2, CiSettings} from "react-icons/ci";
+import { RiRobot2Line, RiFileHistoryLine} from "react-icons/ri";
 
 // Autosave interval in milliseconds -> 10 seconds
 const AUTOSAVE_INTERVAL = 10000;
@@ -268,32 +269,49 @@ export default function Editor() {
               className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
               title="Files"
             >
-                      <img src="/assets/file_explorer.png" alt="Files" className="w-16 h-16 object-contain" />
-                </button>
-                <button 
-                type="button"
+                  {/*<img src="/assets/file_explorer.png" alt="Files" className="w-16 h-16 object-contain" />*/}
+                  <CiFileOn className="w-14 h-14 stroke-1"/>
+            </button>
+
+            {/* search buttons */}
+            <button 
+              type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleSidebarButtonClick("search")}
-            className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" 
-            title="Search"
-          >
-                    <img src="/assets/search.png" alt="Search" className="w-16 h-16 object-contain" />
-                </button>
-                <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Export">
-                    <img src="/assets/export.png" alt="Export" className="w-16 h-16 object-contain" />
-                </button>
-                <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Ai Assistant - Coming Soon">
-                    <img src="/assets/ai_helper.png" alt="AI" className="w-16 h-16 object-contain" />
-                </button>
-                 <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Share with Friends">
-                    <img src="/assets/share.png" alt="Share" className="w-16 h-16 object-contain" />
-                </button>
-                 <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Settings">
-                    <img src="/assets/settings.png" alt="Settings" className="w-16 h-16 object-contain" />
-                </button>
-                 <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="File Change History">
-                    <img src="/assets/folder.png" alt="Folder" className="w-16 h-16 object-contain" />
-                </button>
+                className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" 
+                title="Search"
+            >
+                    {/* <img src="/assets/search.png" alt="Search" className="w-16 h-16 object-contain" /> */}
+                    <CiSearch className="w-14 h-14 stroke-1"/>
+            </button>
+
+            {/* Export buttons */}
+            <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Export">
+                {/* <img src="/assets/export.png" alt="Export" className="w-16 h-16 object-contain" /> */}
+                <CiExport className="w-14 h-14 stroke-1"/>
+            </button>
+
+            {/* AI Assistant button */}  
+            <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Ai Assistant - Coming Soon">
+                {/* <img src="/assets/ai_helper.png" alt="AI" className="w-16 h-16 object-contain" /> */}
+              <RiRobot2Line className="w-14 h-14"/>
+            </button>
+
+            {/* Share button */}
+            <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Share with Friends">
+              {/* <img src="/assets/share.png" alt="Share" className="w-16 h-16 object-contain" /> */}
+              <CiShare2 className="w-14 h-14 stroke-1"/>
+            </button>
+
+            <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Settings">
+              {/* <img src="/assets/settings.png" alt="Settings" className="w-16 h-16 object-contain" /> */}
+              <CiSettings className="w-14 h-14 stroke-1"/>
+            </button>
+
+            <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="File Change History">
+              {/* <img src="/assets/folder.png" alt="Folder" className="w-16 h-16 object-contain" /> */}
+              <RiFileHistoryLine className="w-14 h-14"/>
+            </button>
               </div>
 
             <ResizablePanelGroup
