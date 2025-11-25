@@ -400,16 +400,16 @@ export default function Editor() {
                               onChange={(e) => {
                                 setFileContent(e.target.value);
                               }}
-                              className="h-[97%] w-1/2 bg-secondary  text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
+                              className="h-[97%] w-1/2 bg-secondary custom-scrollbar  text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
                               spellCheck={false}
                               autoFocus
                             />
-                            <div className="h-[97%] w-1/2 overflow-auto bg-secondary  rounded-lg p-3 border border-border">
+                            <div className="h-[97%] w-1/2 overflow-auto bg-secondary custom-scrollbar rounded-lg p-3 border border-border">
                               <MarkdownViewer content={fileContent} />
                             </div>
                           </div>
                         ) : previewMode ? (
-                          <div className="h-[97%]  overflow-auto">
+                          <div className="h-[97%]  overflow-auto custom-scrollbar">
                               <MarkdownViewer content={fileContent} />
                           </div>
                         ) : (
@@ -419,7 +419,7 @@ export default function Editor() {
                             onChange={(e) => {
                               setFileContent(e.target.value);
                             }}
-                            className="h-[97%] w-full bg-secondary text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
+                            className="h-[97%] w-full custom-scrollbar bg-secondary text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
                             spellCheck={false}
                             autoFocus
                           />
