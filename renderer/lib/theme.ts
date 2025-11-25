@@ -47,6 +47,7 @@ export function storeTheme(theme: ThemeType) {
 export function applyTheme(theme: ThemeType) {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
+  root.classList.add("overflow-hidden", "max-h-screen");
 
   // Remove any theme classes first
   root.classList.remove("theme-nord");
