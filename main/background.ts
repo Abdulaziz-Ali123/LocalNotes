@@ -559,4 +559,67 @@ ipcMain.handle("fs:importFolder", async (event, sourcePath: string, targetPath: 
     }
 });
 
+ipcMain.handle("fs:selectExportDestination", async () => {
+    try {
+        const result = await dialog.showOpenDialog({
+            properties: ["openDirectory"]
+        });
+        if (result.canceled) return { success: false, canceled: true };
+        return { success: true, folder: result.filePaths[0] };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+});
+
+ipcMain.handle("fs:exportFile", async (_, sourceFile, destFolder) => {
+    try {
+        const fileName = path.basename(sourceFile);
+        const destPath = path.join(destFolder, fileName);
+
+        fs.copyFile(sourceFile, destPath);
+
+        return { success: true, exportedTo: destPath };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+});
+
+
+ipcMain.handle("fs:exportFolder", async (_, sourceFolder: string, targetFolder: string) => {
+    try {
+        const folderName = path.basename(sourceFolder);
+        const destination = path.join(targetFolder, folderName);
+
+        const copyFolderRecursiveSync = (src: string, dest: string) => {
+            // Create destination folder if missing
+            if (!fsSync.existsSync(dest)) {
+                fsSync.mkdirSync(dest, { recursive: true });
+            }
+
+            // Read items inside source folder
+            const items = fsSync.readdirSync(src, { withFileTypes: true });
+
+            for (const item of items) {
+                const srcPath = path.join(src, item.name);
+                const destPath = path.join(dest, item.name);
+
+                if (item.isDirectory()) {
+                    // Recursively copy subfolders
+                    copyFolderRecursiveSync(srcPath, destPath);
+                } else {
+                    // Copy files directly
+                    fsSync.copyFileSync(srcPath, destPath);
+                }
+            }
+        }
+        copyFolderRecursiveSync(sourceFolder, destination);
+
+        return { success: true, importedTo: destination };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+});
+
+
+
 

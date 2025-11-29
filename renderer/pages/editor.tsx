@@ -277,6 +277,53 @@ export default function Editor() {
         setShowImportToNoteModal({ visible: false, importFiles: [] });
     };
 
+    const handleExportCurrentFile = async () => {
+        if (!selectedFile) {
+            alert("No file selected to export.");
+            return;
+        }
+
+        const result = await window.fs.selectExportDestination();
+        if (!result.success) return;
+
+        const exportResult = await window.fs.exportFile(
+            selectedFile,
+            result.folder
+        );
+
+        if (exportResult.success) {
+            refreshTree();
+            alert(`File exported to ${exportResult.exportedTo}`);
+        } else {
+            alert("Export failed: " + exportResult.error);
+        }
+    };
+
+    const handleExportFolder = async () => {
+        const root = localStorage.getItem("currentFolderPath");
+        if (!root) return;
+
+        const dest = await window.fs.selectExportDestination();
+        if (!dest.success) return;
+
+        const result = await window.fs.exportFolder(root, dest.folder);
+
+        if (result.success) {
+            refreshTree();
+            alert("Folder exported successfully!");
+        } else {
+            alert("Export failed: " + result.error);
+        }
+    };
+
+    const fileTreeRef = useRef(null);
+
+    const refreshTree = () => {
+        if (fileTreeRef.current && fileTreeRef.current.reloadRoot) {
+            fileTreeRef.current.reloadRoot();
+        }
+    };
+
   return (
     <React.Fragment>
       <div className="flex flex-row">
@@ -312,6 +359,8 @@ export default function Editor() {
                           <button onClick={handleImportFiles}>Import File(s)</button>
                           <button onClick={handleImportFolder}>Import Folder</button>
                           <button onClick={handleImportIntoExistingNote}>Import into Existing Note</button>
+                          <button onClick={handleExportCurrentFile}>Export Current File</button>
+                          <button onClick={handleExportFolder}>Export Workspace</button>
                       </div>
                   )}
 
@@ -344,8 +393,8 @@ export default function Editor() {
                       <Sidebar collapsible="none" className="w-full">
                         <SidebarContent className="h-full p-0">
                         {!sidebarCollapsed && (
-                            <>
-                            {activeSidebarPanel === "file" && <FileSystemTree onFileSelect={handleFileSelect} isVisible={!sidebarCollapsed} autoOpen={true} />}
+                                              <>
+                                                  {activeSidebarPanel === "file" && <FileSystemTree ref={refreshTree} onFileSelect={handleFileSelect} isVisible={!sidebarCollapsed} autoOpen={true} />}
                             {activeSidebarPanel === "search" && <SearchComponent onFileSelect={handleFileSelect} />}
                             </>
                         )}
