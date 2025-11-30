@@ -2,8 +2,6 @@ import {
   SidebarProvider,
   Sidebar,
   SidebarContent,
-  SidebarTrigger,
-  useSidebar,
 } from "../components/ui/sidebar";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -11,18 +9,18 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/renderer/components/ui/resizable";
+import { ImperativePanelHandle } from "react-resizable-panels";
 import FileSystemTree from "@/renderer/components/FileSystemTree";
 import type { FileSystemTreeRef } from "@/renderer/components/FileSystemTree";
-import MarkdownViewer from "@/renderer/components/MarkdownViewer";
 import { Button } from "@/renderer/components/ui/button";
 import SearchComponent from "@/renderer/components/SearchComponent";
 import { produce } from "immer";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { TabsSlice } from "@/renderer/types/tab-slice";
-import CanvasEditor from "@/renderer/components/CanvasEditor";
 import { useKeyboardShortcuts } from "@/renderer/components/hooks/keyboardshortcuts";
 import { CiFileOn, CiSearch, CiExport, CiShare2, CiSettings } from "react-icons/ci";
 import { RiRobot2Line, RiFileHistoryLine } from "react-icons/ri";
+import EditorSpace from "@/renderer/pages/editorSpace";
 
 // Autosave interval in milliseconds -> 10 seconds
 const AUTOSAVE_INTERVAL = 10000;
@@ -35,6 +33,7 @@ export default function Editor() {
   const [previewMode, setPreviewMode] = useState<boolean>(true);
   const [livePreview, setLivePreview] = useState<boolean>(false);
   const fileTreeRef = useRef<FileSystemTreeRef>(null);
+  const sidebarPanelRef = useRef<ImperativePanelHandle>(null);
   const initializeTabs = useBoundStore((state) => state.tabs.initialize);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
@@ -155,6 +154,18 @@ export default function Editor() {
 
   const toggleSidebar = () => setSidebarCollapsed((s) => !s);
   const openSidebar = () => setSidebarCollapsed(false);
+
+  // Sync sidebar state with panel
+  useEffect(() => {
+    const panel = sidebarPanelRef.current;
+    if (panel) {
+      if (sidebarCollapsed) {
+        panel.collapse();
+      } else {
+        panel.expand();
+      }
+    }
+  }, [sidebarCollapsed]);
 
   // Autosave periodically
   useEffect(() => {
@@ -316,16 +327,22 @@ export default function Editor() {
 
           <ResizablePanelGroup
             direction="horizontal"
-            className="min-h-screen w-full bg-muted"
+            className="min-h-screen w-full bg-primary-foreground"
           >
             {/* Sidebar (resizable) + Editor */}
 
-            <ResizablePanel defaultSize={sidebarCollapsed ? 0 : 15} minSize={20}
-              className={`transition-all duration-200 ease-in-out ${sidebarCollapsed ? "w-0 max-w-0 overflow-hidden" : ""
-                }`}>
+            <ResizablePanel ref={sidebarPanelRef}
+              defaultSize={20}
+              minSize={12}
+              maxSize={40}
+              collapsible={true}
+              collapsedSize={0}
+              onCollapse={() => setSidebarCollapsed(true)}
+              onExpand={() => setSidebarCollapsed(false)}
+              className={``}>
               <SidebarProvider>
                 {/* Use non-fixed variant so the panel controls width; force w-full so Sidebar doesn't enforce its own CSS width variable */}
-                <Sidebar collapsible="none" className="w-full">
+                <Sidebar collapsible="none" className="!static w-full">
                   <SidebarContent className="h-full p-0">
                     {!sidebarCollapsed && (
                       <>
@@ -337,130 +354,21 @@ export default function Editor() {
                 </Sidebar>
               </SidebarProvider>
             </ResizablePanel>
-            {!sidebarCollapsed && <ResizableHandle withHandle className="bg-transparent" />}
-            <ResizablePanel defaultSize={sidebarCollapsed ? 100 : 75} minSize={60}>
-              <div className={`flex h-full flex-col p-3 pr-1 bg-secondary ${sidebarCollapsed ? "rounded-none" : "rounded-3xl"
-                }`}>
-                {selectedFile ? (
-                  <div className="flex flex-col h-full">
-                    {/* Header */}
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-sm font-semibold text-muted-foreground truncate max-w-[70%]">
-                        {selectedFile}
-                      </div>
-                      {selectedFile.toLowerCase().endsWith(".md") && (
-                        <div className="flex items-center bg-background border border-border rounded-md p-1">
-                          <button
-                            onClick={() => {
-                              setPreviewMode(false);
-                              setLivePreview(false);
-                            }}
-                            className={`px-2 py-1 text-xs rounded ${!previewMode && !livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => {
-                              setPreviewMode(true);
-                              setLivePreview(false);
-                            }}
-                            className={`px-2 py-1 text-xs rounded ${previewMode && !livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
-                          >
-                            Preview
-                          </button>
-                          <button
-                            onClick={() => {
-                              setLivePreview((v) => !v);
-                              setPreviewMode(true);
-                            }}
-                            className={`px-2 py-1 text-xs rounded ${livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
-                          >
-                            Live
-                          </button>
-                        </div>
-                      )}
-                      <Button
-                        onClick={handleSave}
-                        className="bg-accent px-4 py-1 rounded-md shadow-neumorph-sm hover:shadow-neumorph-inset"
-                        disabled={isSaving}
-                      >
-                        {isSaving ? "Saving..." : "Save"}
-                      </Button>
-                    </div>
+            <ResizableHandle withHandle className="w-2 hover:bg-accent z-50 cursor-col-resize" />
 
-                    {/* Editable / Preview area */}
-                    <div className="flex-1 w-full bg-secondary  text-foreground rounded-lg p-3 pr-1 font-mono text-sm resize-none focus:outline-none border border-border overflow-hidden">
-                      {selectedFile.toLowerCase().endsWith(".md") ? (
-                        livePreview ? (
-                          <div className="flex h-full gap-4">
-                            <textarea
-                              key={selectedFile}
-                              value={fileContent}
-                              onChange={(e) => {
-                                setFileContent(e.target.value);
-                              }}
-                              className="h-[97%] w-1/2 bg-secondary custom-scrollbar  text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
-                              spellCheck={false}
-                              autoFocus
-                            />
-                            <div className="h-[97%] w-1/2 overflow-auto bg-secondary custom-scrollbar rounded-lg p-3 border border-border">
-                              <MarkdownViewer content={fileContent} />
-                            </div>
-                          </div>
-                        ) : previewMode ? (
-                          <div className="h-[97%]  overflow-auto custom-scrollbar">
-                            <MarkdownViewer content={fileContent} />
-                          </div>
-                        ) : (
-                          <textarea
-                            key={selectedFile}
-                            value={fileContent}
-                            onChange={(e) => {
-                              setFileContent(e.target.value);
-                            }}
-                            className="h-[97%] w-full custom-scrollbar bg-secondary text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
-                            spellCheck={false}
-                            autoFocus
-                          />
-                        )
-                      ) : selectedFile.toLowerCase().endsWith(".canvas") ? (
-                        <div className="flex flex-col w-full h-[97%]">
-                          <div className="flex-1">
-                            <CanvasEditor
-                              value={fileContent}
-                              onChange={setFileContent}
-                              onSave={handleSave}
-                              isSaving={isSaving}
-                            />
-                          </div>
-                        </div>
-                      ) : (
-                        <textarea
-                          key={selectedFile}
-                          value={fileContent}
-                          onChange={(e) => {
-                            setFileContent(e.target.value);
-                          }}
-                          className="h-[97%] w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
-                          spellCheck={false}
-                          autoFocus
-                        />
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex h-full items-center justify-center">
-                    <span className="font-semibold text-muted-foreground">
-                      Open a file to start editing
-                    </span>
-                  </div>
-                )}
-                {saveMessage && (
-                  <div className="fixed bottom-6 right-6 bg-accent text-background text-sm px-4 py-2 rounded-lg shadow-lg transition-opacity duration-300 animate-fade-in-out">
-                    {saveMessage}
-                  </div>
-                )}
-              </div>
+            <ResizablePanel defaultSize={75} minSize={60}>
+              <EditorSpace
+                selectedFile={selectedFile}
+                previewMode={previewMode}
+                livePreview={livePreview}
+                fileContent={fileContent}
+                isSaving={isSaving}
+                handleSave={handleSave}
+                setPreviewMode={setPreviewMode}
+                setLivePreview={setLivePreview}
+                setFileContent={setFileContent}
+                saveMessage={saveMessage}
+              />
             </ResizablePanel>
           </ResizablePanelGroup>
         </div>
@@ -551,6 +459,6 @@ export default function Editor() {
           </div>
         </div>
       </div>
-    </React.Fragment>
+    </React.Fragment >
   );
 }
