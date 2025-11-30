@@ -3,6 +3,7 @@ import {
   Sidebar,
   SidebarContent,
 } from "../components/ui/sidebar";
+import ThemeSelector from "@/renderer/components/ui/ThemeSelector";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ResizableHandle,
@@ -18,8 +19,8 @@ import { produce } from "immer";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { TabsSlice } from "@/renderer/types/tab-slice";
 import { useKeyboardShortcuts } from "@/renderer/components/hooks/keyboardshortcuts";
-import { CiFileOn, CiSearch, CiExport, CiShare2, CiSettings } from "react-icons/ci";
-import { RiRobot2Line, RiFileHistoryLine } from "react-icons/ri";
+import { CiFileOn, CiSearch, CiExport, CiShare2, CiSettings, CiPalette } from "react-icons/ci";
+import { RiRobot2Line, RiFileHistoryLine, RiPaletteLine } from "react-icons/ri";
 import EditorSpace from "@/renderer/pages/editorSpace";
 import { Tab } from "@/renderer/components/Tab";
 import TabBar from "../components/TabBar";
@@ -144,10 +145,10 @@ export default function Editor() {
   };
 
   // Sidebar state management for search/file panels
-  const [activeSidebarPanel, setActiveSidebarPanel] = useState<"file" | "search" | null>("file");
+  const [activeSidebarPanel, setActiveSidebarPanel] = useState<"file" | "search" | "theme" | null>("file");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const handleSidebarButtonClick = (panel: "file" | "search") => {
+  const handleSidebarButtonClick = (panel: "file" | "search" | "theme") => {
     if (sidebarCollapsed) {
       // If sidebar is collapsed, open and show the panel
       setSidebarCollapsed(false);
@@ -320,6 +321,17 @@ export default function Editor() {
                 <RiRobot2Line className="w-14 h-14" />
               </button>
 
+              {/* Theme button */}
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSidebarButtonClick("theme")}
+                className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
+                title="Themes"
+              >
+                <RiPaletteLine className="w-14 h-14" />
+              </button>
+
               {/* Share button */}
               <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Share with Friends">
                 {/* <img src="/assets/share.png" alt="Share" className="w-16 h-16 object-contain" /> */}
@@ -365,6 +377,7 @@ export default function Editor() {
                       <>
                         {activeSidebarPanel === "file" && <FileSystemTree onFileSelect={handleFileSelect} isVisible={!sidebarCollapsed} autoOpen={true} />}
                         {activeSidebarPanel === "search" && <SearchComponent onFileSelect={handleFileSelect} />}
+                        {activeSidebarPanel === "theme" && <ThemeSelector />}
                       </>
                     )}
                   </SidebarContent>

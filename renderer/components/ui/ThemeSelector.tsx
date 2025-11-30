@@ -11,11 +11,13 @@ export default function ThemeSelector() {
       <select
         value={theme}
         onChange={(e) => setTheme(e.target.value as ThemeType)}
-        className="w-full p-2 rounded bg-sidebar text-sidebar-foreground border border-sidebar-border"
+        className="w-full p-2 rounded bg-sidebar text-sidebar-foreground border border-sidebar-border focus:outline-none focus:ring-2 focus:ring-sidebar-ring"
       >
         <option value="nord">Nord (Default)</option>
         <option value="light">Light</option>
         <option value="dark">Dark</option>
+        <option value="cozy">Cozy</option>
+        <option value="darker">Darker</option>
       </select>
     </div>
   );
