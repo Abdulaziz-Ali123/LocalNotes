@@ -32,13 +32,15 @@ export const Tab = ({ item, onClick, onRemove, isSelected, showSeperator }: Prop
       }}
       whileDrag={{ scale: 1.02 }}
       className={cn(
-        isSelected ? "bg-secondary text-foreground" : "bg-background ",
+        isSelected
+          ? "bg-secondary text-foreground"
+          : "bg-background hover:bg-primary-foreground",
         "app-nodrag-region",
         "w-full pl-4 relative cursor-pointer h-8 flex justify-between items-center flex-1 overflow-hidden select-none rounded-t-md"
       )}
       onClick={onClick}
     >
-      <motion.span>{`${item.name}`}</motion.span>
+      <motion.span className="truncate w-9/12">{`${item.name}`}</motion.span>
 
       <motion.div
         layout

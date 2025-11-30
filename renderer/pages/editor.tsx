@@ -21,6 +21,8 @@ import { useKeyboardShortcuts } from "@/renderer/components/hooks/keyboardshortc
 import { CiFileOn, CiSearch, CiExport, CiShare2, CiSettings } from "react-icons/ci";
 import { RiRobot2Line, RiFileHistoryLine } from "react-icons/ri";
 import EditorSpace from "@/renderer/pages/editorSpace";
+import { Tab } from "@/renderer/components/Tab";
+import TabBar from "../components/TabBar";
 
 // Autosave interval in milliseconds -> 10 seconds
 const AUTOSAVE_INTERVAL = 10000;
@@ -115,6 +117,16 @@ export default function Editor() {
     setIsSaving(false);
 
     if (result.success) {
+      // Persist content to the tab store and native tab API so switching tabs reflects the saved content
+      useBoundStore.setState(
+        produce((state: TabsSlice) => {
+          const tab = state.tabs.items.find((t) => t.id === selectedTabId);
+          if (tab) {
+            tab.content = fileContent;
+          }
+          return state;
+        })
+      );
       const fileName = window.fs.basename(filePath);
       const now = new Date();
       setSaveMessage(`Saved "${fileName}"`);
@@ -153,7 +165,6 @@ export default function Editor() {
   };
 
   const toggleSidebar = () => setSidebarCollapsed((s) => !s);
-  const openSidebar = () => setSidebarCollapsed(false);
 
   // Sync sidebar state with panel
   useEffect(() => {
@@ -263,74 +274,76 @@ export default function Editor() {
   return (
     <React.Fragment>
       <div className="flex flex-col h-screen">
-        {/* Title Bar */}
-        <div className="app-drag-region flex items-center justify-between h-8 bg-background border-b border-border px-4 flex-shrink-0">
-          <div className="text-sm font-semibold text-foreground">LocalNotes</div>
-        </div>
 
         {/* Main Content Area */}
         <div className="flex flex-row flex-1 overflow-hidden">
-          {/* Activity rail / fixed; controls the size of the left bar containing the buttons*/}
-          <div className="flex flex-col items-center gap-2 px-2 py-4 bg-secondary w-18 border-r">
-            {/* justify-center can be added here to make it vertically centered */}
-            <button
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => handleSidebarButtonClick("file")}
-              className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
-              title="Files"
-            >
-              {/*<img src="/assets/file_explorer.png" alt="Files" className="w-16 h-16 object-contain" />*/}
-              <CiFileOn className="w-14 h-14 stroke-1" />
-            </button>
+          <div className="flex flex-col">
+            {/* A drag region to allow dragging from the sidebar */}
+            <div className="app-drag-region h-[41px] bg-background">
+            </div>
+            {/* Activity rail / fixed; controls the size of the left bar containing the buttons*/}
+            <div className="flex flex-col items-center gap-2 px-2 py-4 bg-secondary w-18 border-r h-full">
 
-            {/* search buttons */}
-            <button
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => handleSidebarButtonClick("search")}
-              className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
-              title="Search"
-            >
-              {/* <img src="/assets/search.png" alt="Search" className="w-16 h-16 object-contain" /> */}
-              <CiSearch className="w-14 h-14 stroke-1" />
-            </button>
+              {/* justify-center can be added here to make it vertically centered */}
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSidebarButtonClick("file")}
+                className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
+                title="Files"
+              >
+                {/*<img src="/assets/file_explorer.png" alt="Files" className="w-16 h-16 object-contain" />*/}
+                <CiFileOn className="w-14 h-14 stroke-1" />
+              </button>
 
-            {/* Export buttons */}
-            <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Export">
-              {/* <img src="/assets/export.png" alt="Export" className="w-16 h-16 object-contain" /> */}
-              <CiExport className="w-14 h-14 stroke-1" />
-            </button>
+              {/* search buttons */}
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSidebarButtonClick("search")}
+                className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
+                title="Search"
+              >
+                {/* <img src="/assets/search.png" alt="Search" className="w-16 h-16 object-contain" /> */}
+                <CiSearch className="w-14 h-14 stroke-1" />
+              </button>
 
-            {/* AI Assistant button */}
-            <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Ai Assistant - Coming Soon">
-              {/* <img src="/assets/ai_helper.png" alt="AI" className="w-16 h-16 object-contain" /> */}
-              <RiRobot2Line className="w-14 h-14" />
-            </button>
+              {/* Export buttons */}
+              <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Export">
+                {/* <img src="/assets/export.png" alt="Export" className="w-16 h-16 object-contain" /> */}
+                <CiExport className="w-14 h-14 stroke-1" />
+              </button>
 
-            {/* Share button */}
-            <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Share with Friends">
-              {/* <img src="/assets/share.png" alt="Share" className="w-16 h-16 object-contain" /> */}
-              <CiShare2 className="w-14 h-14 stroke-1" />
-            </button>
-            {/* Settings button */}
-            <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Settings">
-              {/* <img src="/assets/settings.png" alt="Settings" className="w-16 h-16 object-contain" /> */}
-              <CiSettings className="w-14 h-14 stroke-1" />
-            </button>
-            {/* File Change History button */}
-            <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="File Change History">
-              {/* <img src="/assets/folder.png" alt="Folder" className="w-16 h-16 object-contain" /> */}
-              <RiFileHistoryLine className="w-14 h-14" />
-            </button>
+              {/* AI Assistant button */}
+              <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Ai Assistant - Coming Soon">
+                {/* <img src="/assets/ai_helper.png" alt="AI" className="w-16 h-16 object-contain" /> */}
+                <RiRobot2Line className="w-14 h-14" />
+              </button>
+
+              {/* Share button */}
+              <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Share with Friends">
+                {/* <img src="/assets/share.png" alt="Share" className="w-16 h-16 object-contain" /> */}
+                <CiShare2 className="w-14 h-14 stroke-1" />
+              </button>
+              {/* Settings button */}
+              <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Settings">
+                {/* <img src="/assets/settings.png" alt="Settings" className="w-16 h-16 object-contain" /> */}
+                <CiSettings className="w-14 h-14 stroke-1" />
+              </button>
+              {/* File Change History button */}
+              <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="File Change History">
+                {/* <img src="/assets/folder.png" alt="Folder" className="w-16 h-16 object-contain" /> */}
+                <RiFileHistoryLine className="w-14 h-14" />
+              </button>
+            </div>
           </div>
+
 
           <ResizablePanelGroup
             direction="horizontal"
             className="min-h-screen w-full bg-primary-foreground"
           >
             {/* Sidebar (resizable) + Editor */}
-
             <ResizablePanel ref={sidebarPanelRef}
               defaultSize={20}
               minSize={12}
@@ -340,6 +353,10 @@ export default function Editor() {
               onCollapse={() => setSidebarCollapsed(true)}
               onExpand={() => setSidebarCollapsed(false)}
               className={``}>
+              {/* A drag region to allow dragging from the sidebar area */}
+              <div className="app-drag-region h-10 bg-background">
+              </div>
+
               <SidebarProvider>
                 {/* Use non-fixed variant so the panel controls width; force w-full so Sidebar doesn't enforce its own CSS width variable */}
                 <Sidebar collapsible="none" className="!static w-full">
@@ -354,9 +371,10 @@ export default function Editor() {
                 </Sidebar>
               </SidebarProvider>
             </ResizablePanel>
-            <ResizableHandle withHandle className="w-2 hover:bg-accent z-50 cursor-col-resize" />
+            <ResizableHandle className="w-0 hover:bg-accent hover:w-1 z-50 cursor-col-resize" />
 
             <ResizablePanel defaultSize={75} minSize={60}>
+              <TabBar />
               <EditorSpace
                 selectedFile={selectedFile}
                 previewMode={previewMode}
@@ -372,6 +390,7 @@ export default function Editor() {
             </ResizablePanel>
           </ResizablePanelGroup>
         </div>
+
 
         {/* Shortcuts Modal */}
         {showShortcuts && (

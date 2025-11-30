@@ -16,7 +16,7 @@
    NORD THEME COLORS
 ---------------------------- */
 .theme-nord {
-  --background: rgba(33, 37, 46, 0.807); /* Nord0 */
+  --background: rgba(33, 37, 46); /* Nord0 */
   --foreground: rgba(236, 239, 244); /* Nord6 */
   --card: rgba(46, 52, 64); /* Nord1–2 */
   --card-foreground: rgba(236, 239, 244);
