@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 
-export type ThemeType = "light" | "dark" | "nord";
+export type ThemeType = "light" | "dark" | "nord" | "cozy" | "darker";
 
 export const DEFAULT_THEME = "nord";
 
@@ -53,12 +53,18 @@ export function applyTheme(theme: ThemeType) {
   root.classList.remove("theme-nord");
   root.classList.remove("theme-light");
   root.classList.remove("theme-dark");
+  root.classList.remove("theme-cozy");
+  root.classList.remove("theme-darker");
 
   // Add the appropriate classes for the selected theme
   if (theme === "dark") {
     root.classList.add("theme-dark");
   } else if (theme === "nord") {
     root.classList.add("theme-nord");
+  } else if (theme === "cozy") {
+    root.classList.add("theme-cozy");
+  } else if (theme === "darker") {
+    root.classList.add("theme-darker");
   } else {
     root.classList.add("theme-light");
   }
