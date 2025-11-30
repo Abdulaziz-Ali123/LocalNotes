@@ -260,7 +260,7 @@ export default function Editor() {
         {/* Main Content Area */}
         <div className="flex flex-row flex-1 overflow-hidden">
           {/* Activity rail / fixed; controls the size of the left bar containing the buttons*/}
-          <div className="flex flex-col items-center gap-2 px-2 py-4 bg-background w-18 border-r">
+          <div className="flex flex-col items-center gap-2 px-2 py-4 bg-secondary w-18 border-r">
             {/* justify-center can be added here to make it vertically centered */}
             <button
               type="button"
@@ -296,7 +296,7 @@ export default function Editor() {
               {/* <img src="/assets/ai_helper.png" alt="AI" className="w-16 h-16 object-contain" /> */}
               <RiRobot2Line className="w-14 h-14" />
             </button>
-      
+
             {/* Share button */}
             <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Share with Friends">
               {/* <img src="/assets/share.png" alt="Share" className="w-16 h-16 object-contain" /> */}
@@ -316,32 +316,31 @@ export default function Editor() {
 
           <ResizablePanelGroup
             direction="horizontal"
-            className="min-h-screen w-full bg-secondary"
+            className="min-h-screen w-full bg-muted"
           >
             {/* Sidebar (resizable) + Editor */}
-          
-              <ResizablePanel defaultSize={20} minSize={12}
-                className={`transition-all duration-200 ease-in-out ${
-                  sidebarCollapsed ? "w-0 max-w-0 overflow-hidden" : ""
+
+            <ResizablePanel defaultSize={sidebarCollapsed ? 0 : 15} minSize={20}
+              className={`transition-all duration-200 ease-in-out ${sidebarCollapsed ? "w-0 max-w-0 overflow-hidden" : ""
                 }`}>
-                <SidebarProvider>
-                  {/* Use non-fixed variant so the panel controls width; force w-full so Sidebar doesn't enforce its own CSS width variable */}
-                  <Sidebar collapsible="none" className="w-full">
-                    <SidebarContent className="h-full p-0">
-                      {!sidebarCollapsed && (
-                        <>
-                          {activeSidebarPanel === "file" && <FileSystemTree onFileSelect={handleFileSelect} isVisible={!sidebarCollapsed} autoOpen={true} />}
-                          {activeSidebarPanel === "search" && <SearchComponent onFileSelect={handleFileSelect} />}
-                        </>
-                      )}
-                    </SidebarContent>
-                  </Sidebar>
-                </SidebarProvider>
-              </ResizablePanel>
-              {!sidebarCollapsed && <ResizableHandle withHandle className="bg-transparent" />}
-            
+              <SidebarProvider>
+                {/* Use non-fixed variant so the panel controls width; force w-full so Sidebar doesn't enforce its own CSS width variable */}
+                <Sidebar collapsible="none" className="w-full">
+                  <SidebarContent className="h-full p-0">
+                    {!sidebarCollapsed && (
+                      <>
+                        {activeSidebarPanel === "file" && <FileSystemTree onFileSelect={handleFileSelect} isVisible={!sidebarCollapsed} autoOpen={true} />}
+                        {activeSidebarPanel === "search" && <SearchComponent onFileSelect={handleFileSelect} />}
+                      </>
+                    )}
+                  </SidebarContent>
+                </Sidebar>
+              </SidebarProvider>
+            </ResizablePanel>
+            {!sidebarCollapsed && <ResizableHandle withHandle className="bg-transparent" />}
             <ResizablePanel defaultSize={sidebarCollapsed ? 100 : 75} minSize={60}>
-              <div className="flex h-full flex-col p-3 pl-0 rounded-3xl bg-secondary">
+              <div className={`flex h-full flex-col p-3 pr-1 bg-secondary ${sidebarCollapsed ? "rounded-none" : "rounded-3xl"
+                }`}>
                 {selectedFile ? (
                   <div className="flex flex-col h-full">
                     {/* Header */}
@@ -390,7 +389,7 @@ export default function Editor() {
                     </div>
 
                     {/* Editable / Preview area */}
-                    <div className="flex-1 w-full bg-secondary  text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border overflow-hidden">
+                    <div className="flex-1 w-full bg-secondary  text-foreground rounded-lg p-3 pr-1 font-mono text-sm resize-none focus:outline-none border border-border overflow-hidden">
                       {selectedFile.toLowerCase().endsWith(".md") ? (
                         livePreview ? (
                           <div className="flex h-full gap-4">
@@ -410,7 +409,7 @@ export default function Editor() {
                           </div>
                         ) : previewMode ? (
                           <div className="h-[97%]  overflow-auto custom-scrollbar">
-                              <MarkdownViewer content={fileContent} />
+                            <MarkdownViewer content={fileContent} />
                           </div>
                         ) : (
                           <textarea
@@ -463,7 +462,7 @@ export default function Editor() {
                 )}
               </div>
             </ResizablePanel>
-          </ResizablePanelGroup> 
+          </ResizablePanelGroup>
         </div>
 
         {/* Shortcuts Modal */}
@@ -520,10 +519,10 @@ export default function Editor() {
                 variant="ghost"
                 size="sm"
                 className={`h-5 px-2 text-xs ${justAutosaved
-                    ? 'text-green-400 hover:text-green-300'
-                    : hasUnsavedChanges
-                      ? 'text-yellow-400 hover:text-yellow-300'
-                      : 'text-muted-foreground hover:text-foreground'
+                  ? 'text-green-400 hover:text-green-300'
+                  : hasUnsavedChanges
+                    ? 'text-yellow-400 hover:text-yellow-300'
+                    : 'text-muted-foreground hover:text-foreground'
                   }`}
                 title={
                   justAutosaved
