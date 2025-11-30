@@ -17,9 +17,13 @@ function ResizablePanelGroup({
   );
 }
 
-function ResizablePanel({ ...props }: React.ComponentProps<typeof ResizablePrimitive.Panel>) {
-  return <ResizablePrimitive.Panel data-slot="resizable-panel" {...props} />;
-}
+const ResizablePanel = React.forwardRef<
+  ResizablePrimitive.ImperativePanelHandle,
+  React.ComponentProps<typeof ResizablePrimitive.Panel>
+>(({ ...props }, ref) => {
+  return <ResizablePrimitive.Panel ref={ref} data-slot="resizable-panel" {...props} />;
+});
+ResizablePanel.displayName = "ResizablePanel";
 
 function ResizableHandle({
   withHandle,
@@ -32,7 +36,7 @@ function ResizableHandle({
     <ResizablePrimitive.PanelResizeHandle
       data-slot="resizable-handle"
       className={cn(
-        "bg-border focus-visible:ring-ring relative flex w-px items-center justify-center after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:outline-hidden data-[panel-group-direction=vertical]:h-px data-[panel-group-direction=vertical]:w-full data-[panel-group-direction=vertical]:after:left-0 data-[panel-group-direction=vertical]:after:h-1 data-[panel-group-direction=vertical]:after:w-full data-[panel-group-direction=vertical]:after:translate-x-0 data-[panel-group-direction=vertical]:after:-translate-y-1/2 [&[data-panel-group-direction=vertical]>div]:rotate-90 rounded-2xl",
+        "bg-border focus-visible:ring-ring relative z-50 flex w-px items-center justify-center after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:outline-hidden data-[panel-group-direction=vertical]:h-px data-[panel-group-direction=vertical]:w-full data-[panel-group-direction=vertical]:after:left-0 data-[panel-group-direction=vertical]:after:h-1 data-[panel-group-direction=vertical]:after:w-full data-[panel-group-direction=vertical]:after:translate-x-0 data-[panel-group-direction=vertical]:after:-translate-y-1/2 [&[data-panel-group-direction=vertical]>div]:rotate-90 rounded-2xl cursor-col-resize data-[panel-group-direction=vertical]:cursor-row-resize",
         className
       )}
       {...props}

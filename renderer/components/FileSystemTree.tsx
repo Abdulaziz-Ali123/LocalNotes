@@ -583,7 +583,7 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
                   });
                 }}
               >
-                <p>{element.name}</p>
+                <span>{element.name}</span>
               </File>
             )}
           </div>
@@ -640,7 +640,7 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
     }
 
     return (
-      <div className="relative h-full w-full">
+      <div className="h-full w-full">
         <div className="flex items-center justify-between p-2 border-b">
           <span
             className="text-sm font-semibold truncate flex-1"
