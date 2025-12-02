@@ -19,11 +19,16 @@ import { produce } from "immer";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { TabsSlice } from "@/renderer/types/tab-slice";
 import { useKeyboardShortcuts } from "@/renderer/components/hooks/keyboardshortcuts";
-import { CiFileOn, CiSearch, CiExport, CiShare2, CiSettings, CiPalette } from "react-icons/ci";
-import { RiRobot2Line, RiFileHistoryLine, RiPaletteLine } from "react-icons/ri";
+import { CiFileOn, CiSearch, CiExport, CiShare2, CiSettings, CiPalette, CiImport } from "react-icons/ci";
+import { RiRobot2Line, RiFileHistoryLine, RiPaletteLine, RiFolderAddLine, RiFileAddLine, RiFileEditLine } from "react-icons/ri";
 import EditorSpace from "@/renderer/pages/editorSpace";
 import { Tab } from "@/renderer/components/Tab";
 import TabBar from "../components/TabBar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/renderer/components/ui/popover";
 
 // Autosave interval in milliseconds -> 10 seconds
 const AUTOSAVE_INTERVAL = 10000;
@@ -272,6 +277,85 @@ export default function Editor() {
     enabled: true,
   });
 
+  // Import Handlers
+  const handleImportFiles = async () => {
+    const currentFolder = localStorage.getItem("currentFolderPath");
+    if (!currentFolder) {
+      alert("Please open a folder first.");
+      return;
+    }
+
+    try {
+      const result = await window.fs.selectImportFiles();
+      if (result.success && result.paths) {
+        for (const srcPath of result.paths) {
+          const fileName = window.fs.basename(srcPath);
+          const destPath = window.fs.join(currentFolder, fileName);
+          await window.fs.copyFile(srcPath, destPath);
+        }
+        // Reload folder to show new files
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error("Import failed:", error);
+      alert("Failed to import files.");
+    }
+  };
+
+  const handleImportFolder = async () => {
+    const currentFolder = localStorage.getItem("currentFolderPath");
+    if (!currentFolder) {
+      alert("Please open a folder first.");
+      return;
+    }
+
+    try {
+      const result = await window.fs.openFolderDialog();
+      if (result.success && result.data) {
+        const sourceFolder = result.data;
+        await window.fs.importFolder(sourceFolder, currentFolder);
+        // Reload folder to show new folder
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error("Folder import failed:", error);
+      alert("Failed to import folder.");
+    }
+  };
+
+  const handleImportIntoNote = async () => {
+    if (!selectedFile) {
+      alert("Please select a note first.");
+      return;
+    }
+
+    try {
+      const result = await window.fs.selectImportFiles();
+      if (result.success && result.paths) {
+        await window.fs.mergeFiles(result.paths, selectedFile);
+        
+        // Refresh content
+        const readResult = await window.fs.readFile(selectedFile);
+        if (readResult.success) {
+          setFileContent(readResult.data);
+          // Update tab content as well
+          useBoundStore.setState(
+            produce((state: TabsSlice) => {
+              const tab = state.tabs.items.find((t: any) => t.id === selectedTabId);
+              if (tab) {
+                tab.content = readResult.data;
+              }
+              return state;
+            })
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Import into note failed:", error);
+      alert("Failed to import into note.");
+    }
+  };
+
   return (
     <React.Fragment>
       <div className="flex flex-col h-screen">
@@ -309,11 +393,40 @@ export default function Editor() {
                 <CiSearch className="w-14 h-14 stroke-1" />
               </button>
 
-              {/* Export buttons */}
-              <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Export">
-                {/* <img src="/assets/export.png" alt="Export" className="w-16 h-16 object-contain" /> */}
-                <CiExport className="w-14 h-14 stroke-1" />
-              </button>
+              {/* Import/Export Popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Import/Export">
+                    <CiExport className="w-14 h-14 stroke-1" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent side="right" align="start" className="w-56 p-2">
+                  <div className="flex flex-col gap-1">
+                    <button 
+                      onClick={handleImportFiles}
+                      className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent text-left w-full"
+                    >
+                      <RiFileAddLine className="w-4 h-4" />
+                      <span>Import File(s)</span>
+                    </button>
+                    <button 
+                      onClick={handleImportFolder}
+                      className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent text-left w-full"
+                    >
+                      <RiFolderAddLine className="w-4 h-4" />
+                      <span>Import Folder</span>
+                    </button>
+                    <button 
+                      onClick={handleImportIntoNote}
+                      className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent text-left w-full"
+                      disabled={!selectedFile}
+                    >
+                      <RiFileEditLine className="w-4 h-4" />
+                      <span className={!selectedFile ? "text-muted-foreground" : ""}>Import into Note</span>
+                    </button>
+                  </div>
+                </PopoverContent>
+              </Popover>
 
               {/* AI Assistant button */}
               <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Ai Assistant - Coming Soon">
