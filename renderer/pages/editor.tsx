@@ -4,6 +4,7 @@ import {
   SidebarContent,
 } from "../components/ui/sidebar";
 import ThemeSelector from "@/renderer/components/ui/ThemeSelector";
+import TagFilterPanel from "@/renderer/components/TagFilterPanel";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ResizableHandle,
@@ -19,10 +20,10 @@ import { produce } from "immer";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { TabsSlice } from "@/renderer/types/tab-slice";
 import { useKeyboardShortcuts } from "@/renderer/components/hooks/keyboardshortcuts";
-import { CiFileOn, CiSearch, CiExport, CiShare2, CiSettings, CiPalette, CiImport } from "react-icons/ci";
+import { CiFileOn, CiSearch, CiExport, CiShare2, CiSettings, CiPalette, CiImport} from "react-icons/ci";
 import { RiRobot2Line, RiFileHistoryLine, RiPaletteLine, RiFolderAddLine, RiFileAddLine, RiFileEditLine } from "react-icons/ri";
+import { Tag } from "lucide-react";
 import EditorSpace from "@/renderer/pages/editorSpace";
-import { Tab } from "@/renderer/components/Tab";
 import TabBar from "../components/TabBar";
 import {
   Popover,
@@ -40,7 +41,7 @@ export default function Editor() {
   const [isSaving, setIsSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState<boolean>(true);
   const [livePreview, setLivePreview] = useState<boolean>(false);
-  const fileTreeRef = useRef<FileSystemTreeRef>(null);
+  // (removed fileTreeRef used for selectPath)
   const sidebarPanelRef = useRef<ImperativePanelHandle>(null);
   const initializeTabs = useBoundStore((state) => state.tabs.initialize);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -49,6 +50,15 @@ export default function Editor() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [justAutosaved, setJustAutosaved] = useState(false);
   const [lastAutosaveTime, setLastAutosaveTime] = useState<Date | null>(null);
+
+  // Tag filter states
+  const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
+  const [rootPath, setRootPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    const savedPath = localStorage.getItem("currentFolderPath");
+    setRootPath(savedPath);
+  }, []);
 
   // keep a ref to the latest content so the interval callback doesn't need fileContent as a dep
   const contentRef = useRef<string>(fileContent);
@@ -150,10 +160,10 @@ export default function Editor() {
   };
 
   // Sidebar state management for search/file panels
-  const [activeSidebarPanel, setActiveSidebarPanel] = useState<"file" | "search" | "theme" | null>("file");
+  const [activeSidebarPanel, setActiveSidebarPanel] = useState<"file" | "search" | "theme" | "tags" | null>("file");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const handleSidebarButtonClick = (panel: "file" | "search" | "theme") => {
+  const handleSidebarButtonClick = (panel: "file" | "search" | "theme" | "tags") => {
     if (sidebarCollapsed) {
       // If sidebar is collapsed, open and show the panel
       setSidebarCollapsed(false);
@@ -445,6 +455,17 @@ export default function Editor() {
                 <RiPaletteLine className="w-14 h-14" />
               </button>
 
+              {/* Tag Filter button */}
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSidebarButtonClick("tags")}
+                className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
+                title="Filter by Tags"
+              >
+                <Tag className="w-7 h-7" />
+              </button>
+
               {/* Share button */}
               <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Share with Friends">
                 {/* <img src="/assets/share.png" alt="Share" className="w-16 h-16 object-contain" /> */}
@@ -491,6 +512,7 @@ export default function Editor() {
                         {activeSidebarPanel === "file" && <FileSystemTree onFileSelect={handleFileSelect} isVisible={!sidebarCollapsed} autoOpen={true} />}
                         {activeSidebarPanel === "search" && <SearchComponent onFileSelect={handleFileSelect} />}
                         {activeSidebarPanel === "theme" && <ThemeSelector />}
+                        {activeSidebarPanel === "tags" && <TagFilterPanel rootPath={rootPath} onFiltersChange={setSelectedTagFilters} />}
                       </>
                     )}
                   </SidebarContent>

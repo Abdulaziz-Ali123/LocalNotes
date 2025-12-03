@@ -2,8 +2,10 @@ import React, { useState, useEffect, useMemo, useImperativeHandle, forwardRef } 
 import { File, Folder, Tree, type TreeViewElement } from "./ui/file-tree";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { FolderOpen, FilePlus, FolderPlus, Trash2, Edit2, Search, X } from "lucide-react";
+import { FolderOpen, FilePlus, FolderPlus, Trash2, Edit2, Search, X, Tag } from "lucide-react";
 import InputDialog from "./InputDialog";
+import TagModal from "./TagModal";
+import TagIndicators from "./TagIndicators";
 
 interface FileSystemItem {
   name: string;
@@ -64,6 +66,10 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
       defaultValue: "",
       onConfirm: () => {},
     });
+
+    const [tagModalOpen, setTagModalOpen] = useState(false);
+    const [selectedItemForTags, setSelectedItemForTags] = useState<string | null>(null);
+    const [itemTagAssignments, setItemTagAssignments] = useState<Record<string, { tagIds: string[] }>>({});
 
     // Expose functions to parent component via ref
     useImperativeHandle(ref, () => ({
@@ -240,6 +246,49 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
       }
     }, [isVisible, rootPath]);
 
+    // Load tag assignments when rootPath changes
+    useEffect(() => {
+      if (rootPath) {
+        loadTagAssignments(rootPath);
+      }
+    }, [rootPath]);
+
+    // Listen for tag file updates so we can reload assignments immediately
+    useEffect(() => {
+      const onTagsUpdated = () => {
+        if (rootPath) loadTagAssignments(rootPath);
+      };
+      window.addEventListener("tags-updated", onTagsUpdated);
+      return () => window.removeEventListener("tags-updated", onTagsUpdated);
+    }, [rootPath]);
+
+    // Load tag assignments from file and normalize keys to forward slashes
+    const loadTagAssignments = async (dirPath: string) => {
+      try {
+        const tagsFilePath = window.fs.join(dirPath, ".notepad-tags.json");
+        const result = await window.fs.readFile(tagsFilePath);
+
+        if (result.success) {
+          const data = JSON.parse(result.data);
+          const items = data.items || {};
+
+          // Normalize keys to forward-slash paths so lookups match tree IDs
+          const normalizedItems: Record<string, { tagIds: string[] }> = {};
+          Object.keys(items).forEach((k) => {
+            const norm = k.replace(/\\/g, "/");
+            normalizedItems[norm] = items[k];
+          });
+
+          setItemTagAssignments(normalizedItems);
+        } else {
+          setItemTagAssignments({});
+        }
+      } catch (error) {
+        console.error("Failed to load tag assignments:", error);
+        setItemTagAssignments({});
+      }
+    };
+
     const loadDirectory = async (dirPath: string, parentId?: string) => {
       const result = await window.fs.readDirectory(dirPath);
       if (!result.success || !result.data) return;
@@ -374,6 +423,11 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
           }
         },
       });
+    };
+
+    const openTagModal = (itemPath: string) => {
+      setSelectedItemForTags(itemPath);
+      setTagModalOpen(true);
     };
 
     const deleteItem = async (itemPath: string) => {
@@ -534,6 +588,10 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
       }, 100);
     };
 
+    // Note: tag filtering is handled in the TagFilterPanel only.
+    // The FileSystemTree displays the full tree (treeElements) and does not
+    // filter items here so the Files sidebar remains unchanged.
+
     const renderTree = (elements: TreeViewElement[]): React.ReactNode => {
       return elements.map((element) => {
         const isFolder = element.children !== undefined;
@@ -553,6 +611,7 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
                   element={element.name}
                   value={element.id}
                   isSelect={isSelected}
+                  tagIndicators={<TagIndicators itemPath={element.id} rootPath={rootPath} />}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -583,13 +642,19 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
                   });
                 }}
               >
-                <span>{element.name}</span>
+                <div className="flex items-center gap-2 w-full">
+                  <span>{element.name}</span>
+                  <TagIndicators itemPath={element.id} rootPath={rootPath} />
+                </div>
               </File>
             )}
           </div>
         );
       });
     };
+
+    // visibleElements: show full tree by default (no subtree-only display)
+    const visibleElements = treeElements;
 
     useEffect(() => {
       const handleClick = () => setContextMenu(null);
@@ -693,11 +758,11 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
         >
           <Tree
             className="p-2"
-            elements={treeElements}
+            elements={visibleElements}
             initialSelectedId={selectedId}
             initialExpandedItems={[]}
           >
-            {renderTree(treeElements)}
+            {renderTree(visibleElements)}
           </Tree>
         </div>
 
@@ -750,6 +815,16 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
               Rename
             </button>
             <button
+              className="w-full px-4 py-2 text-sm hover:bg-accent text-left flex items-center gap-2"
+              onClick={() => {
+                openTagModal(contextMenu.path);
+                setContextMenu(null);
+              }}
+            >
+              <Tag className="h-6 w-6" />
+              Add Tags
+            </button>
+            <button
               className="w-full px-4 py-2 text-sm hover:bg-accent text-left flex items-center gap-2 text-destructive"
               onClick={() => {
                 deleteItem(contextMenu.path);
@@ -769,6 +844,16 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
           defaultValue={inputDialog.defaultValue}
           onConfirm={inputDialog.onConfirm}
           onCancel={() => setInputDialog((prev) => ({ ...prev, isOpen: false }))}
+        />
+
+        <TagModal
+          isOpen={tagModalOpen}
+          itemPath={selectedItemForTags}
+          rootPath={rootPath}
+          onClose={() => {
+            setTagModalOpen(false);
+            setSelectedItemForTags(null);
+          }}
         />
       </div>
     );
