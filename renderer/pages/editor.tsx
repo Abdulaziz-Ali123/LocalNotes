@@ -13,15 +13,14 @@ import {
 } from "@/renderer/components/ui/resizable";
 import { ImperativePanelHandle } from "react-resizable-panels";
 import FileSystemTree from "@/renderer/components/FileSystemTree";
-import type { FileSystemTreeRef } from "@/renderer/components/FileSystemTree";
 import { Button } from "@/renderer/components/ui/button";
 import SearchComponent from "@/renderer/components/SearchComponent";
 import { produce } from "immer";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { TabsSlice } from "@/renderer/types/tab-slice";
 import { useKeyboardShortcuts } from "@/renderer/components/hooks/keyboardshortcuts";
-import { CiFileOn, CiSearch, CiExport, CiShare2, CiSettings, CiPalette, CiImport} from "react-icons/ci";
-import { RiRobot2Line, RiFileHistoryLine, RiPaletteLine, RiFolderAddLine, RiFileAddLine, RiFileEditLine } from "react-icons/ri";
+import { CiFileOn, CiSearch, CiExport, CiShare2, CiSettings} from "react-icons/ci";
+import { RiRobot2Line, RiFileHistoryLine, RiPaletteLine, RiFolderAddLine, RiFileAddLine, RiFileEditLine, RiFolderUploadLine, RiFileUploadLine} from "react-icons/ri";
 import { Tag } from "lucide-react";
 import EditorSpace from "@/renderer/pages/editorSpace";
 import TabBar from "../components/TabBar";
@@ -366,6 +365,53 @@ export default function Editor() {
     }
   };
 
+  const handleExportCurrentFile = async () => {
+      if (!selectedFile) {
+          alert("No file selected to export.");
+          return;
+      }
+
+      const result = await window.fs.selectExportDestination();
+      if (!result.success) return;
+
+      const exportResult = await window.fs.exportFile(
+          selectedFile,
+          result.folder
+      );
+
+      if (exportResult.success) {
+          refreshTree();
+          alert(`File exported to ${exportResult.exportedTo}`);
+      } else {
+          alert("Export failed: " + exportResult.error);
+      }
+  };
+
+  const handleExportFolder = async () => {
+      const root = localStorage.getItem("currentFolderPath");
+      if (!root) return;
+
+      const dest = await window.fs.selectExportDestination();
+      if (!dest.success) return;
+
+      const result = await window.fs.exportFolder(root, dest.folder);
+
+      if (result.success) {
+          refreshTree();
+          alert("Folder exported successfully!");
+      } else {
+          alert("Export failed: " + result.error);
+      }
+  };
+
+  const fileTreeRef = useRef(null);
+
+  const refreshTree = () => {
+      if (fileTreeRef.current && fileTreeRef.current.reloadRoot) {
+          fileTreeRef.current.reloadRoot();
+      }
+  };
+
   return (
     <React.Fragment>
       <div className="flex flex-col h-screen">
@@ -403,7 +449,7 @@ export default function Editor() {
                 <CiSearch className="w-14 h-14 stroke-1" />
               </button>
 
-              {/* Import/Export Popover */}
+              {/* Import/ Popover */}
               <Popover>
                 <PopoverTrigger asChild>
                   <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Import/Export">
@@ -463,14 +509,31 @@ export default function Editor() {
                 className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
                 title="Filter by Tags"
               >
-                <Tag className="w-7 h-7" />
+                <Tag className="stroke-2 w-10 h-10" />
               </button>
 
               {/* Share button */}
-              <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Share with Friends">
-                {/* <img src="/assets/share.png" alt="Share" className="w-16 h-16 object-contain" /> */}
-                <CiShare2 className="w-14 h-14 stroke-1" />
-              </button>
+              <Popover >
+                <PopoverTrigger asChild>
+                  <button 
+                    onMouseDown={(e) => e.preventDefault()}
+                    className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Share with Friends">
+                    {/* <img src="/assets/share.png" alt="Share" className="w-16 h-16 object-contain" /> */}
+                    <CiShare2 className="w-14 h-14 stroke-1" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent side="right" align="start" className="w-56 p-2">
+                  <button onClick={handleExportCurrentFile} className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent text-left w-full">
+                    <RiFileUploadLine className="w-4 h-4" />
+                    <span>Export Current File</span>
+                  </button>
+                  <button onClick={handleExportFolder} className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent text-left w-full">
+                    <RiFolderUploadLine className="w-4 h-4" />
+                    <span>Export Workspace</span>
+                  </button>
+                </PopoverContent>
+              </Popover>
+              
               {/* Settings button */}
               <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Settings">
                 {/* <img src="/assets/settings.png" alt="Settings" className="w-16 h-16 object-contain" /> */}
@@ -509,7 +572,7 @@ export default function Editor() {
                   <SidebarContent className="h-full p-0">
                     {!sidebarCollapsed && (
                       <>
-                        {activeSidebarPanel === "file" && <FileSystemTree onFileSelect={handleFileSelect} isVisible={!sidebarCollapsed} autoOpen={true} />}
+                        {activeSidebarPanel === "file" && <FileSystemTree  ref={refreshTree}onFileSelect={handleFileSelect} isVisible={!sidebarCollapsed} autoOpen={true} />}
                         {activeSidebarPanel === "search" && <SearchComponent onFileSelect={handleFileSelect} />}
                         {activeSidebarPanel === "theme" && <ThemeSelector />}
                         {activeSidebarPanel === "tags" && <TagFilterPanel rootPath={rootPath} onFiltersChange={setSelectedTagFilters} />}
