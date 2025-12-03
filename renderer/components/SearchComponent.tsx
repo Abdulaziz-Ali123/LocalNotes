@@ -1,8 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Search, X, FileText, Loader2 } from "lucide-react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
-import { Checkbox } from "./ui/checkbox";
 import { Label } from "./ui/label";
 
 interface FileSystemItem {
@@ -31,6 +30,10 @@ export default function SearchComponent({ onFileSelect }: SearchComponentProps) 
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchError, setSearchError] = useState<string>("");
+  const [isUpdating, setIsUpdating] = useState<boolean>(false);
+  const [filterTxt, setFilterTxt] = useState<boolean>(false);
+  const [filterMd, setFilterMd] = useState<boolean>(false);
+  const [filterTex, setFilterTex] = useState<boolean>(false);
 
   // Highlight matches in text
   const highlightText = (text: string, query: string): React.ReactNode => {
@@ -71,6 +74,16 @@ export default function SearchComponent({ onFileSelect }: SearchComponentProps) 
     }
   };
 
+  // Re-run active search when file-type filters change (covers toggle on/off)
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+    // debounce slightly to allow UI state to settle
+    const t = setTimeout(() => {
+      handleSearch();
+    }, 30);
+    return () => clearTimeout(t);
+  }, [filterTxt, filterMd, filterTex]);
+
   // Search through file contents
   const searchFileContents = async (dirPath: string, query: string): Promise<SearchResult[]> => {
     const results: SearchResult[] = [];
@@ -88,6 +101,16 @@ export default function SearchComponent({ onFileSelect }: SearchComponentProps) 
           results.push(...subResults);
         } else {
           try {
+            // If file-type filters are active, skip files that don't match
+            const filtersActive = filterTxt || filterMd || filterTex;
+            if (filtersActive) {
+              const ext = (item.path.split('.').pop() || '').toLowerCase();
+              const allowed =
+                (filterTxt && ext === 'txt') ||
+                (filterMd && (ext === 'md' || ext === 'markdown')) ||
+                (filterTex && (ext === 'tex' || ext === 'latex'));
+              if (!allowed) continue;
+            }
             const fileResult = await window.fs.readFile(item.path);
             if (fileResult.success && fileResult.data) {
               const content = fileResult.data as string;
@@ -178,6 +201,30 @@ export default function SearchComponent({ onFileSelect }: SearchComponentProps) 
     }
   };
 
+  const handleMatchCaseChange = (checked: boolean) => {
+    if (isUpdating) return;
+    setIsUpdating(true);
+    setMatchCase(checked);
+    setTimeout(() => setIsUpdating(false), 50);
+  };
+
+  const handleMatchWholeWordChange = (checked: boolean) => {
+    if (isUpdating) return;
+    setIsUpdating(true);
+    setMatchWholeWord(checked);
+    setTimeout(() => setIsUpdating(false), 50);
+  };
+
+  const handleFilterToggle = (type: 'txt' | 'md' | 'tex') => {
+    if (isUpdating) return;
+    setIsUpdating(true);
+    if (type === 'txt') setFilterTxt((v) => !v);
+    if (type === 'md') setFilterMd((v) => !v);
+    if (type === 'tex') setFilterTex((v) => !v);
+    setTimeout(() => setIsUpdating(false), 50);
+  };
+
+
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b bg-sidebar space-y-3">
@@ -215,26 +262,69 @@ export default function SearchComponent({ onFileSelect }: SearchComponentProps) 
         </div>
 
         {/* Options */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="match-case"
-              checked={matchCase}
-              onCheckedChange={(checked) => setMatchCase(checked as boolean)}
-            />
-            <Label htmlFor="match-case" className="text-sm cursor-pointer">
+        <div className="flex items-center gap-3">
+          <div
+            role="button"
+            tabIndex={0}
+            aria-pressed={matchCase}
+            onClick={() => handleMatchCaseChange(!matchCase)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleMatchCaseChange(!matchCase);
+              }
+            }}
+            className={`flex items-center gap-2 px-3 py-2 rounded-md transition-all border-2 border-white focus:outline-none focus:ring-2 focus:ring-offset-1 ${matchCase ? 'bg-accent' : 'bg-accent/50 hover:bg-accent'}`}
+          >
+            <Label className="text-sm cursor-pointer font-medium">
               Match Case
             </Label>
           </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="match-whole-word"
-              checked={matchWholeWord}
-              onCheckedChange={(checked) => setMatchWholeWord(checked as boolean)}
-            />
-            <Label htmlFor="match-whole-word" className="text-sm cursor-pointer">
+
+          <div
+            role="button"
+            tabIndex={0}
+            aria-pressed={matchWholeWord}
+            onClick={() => handleMatchWholeWordChange(!matchWholeWord)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleMatchWholeWordChange(!matchWholeWord);
+              }
+            }}
+            className={`flex items-center gap-2 px-3 py-2 rounded-md transition-all border-2 border-white focus:outline-none focus:ring-2 focus:ring-offset-1 ${matchWholeWord ? 'bg-accent' : 'bg-accent/50 hover:bg-accent'}`}
+          >
+            <Label className="text-sm cursor-pointer font-medium">
               Match Whole Word
             </Label>
+          </div>
+
+          {/* File type filters */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleFilterToggle('txt')}
+              aria-pressed={filterTxt}
+              disabled={isUpdating}
+              className={`px-2 py-1 rounded-md text-sm transition-all border-2 border-white focus:outline-none ${filterTxt ? 'bg-accent text-accent-foreground' : 'bg-accent/50 hover:bg-accent'}`}>
+              .txt
+            </button>
+            <button
+              type="button"
+              onClick={() => handleFilterToggle('md')}
+              aria-pressed={filterMd}
+              disabled={isUpdating}
+                className={`px-2 py-1 rounded-md text-sm transition-all border-2 border-white focus:outline-none ${filterMd ? 'bg-accent text-accent-foreground' : 'bg-accent/50 hover:bg-accent'}`}>
+              .md
+            </button>
+            <button
+              type="button"
+              onClick={() => handleFilterToggle('tex')}
+              aria-pressed={filterTex}
+              disabled={isUpdating}
+                className={`px-2 py-1 rounded-md text-sm transition-all border-2 border-white focus:outline-none ${filterTex ? 'bg-accent text-accent-foreground' : 'bg-accent/50 hover:bg-accent'}`}>
+              LaTex
+            </button>
           </div>
         </div>
       </div>
