@@ -364,7 +364,7 @@ ipcMain.handle("fs:readFile", async (event, filePath: string) => {
         const ext = path.extname(filePath).toLowerCase();
 
         // Define file types
-        const textExtensions = ['.md', '.txt', '.json', '.js', '.ts', '.css', '.html', '.canvas', '.xml', '.yaml', '.yml'];
+        const textExtensions = ['.md', '.txt', '.tex', '.json', '.js', '.ts', '.css', '.html', '.canvas', '.xml', '.yaml', '.yml'];
         const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.ico'];
 
         // Read as text
