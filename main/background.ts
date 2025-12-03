@@ -365,7 +365,7 @@ ipcMain.handle("fs:readFile", async (event, filePath: string) => {
         const ext = path.extname(filePath).toLowerCase();
 
         // Define file types
-        const textExtensions = ['.md', '.txt', '.json', '.js', '.ts', '.css', '.html', '.canvas', '.xml', '.yaml', '.yml'];
+        const textExtensions = ['.md', '.txt', '.tex', '.json', '.js', '.ts', '.css', '.html', '.canvas', '.xml', '.yaml', '.yml'];
         const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.ico'];
 
         // Read as text
@@ -490,6 +490,19 @@ ipcMain.handle("fs:selectImportFiles", async () => {
 });
 
 
+ipcMain.handle("tags:load", (event, projectRoot: string) => {
+  return loadTags(projectRoot);
+});
+
+ipcMain.handle("tags:update", (event, projectRoot: string, itemPath: string, tags: any[]) => {
+  updateTags(projectRoot, itemPath, tags);
+  return { success: true };
+});
+
+ipcMain.handle("tags:remove", (event, projectRoot: string, itemPath: string) => {
+  removeTags(projectRoot, itemPath);
+  return { success: true };
+});
 ipcMain.handle("fs:mergeFiles", async (event, fileNames: string[], targetNotePath: string) => {
     try {
         let targetContent = await fs.readFile(targetNotePath, "utf-8");
@@ -534,6 +547,12 @@ ipcMain.handle("fs:importFolder", async (event, sourcePath: string, targetPath: 
         // Create the destination path with the folder name
         const destPath = path.join(targetPath, folderName);
 
+        // Prevent copying into itself or subdirectory
+        const relative = path.relative(sourcePath, destPath);
+        if (sourcePath === destPath || (relative && !relative.startsWith('..') && !path.isAbsolute(relative))) {
+             throw new Error("Cannot copy a folder into itself or its subdirectory.");
+        }
+
         // Recursively copy folder contents
         const copyFolderRecursive = async (src: string, dest: string) => {
             // Create destination directory if it doesn't exist
@@ -546,6 +565,9 @@ ipcMain.handle("fs:importFolder", async (event, sourcePath: string, targetPath: 
             for (const entry of entries) {
                 const srcPath = path.join(src, entry.name);
                 const destPath = path.join(dest, entry.name);
+
+                // Skip if the entry is the destination folder itself (just in case)
+                if (srcPath === destPath) continue;
 
                 if (entry.isDirectory()) {
                     await copyFolderRecursive(srcPath, destPath);
@@ -562,18 +584,4 @@ ipcMain.handle("fs:importFolder", async (event, sourcePath: string, targetPath: 
     } catch (err: any) {
         return { success: false, error: err.message };
     }
-});
-
-ipcMain.handle("tags:load", (event, projectRoot: string) => {
-  return loadTags(projectRoot);
-});
-
-ipcMain.handle("tags:update", (event, projectRoot: string, itemPath: string, tags: any[]) => {
-  updateTags(projectRoot, itemPath, tags);
-  return { success: true };
-});
-
-ipcMain.handle("tags:remove", (event, projectRoot: string, itemPath: string) => {
-  removeTags(projectRoot, itemPath);
-  return { success: true };
 });
