@@ -572,7 +572,7 @@ export default function Editor() {
                   <SidebarContent className="h-full p-0">
                     {!sidebarCollapsed && (
                       <>
-                        {activeSidebarPanel === "file" && <FileSystemTree onFileSelect={handleFileSelect} isVisible={!sidebarCollapsed} autoOpen={true} />}
+                        {activeSidebarPanel === "file" && <FileSystemTree  ref={refreshTree}onFileSelect={handleFileSelect} isVisible={!sidebarCollapsed} autoOpen={true} />}
                         {activeSidebarPanel === "search" && <SearchComponent onFileSelect={handleFileSelect} />}
                         {activeSidebarPanel === "theme" && <ThemeSelector />}
                         {activeSidebarPanel === "tags" && <TagFilterPanel rootPath={rootPath} onFiltersChange={setSelectedTagFilters} />}
