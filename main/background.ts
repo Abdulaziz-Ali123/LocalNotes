@@ -533,6 +533,12 @@ ipcMain.handle("fs:importFolder", async (event, sourcePath: string, targetPath: 
         // Create the destination path with the folder name
         const destPath = path.join(targetPath, folderName);
 
+        // Prevent copying into itself or subdirectory
+        const relative = path.relative(sourcePath, destPath);
+        if (sourcePath === destPath || (relative && !relative.startsWith('..') && !path.isAbsolute(relative))) {
+             throw new Error("Cannot copy a folder into itself or its subdirectory.");
+        }
+
         // Recursively copy folder contents
         const copyFolderRecursive = async (src: string, dest: string) => {
             // Create destination directory if it doesn't exist
@@ -545,6 +551,9 @@ ipcMain.handle("fs:importFolder", async (event, sourcePath: string, targetPath: 
             for (const entry of entries) {
                 const srcPath = path.join(src, entry.name);
                 const destPath = path.join(dest, entry.name);
+
+                // Skip if the entry is the destination folder itself (just in case)
+                if (srcPath === destPath) continue;
 
                 if (entry.isDirectory()) {
                     await copyFolderRecursive(srcPath, destPath);
