@@ -6,48 +6,183 @@
 
 @custom-variant dark (&:is(.dark *));
 
+:root {
+  --background: #ffffff;
+  --foreground: #000000;
+  --webkit-scrollbar-track: var(--secondary);
+}
+
 /* ---------------------------
    NORD THEME COLORS
 ---------------------------- */
-:root {
-  --background: rgb(46, 52, 64); /* Nord0 */
-  --foreground: rgb(236, 239, 244); /* Nord6 */
-  --card: rgb(46, 52, 64); /* Nord1–2 */
-  --card-foreground: rgb(236, 239, 244);
-  --popover: rgb(46, 52, 64);
-  --popover-foreground: rgb(236, 239, 244);
-  --primary: rgb(136, 192, 208); /* Nord8 */
-  --primary-foreground: rgb(46, 52, 64);
-  --secondary: rgb(59, 66, 82); /* Nord2–3 */
-  --secondary-foreground: rgb(236, 239, 244);
-  --muted: rgb(59, 66, 82);
-  --muted-foreground: rgb(216, 222, 233);
-  --accent: rgb(129, 161, 193); /* Nord10 */
-  --accent-foreground: rgb(236, 239, 244);
-  --destructive: rgb(191, 97, 106); /* Nord11 */
-  --destructive-foreground: rgb(236, 239, 244);
-  --border: rgb(59, 66, 82);
-  --input: rgb(59, 66, 82);
-  --ring: rgb(129, 161, 193);
-  --chart-1: rgb(136, 192, 208); /* Nord8 */
-  --chart-2: rgb(143, 188, 187); /* Nord7 */
-  --chart-3: rgb(163, 190, 140); /* Nord14 */
-  --chart-4: rgb(235, 203, 139); /* Nord13 */
-  --chart-5: rgb(180, 142, 173); /* Nord15 */
-  --sidebar: rgb(59, 66, 82); /* Nord2–3 */
-  --sidebar-foreground: rgb(236, 239, 244);
-  --sidebar-primary: rgb(115, 146, 66);
-  --sidebar-primary-foreground: rgb(46, 52, 64);
-  --sidebar-accent: rgb(129, 161, 193);
-  --sidebar-accent-foreground: rgb(236, 239, 244);
-  --sidebar-border: rgb(64, 88, 145);
-  --sidebar-ring: rgb(129, 161, 193);
+.theme-nord {
+  --background: rgba(33, 37, 46); /* Nord0 */
+  --foreground: rgba(236, 239, 244); /* Nord6 */
+  --card: rgba(46, 52, 64); /* Nord1–2 */
+  --card-foreground: rgba(236, 239, 244);
+  --popover: rgba(46, 52, 64);
+  --popover-foreground: rgba(236, 239, 244);
+  --primary: rgba(136, 192, 208); /* Nord8 */
+  --primary-foreground: rgba(46, 52, 64);
+  --secondary: rgba(59, 66, 82); /* Nord2–3 */
+  --secondary-foreground: rgba(236, 239, 244);
+  --muted: rgba(59, 66, 82, 0.76);
+  --muted-foreground: rgba(216, 222, 233);
+  --accent: rgba(129, 161, 193); /* Nord10 */
+  --accent-foreground: rgba(236, 239, 244);
+  --destructive: rgba(191, 97, 106); /* Nord11 */
+  --destructive-foreground: rgba(236, 239, 244);
+  --border: rgba(59, 66, 82);
+  --input: rgba(59, 66, 82);
+  --ring: rgba(129, 161, 193);
+  --chart-1: rgba(136, 192, 208); /* Nord8 */
+  --chart-2: rgba(143, 188, 187); /* Nord7 */
+  --chart-3: rgba(163, 190, 140); /* Nord14 */
+  --chart-4: rgba(235, 203, 139); /* Nord13 */
+  --chart-5: rgba(180, 142, 173); /* Nord15 */
+  --sidebar: rgba(59, 66, 82); /* Nord2–3 */
+  --sidebar-foreground: rgba(236, 239, 244);
+  --sidebar-primary: rgba(115, 146, 66);
+  --sidebar-primary-foreground: rgba(46, 52, 64);
+  --sidebar-accent: rgba(129, 161, 193);
+  --sidebar-accent-foreground: rgba(236, 239, 244);
+  --sidebar-border: rgba(64, 88, 145);
+  --sidebar-ring: rgba(129, 161, 193);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --sidebar-width: 16rem; /* expanded width */
   --sidebar-width-collapsed: 3.5rem; /* collapsed width */
+}
+
+.theme-light {
+  --background: #ffffff;
+  --foreground: #111111;
+  --card: #f7f7f7;
+  --card-foreground: #111111;
+  --popover: #ffffff;
+  --popover-foreground: #111111;
+  --primary: #0066cc;
+  --primary-foreground: white;
+  --secondary: #e5e7eb;
+  --secondary-foreground: #111111;
+  --muted: #e5e7eb;
+  --muted-foreground: #555;
+  --accent: #7dd3fc;
+  --accent-foreground: #111111;
+  --destructive: #dc2626;
+  --destructive-foreground: white;
+  --border: #dcdcdc;
+  --input: #dcdcdc;
+  --ring: #3b82f6;
+  --sidebar: #f5f5f5;
+  --sidebar-foreground: #111111;
+  --sidebar-primary: #3b82f6;
+  --sidebar-primary-foreground: white;
+}
+
+/* ---------------------------
+   DARK THEME COLORS
+---------------------------- */
+.theme-dark {
+  --background: rgba(10, 12, 16); /* deep background */
+  --foreground: rgba(230, 233, 237); /* light foreground */
+  --card: rgba(14, 17, 22);
+  --card-foreground: rgba(230, 233, 237);
+  --popover: rgba(14, 17, 22);
+  --popover-foreground: rgba(230, 233, 237);
+  --primary: rgba(90, 130, 160);
+  --primary-foreground: rgba(10, 12, 16);
+  --secondary: rgba(18, 20, 26);
+  --secondary-foreground: rgba(200, 205, 210);
+  --muted: rgba(18, 20, 26,.8);
+  --muted-foreground: rgba(170, 175, 180);
+  --accent: rgba(110, 150, 180);
+  --accent-foreground: rgba(10, 12, 16);
+  --destructive: rgba(191, 97, 106);
+  --destructive-foreground: rgba(230, 233, 237);
+  --border: rgba(30, 34, 40);
+  --input: rgba(22, 24, 30);
+  --ring: rgba(110, 150, 180);
+  --chart-1: rgba(90, 130, 160);
+  --chart-2: rgba(115, 150, 150);
+  --chart-3: rgba(140, 160, 120);
+  --chart-4: rgba(210, 170, 110);
+  --chart-5: rgba(150, 120, 150);
+  --sidebar: rgba(16, 18, 22);
+  --sidebar-foreground: rgba(220, 224, 227);
+  --sidebar-primary: rgba(90, 130, 160);
+  --sidebar-primary-foreground: rgba(10, 12, 16);
+  --sidebar-accent: rgba(110, 150, 180);
+  --sidebar-accent-foreground: rgba(230, 233, 237);
+  --sidebar-border: rgba(28, 34, 48);
+  --sidebar-ring: rgba(110, 150, 180);
+}
+/* ---------------------------
+   COZY THEME COLORS (Warm/Soft)
+---------------------------- */
+.theme-cozy {
+  --background: #fdf6e3; /* Solarized Light-ish base */
+  --foreground: #586e75;
+  --card: #eee8d5;
+  --card-foreground: #586e75;
+  --popover: #eee8d5;
+  --popover-foreground: #586e75;
+  --primary: #cb4b16; /* Orange/Rust */
+  --primary-foreground: #fdf6e3;
+  --secondary: #eee8d5;
+  --secondary-foreground: #657b83;
+  --muted: #e0dcc7;
+  --muted-foreground: #93a1a1;
+  --accent: #b58900; /* Yellow/Gold */
+  --accent-foreground: #fdf6e3;
+  --destructive: #dc322f;
+  --destructive-foreground: #fdf6e3;
+  --border: #d3cbb7;
+  --input: #d3cbb7;
+  --ring: #cb4b16;
+  --sidebar: #fdf6e3;
+  --sidebar-foreground: #586e75;
+  --sidebar-primary: #cb4b16;
+  --sidebar-primary-foreground: #fdf6e3;
+  --sidebar-accent: #eee8d5;
+  --sidebar-accent-foreground: #cb4b16;
+  --sidebar-border: #d3cbb7;
+  --sidebar-ring: #cb4b16;
+}
+
+/* ---------------------------
+   DARKER THEME COLORS (High Contrast)
+---------------------------- */
+.theme-darker {
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #121212;
+  --card-foreground: #ffffff;
+  --popover: #121212;
+  --popover-foreground: #ffffff;
+  --primary: #ffffff;
+  --primary-foreground: #000000;
+  --secondary: #1a1a1a;
+  --secondary-foreground: #ffffff;
+  --muted: #262626;
+  --muted-foreground: #a3a3a3;
+  --accent: #333333;
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #333333;
+  --input: #333333;
+  --ring: #ffffff;
+  --sidebar: #000000;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #1a1a1a;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #333333;
+  --sidebar-ring: #ffffff;
 }
 
 /* ---------------------------
@@ -91,6 +226,30 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring); */
+}
+
+@layer utilities {
+  /* Targets the entire scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 10px; /* or height for horizontal scrollbars */
+  }
+
+  /* Targets the track (the background) */
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: var(--background); /* Use a Tailwind color value if preferred, e.g., theme('colors.gray.100') */
+    border-radius: 10px;
+  }
+
+  /* Targets the thumb (the draggable part) */
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--muted); 
+    border-radius: 10px;
+  }
+
+  /* Color when hovering over the thumb */
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground); 
+  }
 }
 
 @layer base {
@@ -153,14 +312,14 @@
 
 /* Match MDXEditor with Nord theme */
 [data-lexical-editor="true"] {
-  background-color: rgb(46, 52, 64) !important;
-  color: rgb(236, 239, 244) !important;
+  background-color: rgba(46, 52, 64) !important;
+  color: rgba(236, 239, 244) !important;
 }
 
 /* Toolbar styling */
 .mdxeditor-toolbar {
-  background-color: rgb(59, 66, 82) !important;
-  border-bottom: 1px solid rgb(59, 66, 82) !important;
+  background-color: rgba(59, 66, 82) !important;
+  border-bottom: 1px solid rgba(59, 66, 82) !important;
   padding: 0.5rem !important;
   position: relative !important;
   z-index: 10 !important;
@@ -171,56 +330,56 @@
 .mdxeditor-toolbar button,
 .mdxeditor-toolbar button svg,
 .mdxeditor-toolbar [role="button"] {
-  color: rgb(236, 239, 244) !important;
+  color: rgba(236, 239, 244) !important;
   background-color: transparent !important;
   border: none !important;
 }
 
 .mdxeditor-toolbar button:hover,
 .mdxeditor-toolbar [role="button"]:hover {
-  background-color: rgb(129, 161, 193) !important;
-  color: rgb(46, 52, 64) !important;
+  background-color: rgba(129, 161, 193) !important;
+  color: rgba(46, 52, 64) !important;
 }
 
 .mdxeditor-toolbar button:hover svg {
-  color: rgb(46, 52, 64) !important;
+  color: rgba(46, 52, 64) !important;
 }
 
 .mdxeditor-toolbar button[data-toolbar-item-active="true"],
 .mdxeditor-toolbar button[aria-pressed="true"],
 .mdxeditor-toolbar button.active,
 .mdxeditor-toolbar [role="button"][aria-pressed="true"] {
-  background-color: rgb(136, 192, 208) !important;
-  color: rgb(46, 52, 64) !important;
+  background-color: rgba(136, 192, 208) !important;
+  color: rgba(46, 52, 64) !important;
 }
 
 .mdxeditor-toolbar button[data-toolbar-item-active="true"] svg,
 .mdxeditor-toolbar button[aria-pressed="true"] svg,
 .mdxeditor-toolbar button.active svg {
-  color: rgb(46, 52, 64) !important;
+  color: rgba(46, 52, 64) !important;
 }
 
 .mdxeditor-toolbar select {
-  background-color: rgb(46, 52, 64) !important;
-  color: rgb(236, 239, 244) !important;
-  border: 1px solid rgb(59, 66, 82) !important;
+  background-color: rgba(46, 52, 64) !important;
+  color: rgba(236, 239, 244) !important;
+  border: 1px solid rgba(59, 66, 82) !important;
 }
 
 .mdxeditor-toolbar select:hover {
-  background-color: rgb(59, 66, 82) !important;
-  border-color: rgb(129, 161, 193) !important;
+  background-color: rgba(59, 66, 82) !important;
+  border-color: rgba(129, 161, 193) !important;
 }
 
 /* Dropdown menus in toolbar */
 .mdxeditor-toolbar [role="menu"],
 .mdxeditor-toolbar [role="listbox"] {
-  background-color: rgb(46, 52, 64) !important;
-  border: 1px solid rgb(59, 66, 82) !important;
+  background-color: rgba(46, 52, 64) !important;
+  border: 1px solid rgba(59, 66, 82) !important;
 }
 
 .mdxeditor-toolbar [role="menuitem"],
 .mdxeditor-toolbar [role="option"] {
-  color: rgb(236, 239, 244) !important;
+  color: rgba(236, 239, 244) !important;
   background-color: transparent !important;
 }
 
@@ -228,60 +387,60 @@
 .mdxeditor-toolbar [role="option"]:hover,
 .mdxeditor-toolbar [role="menuitem"][data-highlighted],
 .mdxeditor-toolbar [role="option"][data-highlighted] {
-  background-color: rgb(129, 161, 193) !important;
-  color: rgb(46, 52, 64) !important;
+  background-color: rgba(129, 161, 193) !important;
+  color: rgba(46, 52, 64) !important;
 }
 
 /* Editor content area */
 .mdxeditor-root-contenteditable {
-  background-color: rgb(46, 52, 64) !important;
-  color: rgb(236, 239, 244) !important;
+  background-color: rgba(46, 52, 64) !important;
+  color: rgba(236, 239, 244) !important;
 }
 
 /* Links */
 .mdxeditor a {
-  color: rgb(136, 192, 208) !important;
+  color: rgba(136, 192, 208) !important;
 }
 
 /* Code blocks */
 .mdxeditor pre {
-  background-color: rgb(59, 66, 82) !important;
-  border: 1px solid rgb(59, 66, 82) !important;
+  background-color: rgba(59, 66, 82) !important;
+  border: 1px solid rgba(59, 66, 82) !important;
 }
 
 .mdxeditor code {
-  background-color: rgb(59, 66, 82) !important;
-  color: rgb(216, 222, 233) !important;
+  background-color: rgba(59, 66, 82) !important;
+  color: rgba(216, 222, 233) !important;
 }
 
 /* Tables */
 .mdxeditor table {
-  border-color: rgb(59, 66, 82) !important;
+  border-color: rgba(59, 66, 82) !important;
 }
 
 .mdxeditor th,
 .mdxeditor td {
-  border-color: rgb(59, 66, 82) !important;
+  border-color: rgba(59, 66, 82) !important;
 }
 
 /* Blockquotes */
 .mdxeditor blockquote {
-  border-left-color: rgb(129, 161, 193) !important;
-  color: rgb(216, 222, 233) !important;
+  border-left-color: rgba(129, 161, 193) !important;
+  color: rgba(216, 222, 233) !important;
 }
 
 /* Dialogs/Popups */
 .mdxeditor-popup-container {
-  background-color: rgb(46, 52, 64) !important;
-  border: 1px solid rgb(59, 66, 82) !important;
-  color: rgb(236, 239, 244) !important;
+  background-color: rgba(46, 52, 64) !important;
+  border: 1px solid rgba(59, 66, 82) !important;
+  color: rgba(236, 239, 244) !important;
 }
 
 .mdxeditor-popup-container input,
 .mdxeditor-popup-container textarea {
-  background-color: rgb(59, 66, 82) !important;
-  color: rgb(236, 239, 244) !important;
-  border: 1px solid rgb(59, 66, 82) !important;
+  background-color: rgba(59, 66, 82) !important;
+  color: rgba(236, 239, 244) !important;
+  border: 1px solid rgba(59, 66, 82) !important;
 }
 
 /* Tooltips */
@@ -290,19 +449,19 @@
 }
 
 .mdxeditor [role="tooltip"] {
-  background-color: rgb(59, 66, 82) !important;
-  color: rgb(236, 239, 244) !important;
-  border: 1px solid rgb(129, 161, 193) !important;
+  background-color: rgba(59, 66, 82) !important;
+  color: rgba(236, 239, 244) !important;
+  border: 1px solid rgba(129, 161, 193) !important;
   padding: 0.25rem 0.5rem !important;
   border-radius: 0.25rem !important;
   font-size: 0.875rem !important;
   z-index: 9999 !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 2px 8px rgbaa(0, 0, 0, 0.3) !important;
 }
 
 /* Toolbar separator */
 .mdxeditor-toolbar-separator {
-  background-color: rgb(59, 66, 82) !important;
+  background-color: rgba(59, 66, 82) !important;
   margin: 0 0.25rem !important;
 }
 
@@ -313,9 +472,9 @@
 
 .mdxeditor-toolbar input,
 .mdxeditor-toolbar textarea {
-  background-color: rgb(46, 52, 64) !important;
-  color: rgb(236, 239, 244) !important;
-  border: 1px solid rgb(59, 66, 82) !important;
+  background-color: rgba(46, 52, 64) !important;
+  color: rgba(236, 239, 244) !important;
+  border: 1px solid rgba(59, 66, 82) !important;
 }
 
 /* Fix for toolbar icons and their containers */
@@ -332,12 +491,12 @@
 
 /* Source/Diff mode */
 .mdxeditor-diff-source-wrapper {
-  background-color: rgb(46, 52, 64) !important;
+  background-color: rgba(46, 52, 64) !important;
 }
 
 .mdxeditor-source-editor {
-  background-color: rgb(46, 52, 64) !important;
-  color: rgb(236, 239, 244) !important;
+  background-color: rgba(46, 52, 64) !important;
+  color: rgba(236, 239, 244) !important;
 }
 
 /* Scrollbar styling for MDXEditor */
@@ -347,14 +506,14 @@
 }
 
 .mdxeditor ::-webkit-scrollbar-track {
-  background: rgb(59, 66, 82);
+  background: rgba(59, 66, 82);
 }
 
 .mdxeditor ::-webkit-scrollbar-thumb {
-  background: rgb(129, 161, 193);
+  background: rgba(129, 161, 193);
   border-radius: 4px;
 }
 
 .mdxeditor ::-webkit-scrollbar-thumb:hover {
-  background: rgb(136, 192, 208);
+  background: rgba(136, 192, 208);
 }

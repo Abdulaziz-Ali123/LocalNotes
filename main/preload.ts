@@ -29,6 +29,7 @@ const fileSystemHandler = {
   extname: (p: string) => path.extname(p),
   sep: path.sep,
   openFolderDialog: () => ipcRenderer.invoke("fs:openFolderDialog"),
+  openSaveDialog: () => ipcRenderer.invoke("fs:openSaveDialog"),
     selectImportFiles: () => ipcRenderer.invoke("fs:selectImportFiles"),
     selectExportDestination: () => ipcRenderer.invoke("fs:selectExportDestination"),
     exportFile: (source, destFolder) => ipcRenderer.invoke("fs:exportFile", source, destFolder),
@@ -59,6 +60,28 @@ contextBridge.exposeInMainWorld("autosaveAPI", {
   save: (filePath: string, content: string) =>
     ipcRenderer.invoke("autosave:save", { filePath, content }),
   load: (filePath: string) => ipcRenderer.invoke("autosave:load", filePath),
+});
+contextBridge.exposeInMainWorld("fileEvents", {
+  onDeleted: (callback) =>
+    ipcRenderer.on("file:deleted", (_, path) => callback(path)),
+});
+contextBridge.exposeInMainWorld("ipc", {
+  on(channel, callback) {
+    const subscription = (_event, ...args) => callback(...args);
+    ipcRenderer.on(channel, subscription);
+
+    return () => {
+      ipcRenderer.removeListener(channel, subscription);
+    };
+  },
+
+  send(channel, data) {
+    ipcRenderer.send(channel, data);
+  },
+
+  invoke(channel, data) {
+    return ipcRenderer.invoke(channel, data);
+  }
 });
 
 

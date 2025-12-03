@@ -54,10 +54,10 @@ export default function HomePage() {
 
   return (
     <React.Fragment>
-      <div className="flex flex-col justify-center items-center">
+      <div className="flex flex-col justify-center items-center bg-secondary">
         {/* this is is the region that will allow dragging the window*/}
         <div className="w-full p-5 app-drag-region"> </div>
-        <div className="h-screen flex justify-center items-center">
+        <div className="h-screen flex justify-center items-center bg-seco">
           <div className="p-5 h-auto w-[600px] flex items-center flex-col justify-center rounded-2xl shadow-neumorph bg-secondary">
             <div>
               <Image

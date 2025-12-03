@@ -2,25 +2,36 @@ import {
   SidebarProvider,
   Sidebar,
   SidebarContent,
-  SidebarTrigger,
-  useSidebar,
 } from "../components/ui/sidebar";
-import React, { useEffect, useState, useRef } from "react";
+import ThemeSelector from "@/renderer/components/ui/ThemeSelector";
+import TagFilterPanel from "@/renderer/components/TagFilterPanel";
+import React, { useEffect, useRef, useState } from "react";
 import {
-    ResizableHandle,
-    ResizablePanel,
-    ResizablePanelGroup,
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
 } from "@/renderer/components/ui/resizable";
+import { ImperativePanelHandle } from "react-resizable-panels";
 import FileSystemTree from "@/renderer/components/FileSystemTree";
-import MarkdownViewer from "@/renderer/components/MarkdownViewer";
-import { Button } from "../components/ui/button";
+import { Button } from "@/renderer/components/ui/button";
 import SearchComponent from "@/renderer/components/SearchComponent";
 import { produce } from "immer";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { TabsSlice } from "@/renderer/types/tab-slice";
-import CanvasEditor from "@/renderer/components/CanvasEditor";
+import { useKeyboardShortcuts } from "@/renderer/components/hooks/keyboardshortcuts";
+import { CiFileOn, CiSearch, CiExport, CiShare2, CiSettings} from "react-icons/ci";
+import { RiRobot2Line, RiFileHistoryLine, RiPaletteLine, RiFolderAddLine, RiFileAddLine, RiFileEditLine, RiFolderUploadLine, RiFileUploadLine} from "react-icons/ri";
+import { Tag } from "lucide-react";
+import EditorSpace from "@/renderer/pages/editorSpace";
+import TabBar from "../components/TabBar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/renderer/components/ui/popover";
 
-const AUTOSAVE_INTERVAL = 5000;
+// Autosave interval in milliseconds -> 10 seconds
+const AUTOSAVE_INTERVAL = 10000;
 
 export default function Editor() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
@@ -29,66 +40,71 @@ export default function Editor() {
   const [isSaving, setIsSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState<boolean>(true);
   const [livePreview, setLivePreview] = useState<boolean>(false);
-  const [showExportMenu, setShowExportMenu] = useState(false);
-  const [showImportToNoteModal, setShowImportToNoteModal] = useState<{ visible: boolean; importFiles: string[]; }>({ visible: false, importFiles: [] });
-  const [availableNotes, setAvailableNotes] = useState<string[]>([]);
-  const [selectedTargetNote, setSelectedTargetNote] = useState<string>("");
+  // (removed fileTreeRef used for selectPath)
+  const sidebarPanelRef = useRef<ImperativePanelHandle>(null);
   const initializeTabs = useBoundStore((state) => state.tabs.initialize);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
-    // Add this ref at the top with your other state
-    const exportMenuRef = useRef<HTMLDivElement>(null);
+  // Autosave states
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [justAutosaved, setJustAutosaved] = useState(false);
+  const [lastAutosaveTime, setLastAutosaveTime] = useState<Date | null>(null);
 
-    // Add this useEffect
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
-                setShowExportMenu(false);
-            }
-        };
+  // Tag filter states
+  const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
+  const [rootPath, setRootPath] = useState<string | null>(null);
 
-        if (showExportMenu) {
-            document.addEventListener('mousedown', handleClickOutside);
-        }
+  useEffect(() => {
+    const savedPath = localStorage.getItem("currentFolderPath");
+    setRootPath(savedPath);
+  }, []);
 
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [showExportMenu]);
+  // keep a ref to the latest content so the interval callback doesn't need fileContent as a dep
+  const contentRef = useRef<string>(fileContent);
+  useEffect(() => {
+    contentRef.current = fileContent;
+  }, [fileContent]);
 
+  // Track unsaved changes
+  useEffect(() => {
+    if (selectedFile && fileContent !== '') {
+      setHasUnsavedChanges(true);
+    }
+  }, [fileContent, selectedFile]);
+
+  useEffect(() => {
+    document.title = 'LocalNotes';
+  }, []);
   useEffect(() => {
     initializeTabs();
   }, [initializeTabs]);
 
   // Handle file selction from tree
-    const handleFileSelect = async (filePath: string) => {
-        const result = await window.fs.readFile(filePath);
-        if (!result.success) {
-            console.error("Failed to read file:", result.error);
-            return;
+  const handleFileSelect = async (filePath: string) => {
+    const result = await window.fs.readFile(filePath);
+    if (!result.success) {
+      console.error("Failed to read file:", result.error);
+      return;
+    }
+
+    const selectedTabId = useBoundStore.getState().tabs.selectedTabId;
+
+    // Update tab state directly
+    useBoundStore.setState(
+      produce((state: TabsSlice) => {
+        const tab = state.tabs.items.find((t: any) => t.id === selectedTabId);
+        if (tab) {
+          tab.content = result.data;
+          tab.filePath = filePath;
+          tab.name = window.fs.basename(filePath);
         }
+        return state;
+      })
+    );
 
-        const selectedTabId = useBoundStore.getState().tabs.selectedTabId;
-
-        // Update tab state directly
-        useBoundStore.setState(
-            produce((state: TabsSlice) => {
-                const tab = state.tabs.items.find((t: any) => t.id === selectedTabId);
-                if (tab) {
-                    tab.content = result.data;
-                    tab.filePath = filePath;
-                    tab.name = window.fs.basename(filePath);
-                    tab.fileType = result.type; // 'text' or 'binary'
-                    tab.mimeType = result.mimeType; // For images
-                }
-                return state;
-            })
-        );
-
-        setSelectedFile(filePath);
-        setFileContent(result.data);
-    };
-
-  // Load file content when selected file changes
+    setSelectedFile(filePath);
+    setFileContent(result.data);
+  };
 
   // Load content when selected tab changes
   const selectedTabId = useBoundStore((state) => state.tabs.selectedTabId);
@@ -103,7 +119,7 @@ export default function Editor() {
     }
   }, [selectedTabId, selectedTab]);
 
-  // Hande save action
+  // Handle save action
   const handleSave = async () => {
     const selectedTabId = useBoundStore.getState().tabs.selectedTabId;
     const tabState = useBoundStore.getState().tabs;
@@ -116,9 +132,25 @@ export default function Editor() {
     setIsSaving(false);
 
     if (result.success) {
-      // Update tab content after successful save
+      // Persist content to the tab store and native tab API so switching tabs reflects the saved content
+      useBoundStore.setState(
+        produce((state: TabsSlice) => {
+          const tab = state.tabs.items.find((t) => t.id === selectedTabId);
+          if (tab) {
+            tab.content = fileContent;
+          }
+          return state;
+        })
+      );
       const fileName = window.fs.basename(filePath);
+      const now = new Date();
       setSaveMessage(`Saved "${fileName}"`);
+
+      // Reset autosave flags
+      setHasUnsavedChanges(false);
+      setJustAutosaved(true);
+      setLastAutosaveTime(now);
+      setTimeout(() => setJustAutosaved(false), 3000);
       setTimeout(() => setSaveMessage(""), 2000);
     } else {
       setSaveMessage(`Failed to save: ${result.error}`);
@@ -127,10 +159,10 @@ export default function Editor() {
   };
 
   // Sidebar state management for search/file panels
-  const [activeSidebarPanel, setActiveSidebarPanel] = useState<"file" | "search" | null>("file");
+  const [activeSidebarPanel, setActiveSidebarPanel] = useState<"file" | "search" | "theme" | "tags" | null>("file");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const handleSidebarButtonClick = (panel: "file" | "search") => {
+  const handleSidebarButtonClick = (panel: "file" | "search" | "theme" | "tags") => {
     if (sidebarCollapsed) {
       // If sidebar is collapsed, open and show the panel
       setSidebarCollapsed(false);
@@ -148,425 +180,515 @@ export default function Editor() {
   };
 
   const toggleSidebar = () => setSidebarCollapsed((s) => !s);
-  const openSidebar = () => setSidebarCollapsed(false);
+
+  // Sync sidebar state with panel
+  useEffect(() => {
+    const panel = sidebarPanelRef.current;
+    if (panel) {
+      if (sidebarCollapsed) {
+        panel.collapse();
+      } else {
+        panel.expand();
+      }
+    }
+  }, [sidebarCollapsed]);
 
   // Autosave periodically
   useEffect(() => {
     if (!selectedFile) return;
 
-    const interval = setInterval(() => {
-      window.autosaveAPI.save(selectedFile, fileContent);
+    const interval = setInterval(async () => {
+      if (!hasUnsavedChanges) return; // Don't save if no changes
+
+      try {
+        const result = await window.autosaveAPI.save(selectedFile, contentRef.current);
+        if (result && result.success) {
+          const now = new Date();
+
+          // Mark as saved
+          setHasUnsavedChanges(false);
+          setJustAutosaved(true);
+          setLastAutosaveTime(now);
+
+          // Show success for 3 seconds
+          setTimeout(() => {
+            setJustAutosaved(false);
+          }, 3000);
+        }
+      } catch (e) {
+        console.error('Autosave failed:', e);
+      }
     }, AUTOSAVE_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [selectedFile, fileContent]);
+  }, [selectedFile, hasUnsavedChanges]);
 
-   const handleImportFiles = async () => {
-        const result = await window.fs.selectImportFiles(); // new IPC
-        if (!result.success || result.paths.length === 0) return;
-
-        const targetRoot = localStorage.getItem("currentFolderPath");
-
-        for (const filePath of result.paths) {
-            const fileName = window.fs.basename(filePath);
-            const destPath = window.fs.join(targetRoot, fileName);
-            await window.fs.copyFile(filePath, destPath);
+  useKeyboardShortcuts({
+    onSave: handleSave,
+    onTogglePreview: () => {
+      if (selectedFile?.toLowerCase().endsWith(".md")) {
+        setPreviewMode(prev => !prev);
+        setLivePreview(false);
+      }
+    },
+    onToggleLivePreview: () => {
+      if (selectedFile?.toLowerCase().endsWith(".md")) {
+        setLivePreview(prev => !prev);
+        setPreviewMode(true);
+      }
+    },
+    onToggleSidebar: () => {
+      toggleSidebar();
+    },
+    onNewFile: () => {
+      if (sidebarCollapsed) {
+        setSidebarCollapsed(false);
+        setActiveSidebarPanel('file');
+      }
+      if (fileTreeRef.current) {
+        const targetPath = selectedFile ? window.fs.dirname(selectedFile) : '';
+        if (targetPath) {
+          fileTreeRef.current.createNewFile(targetPath);
         }
-
-        alert("File(s) imported successfully");
+      }
+    },
+    onNewFolder: () => {
+      if (sidebarCollapsed) {
+        setSidebarCollapsed(false);
+        setActiveSidebarPanel('file');
+      }
+      if (fileTreeRef.current) {
+        const targetPath = selectedFile ? window.fs.dirname(selectedFile) : '';
+        if (targetPath) {
+          fileTreeRef.current.createNewFolder(targetPath);
+        }
+      }
+    },
+    onSearch: () => {
+      setSidebarCollapsed(false);
+      setActiveSidebarPanel('search');
+    },
+    onOpenFolder: async () => {
+      // Open file explorer sidebar if closed
+      if (sidebarCollapsed) {
+        setSidebarCollapsed(false);
+        setActiveSidebarPanel('file');
+      }
+      // Trigger folder selection dialog
+      const result = await window.fs.openFolderDialog();
+      if (result.success && result.data) {
+        // The FileSystemTree will handle loading the new folder
+        localStorage.setItem("currentFolderPath", result.data);
+        // Reload the page to mount the new folder
         window.location.reload();
-   };
+      }
+    },
+    enabled: true,
+  });
+
+  // Import Handlers
+  const handleImportFiles = async () => {
+    const currentFolder = localStorage.getItem("currentFolderPath");
+    if (!currentFolder) {
+      alert("Please open a folder first.");
+      return;
+    }
+
+    try {
+      const result = await window.fs.selectImportFiles();
+      if (result.success && result.paths) {
+        for (const srcPath of result.paths) {
+          const fileName = window.fs.basename(srcPath);
+          const destPath = window.fs.join(currentFolder, fileName);
+          await window.fs.copyFile(srcPath, destPath);
+        }
+        // Reload folder to show new files
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error("Import failed:", error);
+      alert("Failed to import files.");
+    }
+  };
 
   const handleImportFolder = async () => {
-        const importResult = await window.fs.openFolderDialog();
-        if (!importResult.success || !importResult.data) return;
+    const currentFolder = localStorage.getItem("currentFolderPath");
+    if (!currentFolder) {
+      alert("Please open a folder first.");
+      return;
+    }
 
-        const importFolder = importResult.data;
-        const targetRoot = localStorage.getItem("currentFolderPath");
+    try {
+      const result = await window.fs.openFolderDialog();
+      if (result.success && result.data) {
+        const sourceFolder = result.data;
+        await window.fs.importFolder(sourceFolder, currentFolder);
+        // Reload folder to show new folder
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error("Folder import failed:", error);
+      alert("Failed to import folder.");
+    }
+  };
 
-        if (!targetRoot) {
-            alert("No project folder is currently open.");
-            return;
+  const handleImportIntoNote = async () => {
+    if (!selectedFile) {
+      alert("Please select a note first.");
+      return;
+    }
+
+    try {
+      const result = await window.fs.selectImportFiles();
+      if (result.success && result.paths) {
+        await window.fs.mergeFiles(result.paths, selectedFile);
+        
+        // Refresh content
+        const readResult = await window.fs.readFile(selectedFile);
+        if (readResult.success) {
+          setFileContent(readResult.data);
+          // Update tab content as well
+          useBoundStore.setState(
+            produce((state: TabsSlice) => {
+              const tab = state.tabs.items.find((t: any) => t.id === selectedTabId);
+              if (tab) {
+                tab.content = readResult.data;
+              }
+              return state;
+            })
+          );
         }
+      }
+    } catch (error) {
+      console.error("Import into note failed:", error);
+      alert("Failed to import into note.");
+    }
+  };
 
-        const copyResult = await window.fs.importFolder(importFolder, targetRoot);
+  const handleExportCurrentFile = async () => {
+      if (!selectedFile) {
+          alert("No file selected to export.");
+          return;
+      }
 
-        if (copyResult.success) {
-            alert("Notes imported successfully!");
-            window.location.reload(); // Reload tree
-        } else {
-            alert(`Import failed: ${copyResult.error}`);
-        }
-    };
+      const result = await window.fs.selectExportDestination();
+      if (!result.success) return;
 
-    const getAllSupportedNotes = async (folderPath: string): Promise<string[]> => {
-        const result = await window.fs.readDirectory(folderPath);
-        if (!result.success) return [];
+      const exportResult = await window.fs.exportFile(
+          selectedFile,
+          result.folder
+      );
 
-        const files: string[] = [];
-        const supportedExtensions = [".md", ".txt", ".pdf", ".docx"];
+      if (exportResult.success) {
+          refreshTree();
+          alert(`File exported to ${exportResult.exportedTo}`);
+      } else {
+          alert("Export failed: " + exportResult.error);
+      }
+  };
 
-        for (const item of result.data) {
-            if (item.isDirectory) {
-                const subFiles = await getAllSupportedNotes(item.path);
-                files.push(...subFiles);
-            } else {
-                const lower = item.name.toLowerCase();
-                if (supportedExtensions.some((ext) => lower.endsWith(ext))) {
-                    files.push(item.path);
-                }
-            }
-        }
+  const handleExportFolder = async () => {
+      const root = localStorage.getItem("currentFolderPath");
+      if (!root) return;
 
-        return files;
-    };
+      const dest = await window.fs.selectExportDestination();
+      if (!dest.success) return;
 
+      const result = await window.fs.exportFolder(root, dest.folder);
 
-    const handleImportIntoExistingNote = async () => {
-        const result = await window.fs.selectImportFiles();
-        if (!result.success) return;
+      if (result.success) {
+          refreshTree();
+          alert("Folder exported successfully!");
+      } else {
+          alert("Export failed: " + result.error);
+      }
+  };
 
-        const importFiles = result.paths;
+  const fileTreeRef = useRef(null);
 
-        const root = localStorage.getItem("currentFolderPath");
-        const noteFiles = await getAllSupportedNotes(root);
-
-        setAvailableNotes(noteFiles);
-        setSelectedTargetNote(noteFiles[0] ?? "");
-        setShowImportToNoteModal({ visible: true, importFiles });
-    };
-
-
-    const handleConfirmMerge = async () => {
-        if (showImportToNoteModal.importFiles.length === 0) {
-            alert("No files selected to import.");
-            return;
-        }
-
-        if (!selectedTargetNote) {
-            alert("Please select a target note.");
-            return;
-        }
-
-        const targetRoot = localStorage.getItem("currentFolderPath");
-
-        // First, copy all the files to the workspace
-        const copiedFiles: string[] = [];
-        for (const filePath of showImportToNoteModal.importFiles) {
-            const fileName = window.fs.basename(filePath);
-            const destPath = window.fs.join(targetRoot, fileName);
-
-            await window.fs.copyFile(filePath, destPath);
-            copiedFiles.push(fileName); // Store just the filename, not full path
-        }
-
-        // Then merge with the relative filenames
-        await window.fs.mergeFiles(
-            copiedFiles, // Use the new filenames instead of original paths
-            selectedTargetNote
-        );
-
-        alert("Imported into note successfully.");
-
-        // If editor has this note open, reload content
-        if (selectedFile === selectedTargetNote) {
-            const content = await window.fs.readFile(selectedTargetNote);
-            setFileContent(content.data);
-        }
-
-        setShowImportToNoteModal({ visible: false, importFiles: [] });
-    };
-
-    const handleExportCurrentFile = async () => {
-        if (!selectedFile) {
-            alert("No file selected to export.");
-            return;
-        }
-
-        const result = await window.fs.selectExportDestination();
-        if (!result.success) return;
-
-        const exportResult = await window.fs.exportFile(
-            selectedFile,
-            result.folder
-        );
-
-        if (exportResult.success) {
-            refreshTree();
-            alert(`File exported to ${exportResult.exportedTo}`);
-        } else {
-            alert("Export failed: " + exportResult.error);
-        }
-    };
-
-    const handleExportFolder = async () => {
-        const root = localStorage.getItem("currentFolderPath");
-        if (!root) return;
-
-        const dest = await window.fs.selectExportDestination();
-        if (!dest.success) return;
-
-        const result = await window.fs.exportFolder(root, dest.folder);
-
-        if (result.success) {
-            refreshTree();
-            alert("Folder exported successfully!");
-        } else {
-            alert("Export failed: " + result.error);
-        }
-    };
-
-    const fileTreeRef = useRef(null);
-
-    const refreshTree = () => {
-        if (fileTreeRef.current && fileTreeRef.current.reloadRoot) {
-            fileTreeRef.current.reloadRoot();
-        }
-    };
+  const refreshTree = () => {
+      if (fileTreeRef.current && fileTreeRef.current.reloadRoot) {
+          fileTreeRef.current.reloadRoot();
+      }
+  };
 
   return (
     <React.Fragment>
-      <div className="flex flex-row">
-        {/* Activity rail / fixed; controls the size of the left bar containing the buttons*/}
-        <div className="flex flex-col items-center gap-2 px-2 py-4 bg-background w-18 border-r">
-          {/* justify-center can be added here to make it vertically centered */}
-            <button
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => handleSidebarButtonClick("file")}
-              className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
-              title="Files"
-            >
-                      <img src="/assets/file_explorer.png" alt="Files" className="w-16 h-16 object-contain" />
-                </button>
-                <button 
+      <div className="flex flex-col h-screen">
+
+        {/* Main Content Area */}
+        <div className="flex flex-row flex-1 overflow-hidden">
+          <div className="flex flex-col">
+            {/* A drag region to allow dragging from the sidebar */}
+            <div className="app-drag-region h-[41px] bg-background">
+            </div>
+            {/* Activity rail / fixed; controls the size of the left bar containing the buttons*/}
+            <div className="flex flex-col items-center gap-2 px-2 py-4 bg-secondary w-18 border-r h-full">
+
+              {/* justify-center can be added here to make it vertically centered */}
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSidebarButtonClick("file")}
+                className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
+                title="Files"
+              >
+                {/*<img src="/assets/file_explorer.png" alt="Files" className="w-16 h-16 object-contain" />*/}
+                <CiFileOn className="w-14 h-14 stroke-1" />
+              </button>
+
+              {/* search buttons */}
+              <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleSidebarButtonClick("search")}
-                className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Search">
-                    <img src="/assets/search.png" alt="Search" className="w-16 h-16 object-contain" />
-                </button>
-                <button
+                className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
+                title="Search"
+              >
+                {/* <img src="/assets/search.png" alt="Search" className="w-16 h-16 object-contain" /> */}
+                <CiSearch className="w-14 h-14 stroke-1" />
+              </button>
+
+              {/* Import/ Popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Import/Export">
+                    <CiExport className="w-14 h-14 stroke-1" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent side="right" align="start" className="w-56 p-2">
+                  <div className="flex flex-col gap-1">
+                    <button 
+                      onClick={handleImportFiles}
+                      className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent text-left w-full"
+                    >
+                      <RiFileAddLine className="w-4 h-4" />
+                      <span>Import File(s)</span>
+                    </button>
+                    <button 
+                      onClick={handleImportFolder}
+                      className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent text-left w-full"
+                    >
+                      <RiFolderAddLine className="w-4 h-4" />
+                      <span>Import Folder</span>
+                    </button>
+                    <button 
+                      onClick={handleImportIntoNote}
+                      className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent text-left w-full"
+                      disabled={!selectedFile}
+                    >
+                      <RiFileEditLine className="w-4 h-4" />
+                      <span className={!selectedFile ? "text-muted-foreground" : ""}>Import into Note</span>
+                    </button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* AI Assistant button */}
+              <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Ai Assistant - Coming Soon">
+                {/* <img src="/assets/ai_helper.png" alt="AI" className="w-16 h-16 object-contain" /> */}
+                <RiRobot2Line className="w-14 h-14" />
+              </button>
+
+              {/* Theme button */}
+              <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setShowExportMenu((prev) => !prev)}
-                className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" 
-                title="Export / Import">
-                    <img src="/assets/export.png" alt="Export" className="w-16 h-16 object-contain" />
+                onClick={() => handleSidebarButtonClick("theme")}
+                className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
+                title="Themes"
+              >
+                <RiPaletteLine className="w-14 h-14" />
+              </button>
+
+              {/* Tag Filter button */}
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSidebarButtonClick("tags")}
+                className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
+                title="Filter by Tags"
+              >
+                <Tag className="stroke-2 w-10 h-10" />
+              </button>
+
+              {/* Share button */}
+              <Popover >
+                <PopoverTrigger asChild>
+                  <button 
+                    onMouseDown={(e) => e.preventDefault()}
+                    className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Share with Friends">
+                    {/* <img src="/assets/share.png" alt="Share" className="w-16 h-16 object-contain" /> */}
+                    <CiShare2 className="w-14 h-14 stroke-1" />
                   </button>
-                  {showExportMenu && (
-                      <div ref={exportMenuRef}  className="absolute left-20 top-24 bg-background border rounded-md shadow-md p-2 z-50 w-40">
-                          <button onClick={handleImportFiles}>Import File(s)</button>
-                          <button onClick={handleImportFolder}>Import Folder</button>
-                          <button onClick={handleImportIntoExistingNote}>Import into Existing Note</button>
-                          <button onClick={handleExportCurrentFile}>Export Current File</button>
-                          <button onClick={handleExportFolder}>Export Workspace</button>
-                      </div>
-                  )}
-
-                <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Ai Assistant - Coming Soon">
-                    <img src="/assets/ai_helper.png" alt="AI" className="w-16 h-16 object-contain" />
-                </button>
-                 <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Share with Friends">
-                    <img src="/assets/share.png" alt="Share" className="w-16 h-16 object-contain" />
-                </button>
-                 <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Settings">
-                    <img src="/assets/settings.png" alt="Settings" className="w-16 h-16 object-contain" />
-                </button>
-                 <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="File Change History">
-                    <img src="/assets/folder.png" alt="Folder" className="w-16 h-16 object-contain" />
-                </button>
-              </div>
-            <ResizablePanelGroup
-                direction="horizontal"
-                className="min-h-screen w-full bg-secondary"
-            >
-                 {/* Sidebar (resizable) + Editor */}
-                {!sidebarCollapsed ? (
-                <>
-                  <ResizablePanel defaultSize={20} minSize={12}
-                    className={`transition-all duration-200 ease-in-out ${
-                    sidebarCollapsed ? "w-0 max-w-0 overflow-hidden" : "w-full"
-                    }`}>
-                    <SidebarProvider>
-                      {/* Use non-fixed variant so the panel controls width; force w-full so Sidebar doesn't enforce its own CSS width variable */}
-                      <Sidebar collapsible="none" className="w-full">
-                        <SidebarContent className="h-full p-0">
-                        {!sidebarCollapsed && (
-                                              <>
-                                                  {activeSidebarPanel === "file" && <FileSystemTree ref={refreshTree} onFileSelect={handleFileSelect} isVisible={!sidebarCollapsed} autoOpen={true} />}
-                            {activeSidebarPanel === "search" && <SearchComponent onFileSelect={handleFileSelect} />}
-                            </>
-                        )}
-                        </SidebarContent>
-                      </Sidebar>
-                    </SidebarProvider>
-                  </ResizablePanel>
-                {!sidebarCollapsed && <ResizableHandle withHandle className="bg-transparent" />}
-                </>
-                ) : null}
-                    <ResizablePanel defaultSize={sidebarCollapsed ? 100 : 75} minSize={60}>
-                    <div className="flex h-full flex-col p-6 rounded-3xl bg-secondary">
-                        {selectedFile ? (
-                            <div className="flex flex-col h-full">
-                                {/* Header */}
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="text-sm font-semibold text-muted-foreground truncate max-w-[70%]">
-                                        {selectedFile}
-                                    </div>
-                                    {selectedFile.toLowerCase().endsWith(".md") && (
-                                        <div className="flex items-center bg-background border border-border rounded-md p-1">
-                                            <button
-                                                onClick={() => {
-                                                    setPreviewMode(false);
-                                                    setLivePreview(false);
-                                                }}
-                                                className={`px-2 py-1 text-xs rounded ${!previewMode && !livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
-                                            >
-                                                Edit
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    setPreviewMode(true);
-                                                    setLivePreview(false);
-                                                }}
-                                                className={`px-2 py-1 text-xs rounded ${previewMode && !livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
-                                            >
-                                                Preview
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    setLivePreview((v) => !v);
-                                                    setPreviewMode(true);
-                                                }}
-                                                className={`px-2 py-1 text-xs rounded ${livePreview ? "bg-accent text-background" : "hover:bg-muted"}`}
-                                            >
-                                                Live
-                                            </button>
-                                        </div>
-                                    )}
-                                    <Button
-                                        onClick={handleSave}
-                                        className="bg-accent px-4 py-1 rounded-md shadow-neumorph-sm hover:shadow-neumorph-inset"
-                                        disabled={isSaving}
-                                    >
-                                        {isSaving ? "Saving..." : "Save"}
-                                    </Button>
-                                </div>
-
-                                
-                                  {/* Editable / Preview area */}
-                                  <div className="flex-1 w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border">
-                                      {selectedFile.toLowerCase().match(/\.(png|jpg|jpeg|gif|bmp|svg|webp|ico)$/) ? (
-                                          // Display image
-                                          <div className="flex items-center justify-center h-full">
-                                              <img
-                                                  src={`data:${selectedTab?.mimeType || 'image/png'};base64,${fileContent}`}  // Add curly braces
-                                                  alt={window.fs.basename(selectedFile)}
-                                                  className="max-w-full max-h-full object-contain"
-                                              />
-                                          </div>
-                                      ) : selectedFile.toLowerCase().endsWith(".md") ? (
-                                          // Existing markdown logic
-                                          livePreview ? (
-                                              <div className="flex h-full gap-4">
-                                                  {/* ... your existing markdown live preview code ... */}
-                                              </div>
-                                          ) : previewMode ? (
-                                              <div className="h-full overflow-y-auto">
-                                                  <MarkdownViewer content={fileContent} />
-                                              </div>
-                                          ) : (
-                                              <textarea
-                                                  key={selectedFile}
-                                                  value={fileContent}
-                                                  onChange={(e) => setFileContent(e.target.value)}
-                                                  className="h-full w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
-                                                  spellCheck={false}
-                                                  autoFocus
-                                              />
-                                          )
-                                      ) : selectedFile.toLowerCase().endsWith(".canvas") ? (
-                                          // Existing canvas logic
-                                          <div className="flex flex-col w-full h-full">
-                                              <div className="flex-1">
-                                                  <CanvasEditor
-                                                      value={fileContent}
-                                                      onChange={setFileContent}
-                                                      onSave={handleSave}
-                                                      isSaving={isSaving}
-                                                  />
-                                              </div>
-                                          </div>
-                                      ) : (
-                                          // Text editor for other files
-                                          <textarea
-                                              key={selectedFile}
-                                              value={fileContent}
-                                              onChange={(e) => setFileContent(e.target.value)}
-                                              className="h-full w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
-                                              spellCheck={false}
-                                              autoFocus
-                                          />
-                                      )}
-                                  </div>
-                            </div>
-                        ) : (
-                            <div className="flex h-full items-center justify-center">
-                                <span className="font-semibold text-muted-foreground">
-                                    Open a file to start editing
-                                </span>
-                            </div>
-                        )}
-                        {saveMessage && (
-                            <div className="fixed bottom-6 right-6 bg-accent text-background text-sm px-4 py-2 rounded-lg shadow-lg transition-opacity duration-300 animate-fade-in-out">
-                                {saveMessage}
-                            </div>
-                        )}
-                    </div>
-                    </ResizablePanel>
-            </ResizablePanelGroup>
+                </PopoverTrigger>
+                <PopoverContent side="right" align="start" className="w-56 p-2">
+                  <button onClick={handleExportCurrentFile} className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent text-left w-full">
+                    <RiFileUploadLine className="w-4 h-4" />
+                    <span>Export Current File</span>
+                  </button>
+                  <button onClick={handleExportFolder} className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent text-left w-full">
+                    <RiFolderUploadLine className="w-4 h-4" />
+                    <span>Export Workspace</span>
+                  </button>
+                </PopoverContent>
+              </Popover>
+              
+              {/* Settings button */}
+              <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Settings">
+                {/* <img src="/assets/settings.png" alt="Settings" className="w-16 h-16 object-contain" /> */}
+                <CiSettings className="w-14 h-14 stroke-1" />
+              </button>
+              {/* File Change History button */}
+              <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="File Change History">
+                {/* <img src="/assets/folder.png" alt="Folder" className="w-16 h-16 object-contain" /> */}
+                <RiFileHistoryLine className="w-14 h-14" />
+              </button>
+            </div>
           </div>
 
-          {showImportToNoteModal.visible && (
-              <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-                  <div className="bg-background border rounded-lg p-4 w-96">
 
-                      <h2 className="font-semibold mb-2 text-lg">
-                          Import into existing note
-                      </h2>
-
-                      <label className="block text-sm mb-1">Choose note:</label>
-                      <select
-                          className="w-full border p-2 rounded mb-4"
-                          value={selectedTargetNote}
-                          onChange={(e) => setSelectedTargetNote(e.target.value)}
-                      >
-                          {availableNotes.map((path) => (
-                              <option key={path} value={path}>
-                                  {path.split("/").pop()}
-                              </option>
-                          ))}
-                      </select>
-
-                      <div className="flex justify-end gap-2">
-                          <button
-                              onClick={() => setShowImportToNoteModal({ visible: false, importFiles: [] })}
-                              className="px-3 py-1 border rounded"
-                          >
-                              Cancel
-                          </button>
-
-                          <button
-                              onClick={handleConfirmMerge}
-                              className="px-3 py-1 bg-accent text-background rounded"
-                          >
-                              Import
-                          </button>
-                      </div>
-                  </div>
+          <ResizablePanelGroup
+            direction="horizontal"
+            className="min-h-screen w-full bg-primary-foreground"
+          >
+            {/* Sidebar (resizable) + Editor */}
+            <ResizablePanel ref={sidebarPanelRef}
+              defaultSize={20}
+              minSize={12}
+              maxSize={40}
+              collapsible={true}
+              collapsedSize={0}
+              onCollapse={() => setSidebarCollapsed(true)}
+              onExpand={() => setSidebarCollapsed(false)}
+              className={``}>
+              {/* A drag region to allow dragging from the sidebar area */}
+              <div className="app-drag-region h-10 bg-background">
               </div>
-          )}
-    </React.Fragment>
+
+              <SidebarProvider>
+                {/* Use non-fixed variant so the panel controls width; force w-full so Sidebar doesn't enforce its own CSS width variable */}
+                <Sidebar collapsible="none" className="!static w-full">
+                  <SidebarContent className="h-full p-0">
+                    {!sidebarCollapsed && (
+                      <>
+                        {activeSidebarPanel === "file" && <FileSystemTree onFileSelect={handleFileSelect} isVisible={!sidebarCollapsed} autoOpen={true} />}
+                        {activeSidebarPanel === "search" && <SearchComponent onFileSelect={handleFileSelect} />}
+                        {activeSidebarPanel === "theme" && <ThemeSelector />}
+                        {activeSidebarPanel === "tags" && <TagFilterPanel rootPath={rootPath} onFiltersChange={setSelectedTagFilters} />}
+                      </>
+                    )}
+                  </SidebarContent>
+                </Sidebar>
+              </SidebarProvider>
+            </ResizablePanel>
+            <ResizableHandle className="w-0 hover:bg-accent hover:w-1 z-50 cursor-col-resize" />
+
+            <ResizablePanel defaultSize={75} minSize={60}>
+              <TabBar />
+              <EditorSpace
+                selectedFile={selectedFile}
+                previewMode={previewMode}
+                livePreview={livePreview}
+                fileContent={fileContent}
+                isSaving={isSaving}
+                handleSave={handleSave}
+                setPreviewMode={setPreviewMode}
+                setLivePreview={setLivePreview}
+                setFileContent={setFileContent}
+                saveMessage={saveMessage}
+              />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </div>
+
+
+        {/* Shortcuts Modal */}
+        {showShortcuts && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            onClick={() => setShowShortcuts(false)}
+          >
+            <div
+              className="bg-background border border-border rounded-lg p-6 w-97"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-lg font-semibold mb-4">Keyboard Shortcuts</h2>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between"><span>Save</span><kbd className="px-2 py-1 bg-muted rounded">Ctrl+S</kbd></div>
+                <div className="flex justify-between"><span>New File</span><kbd className="px-2 py-1 bg-muted rounded">Ctrl+N</kbd></div>
+                <div className="flex justify-between"><span>New Folder</span><kbd className="px-2 py-1 bg-muted rounded">Ctrl+Shift+N</kbd></div>
+                <div className="flex justify-between"><span>Toggle Preview (MD files)</span><kbd className="px-2 py-1 bg-muted rounded">Ctrl+P</kbd></div>
+                <div className="flex justify-between"><span>Toggle Live Preview (MD files)</span><kbd className="px-2 py-1 bg-muted rounded">Ctrl+Shift+P</kbd></div>
+                <div className="flex justify-between"><span>Toggle Sidebar</span><kbd className="px-2 py-1 bg-muted rounded">Ctrl+B</kbd></div>
+                <div className="flex justify-between"><span>Open Folder</span><kbd className="px-2 py-1 bg-muted rounded">Ctrl+O</kbd></div>
+                <div className="flex justify-between"><span>Search</span><kbd className="px-2 py-1 bg-muted rounded">Ctrl+F</kbd></div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Status Bar */}
+        <div className="flex items-center justify-between h-7 bg-background border-t border-border px-4 text-xs flex-shrink-0">
+          <div className="flex items-center gap-3">
+            {selectedFile && (
+              <>
+                <span className="font-mono text-foreground">{window.fs.basename(selectedFile)}</span>
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* File Type Button */}
+            {selectedFile && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 px-2 text-xs text-muted-foreground hover:text-foreground"
+                title="File type"
+              >
+                {window.fs.extname(selectedFile).toUpperCase() || 'No Extension Found'}
+              </Button>
+            )}
+
+            {/* Autosave Status Button */}
+            {selectedFile && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`h-5 px-2 text-xs ${justAutosaved
+                  ? 'text-green-400 hover:text-green-300'
+                  : hasUnsavedChanges
+                    ? 'text-yellow-400 hover:text-yellow-300'
+                    : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                title={
+                  justAutosaved
+                    ? `Last autosave: ${lastAutosaveTime?.toLocaleString() || 'Just now'}`
+                    : hasUnsavedChanges
+                      ? 'Unsaved changes - will autosave soon'
+                      : lastAutosaveTime
+                        ? `Last autosave: ${lastAutosaveTime.toLocaleString()}`
+                        : 'No unsaved changes'
+                }
+              >
+                {justAutosaved ? 'Autosaved ✓' : hasUnsavedChanges ? 'Autosave ✗' : '—'}
+              </Button>
+            )}
+
+            {/* Keyboard Shortcuts Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => setShowShortcuts(true)}
+              title="View all keyboard shortcuts"
+            >
+              Shortcuts
+            </Button>
+          </div>
+        </div>
+      </div>
+    </React.Fragment >
   );
 }
