@@ -184,10 +184,12 @@ type FolderProps = {
   element: string;
   isSelectable?: boolean;
   isSelect?: boolean;
+  itemPath?: string;
+  tagIndicators?: React.ReactNode;
 } & React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Item>;
 
 const Folder = forwardRef<HTMLDivElement, FolderProps & React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, element, value, isSelectable = true, isSelect, children, ...props }, ref) => {
+  ({ className, element, value, isSelectable = true, isSelect, itemPath, tagIndicators, children, ...props }, ref) => {
     const {
       direction,
       handleExpand,
@@ -213,6 +215,7 @@ const Folder = forwardRef<HTMLDivElement, FolderProps & React.HTMLAttributes<HTM
             ? (openIcon ?? <FolderOpenIcon className="size-7" />)
             : (closeIcon ?? <FolderIcon className="size-7" />)}
           <span>{element}</span>
+          {tagIndicators}
         </AccordionPrimitive.Trigger>
         <AccordionPrimitive.Content className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down relative h-full overflow-hidden text-sm">
           {element && indicator && <TreeIndicator aria-hidden="true" />}

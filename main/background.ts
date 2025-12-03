@@ -4,6 +4,7 @@ import serve from "electron-serve";
 import { createWindow } from "./helpers";
 import fs from "fs/promises";
 import * as fsSync from "fs";
+import { loadTags, updateTags, removeTags } from "./tags";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -561,4 +562,18 @@ ipcMain.handle("fs:importFolder", async (event, sourcePath: string, targetPath: 
     } catch (err: any) {
         return { success: false, error: err.message };
     }
+});
+
+ipcMain.handle("tags:load", (event, projectRoot: string) => {
+  return loadTags(projectRoot);
+});
+
+ipcMain.handle("tags:update", (event, projectRoot: string, itemPath: string, tags: any[]) => {
+  updateTags(projectRoot, itemPath, tags);
+  return { success: true };
+});
+
+ipcMain.handle("tags:remove", (event, projectRoot: string, itemPath: string) => {
+  removeTags(projectRoot, itemPath);
+  return { success: true };
 });

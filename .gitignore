@@ -16,6 +16,9 @@ dist
 .vscode/
 .vs/
 
+# user-specific tags
+.notepad-tags.json
+
 # package locks
 package-lock.json
 pnpm-lock.yaml
