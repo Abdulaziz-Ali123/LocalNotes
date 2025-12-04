@@ -227,17 +227,17 @@ export default function SearchComponent({ onFileSelect }: SearchComponentProps) 
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 border-b bg-sidebar space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <div className="p-4 border-b space-y-3">
+        <div className="flex flow-row flex-wrap justify-center items-center gap-2 w-full">
+          <div className="relative rounded-sm ">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground roun" />
             <Input
               type="text"
               placeholder="Search in files..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyPress={handleKeyPress}
-              className="pl-9 pr-9"
+              className="pl-9 pr-9 bg-background"
             />
             {searchQuery && (
               <button
@@ -248,21 +248,24 @@ export default function SearchComponent({ onFileSelect }: SearchComponentProps) 
               </button>
             )}
           </div>
-          <Button
-            onClick={handleSearch}
-            disabled={isSearching || !searchQuery.trim()}
-            size="sm"
-          >
-            {isSearching ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "Search"
-            )}
-          </Button>
+          <div className="">
+            <Button
+              onClick={handleSearch}
+              disabled={isSearching || !searchQuery.trim()}
+              size="sm"
+            >
+              {isSearching ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Search"
+              )}
+            </Button>
+          </div>
+          
         </div>
 
         {/* Options */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col items-center gap-3">
           <div
             role="button"
             tabIndex={0}
@@ -274,7 +277,7 @@ export default function SearchComponent({ onFileSelect }: SearchComponentProps) 
                 handleMatchCaseChange(!matchCase);
               }
             }}
-            className={`flex items-center gap-2 px-3 py-2 rounded-md transition-all border-2 border-white focus:outline-none focus:ring-2 focus:ring-offset-1 ${matchCase ? 'bg-accent' : 'bg-accent/50 hover:bg-accent'}`}
+            className={`flex flex-wrapitems-center gap-2 px-3 py-2 rounded-md transition-all border-2 border-white focus:outline-none focus:ring-2 focus:ring-offset-1 ${matchCase ? 'bg-accent' : 'bg-accent/50 hover:bg-accent'}`}
           >
             <Label className="text-sm cursor-pointer font-medium">
               Match Case
