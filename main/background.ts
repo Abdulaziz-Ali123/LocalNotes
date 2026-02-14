@@ -1,7 +1,7 @@
 import path from "path";
 import { app, ipcMain, Menu, dialog, shell } from "electron";
 import serve from "electron-serve";
-import { createWindow } from "./helpers";
+import { createWindow, ensureConfigDirectory } from "./helpers";
 import fs from "fs/promises";
 import * as fsSync from "fs";
 import { loadTags, updateTags, removeTags } from "./tags";
@@ -132,6 +132,9 @@ if (isProd) {
 
 (async () => {
   await app.whenReady();
+  process.stderr.write("[Local Notes] Initializing config directory...\n");
+  const configDirectoryPath = await ensureConfigDirectory();
+  process.stderr.write(`[Local Notes] Config directory ready at: ${configDirectoryPath}\n`);
 
   const mainWindow = createWindow("main", {
     width: 1000,
