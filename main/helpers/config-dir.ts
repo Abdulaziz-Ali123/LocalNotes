@@ -3,7 +3,7 @@ import { constants as fsConstants } from "fs";
 import os from "os";
 import path from "path";
 
-const APP_CONFIG_DIR_NAME = "Local Notes";
+const APP_CONFIG_DIR_NAME = "LocalNotes";
 
 const getBaseDataDirectory = (): string => {
 	if (process.platform === "win32") {
