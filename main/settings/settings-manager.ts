@@ -13,7 +13,7 @@
 import path from "path";
 import fs from "fs/promises";
 import * as fsSync from "fs";
-import { app } from "electron";
+import { resolveConfigDirectoryPath } from "../helpers/config-dir";
 import {
   GlobalSettings,
   ProjectSettings,
@@ -33,10 +33,7 @@ import { migrateSettings } from "./migrations";
 // ---------------------------------------------------------------------------
 
 /** Deep-merge source into target (target values are overridden). */
-function deepMerge<T extends Record<string, any>>(
-  target: T,
-  source: Partial<T>
-): T {
+function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>): T {
   const result = { ...target };
   for (const key of Object.keys(source) as (keyof T)[]) {
     const srcVal = source[key];
@@ -71,11 +68,7 @@ function getByPath(obj: Record<string, any>, dotPath: string): any {
  * Set a nested property via a dot-path string (immutable, returns new object).
  * e.g. setByPath(obj, "appearance.theme", "dark")
  */
-function setByPath(
-  obj: Record<string, any>,
-  dotPath: string,
-  value: any
-): Record<string, any> {
+function setByPath(obj: Record<string, any>, dotPath: string, value: any): Record<string, any> {
   const parts = dotPath.split(".");
   const clone = structuredClone(obj);
   let current: any = clone;
@@ -92,10 +85,7 @@ function setByPath(
 /**
  * Delete a nested property via a dot-path string (resets to default).
  */
-function deleteByPath(
-  obj: Record<string, any>,
-  dotPath: string
-): Record<string, any> {
+function deleteByPath(obj: Record<string, any>, dotPath: string): Record<string, any> {
   const parts = dotPath.split(".");
   const clone = structuredClone(obj);
   let current: any = clone;
@@ -108,14 +98,16 @@ function deleteByPath(
 }
 
 // ---------------------------------------------------------------------------
-// Stub path resolvers (used before Tickets 1 & 2 are merged)
+// Path resolvers
 // ---------------------------------------------------------------------------
 
-function stubGlobalPath(): string {
-  return app.getPath("userData");
+/** Global settings dir -- uses Wesley's cross-platform config directory (Ticket 1). */
+function globalPath(): string {
+  return resolveConfigDirectoryPath();
 }
 
-function stubProjectPath(projectRoot: string): string {
+/** Project settings dir -- stub until Atharva's Ticket 2 is merged. */
+function projectPath(projectRoot: string): string {
   return path.join(projectRoot, ".Local Notes");
 }
 
@@ -141,8 +133,8 @@ export class SettingsManager {
   private projectOverrides: Map<string, Partial<ProjectSettings>> = new Map();
 
   constructor(options: SettingsManagerOptions = {}) {
-    this.getGlobalDir = options.getGlobalDir ?? stubGlobalPath;
-    this.getProjectDir = options.getProjectDir ?? stubProjectPath;
+    this.getGlobalDir = options.getGlobalDir ?? globalPath;
+    this.getProjectDir = options.getProjectDir ?? projectPath;
   }
 
   // -------------------------------------------------------------------------
@@ -241,7 +233,10 @@ export class SettingsManager {
         version: LATEST_SCHEMA_VERSION,
         settings: this.globalOverrides,
       });
-      console.log("[Settings] Saved successfully. Overrides:", JSON.stringify(this.globalOverrides));
+      console.log(
+        "[Settings] Saved successfully. Overrides:",
+        JSON.stringify(this.globalOverrides)
+      );
     } catch (err) {
       console.error("[Settings] Failed to save global settings:", err);
     }
@@ -297,11 +292,7 @@ export class SettingsManager {
   }
 
   /** Set a single project setting by dot-path. Persists to disk. */
-  async setProject(
-    projectRoot: string,
-    dotPath: string,
-    value: any
-  ): Promise<ProjectSettings> {
+  async setProject(projectRoot: string, dotPath: string, value: any): Promise<ProjectSettings> {
     const current = this.projectOverrides.get(projectRoot) ?? {};
     this.projectOverrides.set(
       projectRoot,
@@ -313,10 +304,7 @@ export class SettingsManager {
   }
 
   /** Reset a single project setting to its default. */
-  async resetProject(
-    projectRoot: string,
-    dotPath: string
-  ): Promise<ProjectSettings> {
+  async resetProject(projectRoot: string, dotPath: string): Promise<ProjectSettings> {
     const current = this.projectOverrides.get(projectRoot) ?? {};
     this.projectOverrides.set(
       projectRoot,

@@ -306,7 +306,8 @@ function KeybindingsTab() {
   }, [rebindingId, eventToAccelerator, setGlobal]);
 
   /** Format accelerator for display. */
-  const displayAccelerator = (accel: string): string => {
+  const displayAccelerator = (accel: unknown): string => {
+    if (!accel || typeof accel !== "string") return "—";
     return accel
       .replace(/CommandOrControl/g, isMac ? "Cmd" : "Ctrl")
       .replace(/Command/g, "Cmd")

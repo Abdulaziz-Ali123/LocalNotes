@@ -27,18 +27,16 @@ interface UseKeybindingsOptions {
  * actual modifier key for matching against KeyboardEvent.
  */
 interface ParsedAccelerator {
-  ctrl: boolean;   // Ctrl (Windows/Linux) or Cmd (Mac)
+  ctrl: boolean; // Ctrl (Windows/Linux) or Cmd (Mac)
   shift: boolean;
   alt: boolean;
-  key: string;     // the non-modifier key, lowercased
+  key: string; // the non-modifier key, lowercased
 }
 
-const isMac =
-  typeof navigator !== "undefined" &&
-  navigator.platform.toUpperCase().includes("MAC");
+const isMac = typeof navigator !== "undefined" && navigator.platform.toUpperCase().includes("MAC");
 
 function parseAccelerator(accel: string): ParsedAccelerator | null {
-  if (!accel) return null;
+  if (!accel || typeof accel !== "string") return null;
 
   const parts = accel.split("+");
   let ctrl = false;
@@ -70,10 +68,7 @@ function parseAccelerator(accel: string): ParsedAccelerator | null {
   return { ctrl, shift, alt, key };
 }
 
-function matchesEvent(
-  parsed: ParsedAccelerator,
-  e: KeyboardEvent
-): boolean {
+function matchesEvent(parsed: ParsedAccelerator, e: KeyboardEvent): boolean {
   const modKey = isMac ? e.metaKey : e.ctrlKey;
   if (parsed.ctrl !== modKey) return false;
   if (parsed.shift !== e.shiftKey) return false;
@@ -96,10 +91,14 @@ export function useKeybindings({ handlers, enabled = true }: UseKeybindingsOptio
   // Build a lookup: parsed accelerator -> action ID
   const parsedBindings = useMemo(() => {
     const bindings: { parsed: ParsedAccelerator; actionId: string }[] = [];
-    for (const [actionId, accel] of Object.entries(keybindings)) {
-      const parsed = parseAccelerator(accel);
-      if (parsed) {
-        bindings.push({ parsed, actionId });
+    if (keybindings && typeof keybindings === "object") {
+      for (const [actionId, accel] of Object.entries(keybindings)) {
+        if (typeof accel === "string") {
+          const parsed = parseAccelerator(accel);
+          if (parsed) {
+            bindings.push({ parsed, actionId });
+          }
+        }
       }
     }
     return bindings;
