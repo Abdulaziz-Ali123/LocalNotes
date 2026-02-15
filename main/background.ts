@@ -5,6 +5,7 @@ import { createWindow, ensureConfigDirectory, getConfigDirectoryPath } from "./h
 import fs from "fs/promises";
 import * as fsSync from "fs";
 import { loadTags, updateTags, removeTags } from "./tags";
+import { SettingsManager, registerSettingsIpc, buildMenuTemplate } from "./settings";
 import { getQueue } from "./fsQueue";
 import { withRetry } from "./fsRetry";
 import { closeDB, initializeDB } from "./database/sqllite";
@@ -150,11 +151,20 @@ if (isProd) {
   app.setPath("userData", `${app.getPath("userData")} (development)`);
 }
 
+// ---------------------------------------------------------------------------
+// Settings manager (singleton)
+// ---------------------------------------------------------------------------
+const settingsManager = new SettingsManager();
+let mainWindowRef: Electron.BrowserWindow | null = null;
+
 (async () => {
   await app.whenReady();
   process.stderr.write("[Local Notes] Initializing config directory...\n");
   const configDirectoryPath = await ensureConfigDirectory();
   process.stderr.write(`[Local Notes] Config directory ready at: ${configDirectoryPath}\n`);
+
+  // Load global settings before creating the window
+  const globalSettings = await settingsManager.loadGlobal();
 
   const mainWindow = createWindow("main", {
     width: 1000,
@@ -171,7 +181,12 @@ if (isProd) {
     ...(process.platform !== "darwin" ? { titleBarOverlay: true } : {}),
   });
 
-  // for context menu the one that pops up when you right click
+  mainWindowRef = mainWindow;
+
+  // Register settings IPC handlers
+  registerSettingsIpc(settingsManager, () => mainWindowRef);
+
+  // Context menu
   const contextTemplate: any = [
     { role: "copy" },
     { role: "cut" },
@@ -179,114 +194,9 @@ if (isProd) {
     { role: "selectall" },
   ];
 
-  //for menubar
-  const template: any = [
-    // { role: 'appMenu' }
-    ...(isMac
-      ? [
-          {
-            label: app.name,
-            submenu: [
-              { role: "about" },
-              { type: "separator" },
-              { role: "services" },
-              { type: "separator" },
-              { role: "hide" },
-              { role: "hideOthers" },
-              { role: "unhide" },
-              { type: "separator" },
-              { role: "quit" },
-            ],
-          },
-        ]
-      : []),
-    // { role: 'fileMenu' }
-    {
-      label: "File",
-      submenu: [
-        isMac ? { role: "close" } : { role: "quit" },
-        {
-          //open files
-          label: "Open File...",
-          click: () => dialog.showMessageBox({ message: "Opening file..." }),
-          accelerator: "CommandOrControl+O",
-        },
-        {
-          //open folder
-          label: "Open Folder...",
-        },
-      ],
-    },
-    // { role: 'editMenu' }
-    {
-      label: "Edit",
-      submenu: [
-        { role: "undo" },
-        { role: "redo" },
-        { type: "separator" },
-        { role: "cut" },
-        { role: "copy" },
-        { role: "paste" },
-        ...(isMac
-          ? [
-              { role: "pasteAndMatchStyle" },
-              { role: "delete" },
-              { role: "selectAll" },
-              { type: "separator" },
-              {
-                label: "Speech",
-                submenu: [{ role: "startSpeaking" }, { role: "stopSpeaking" }],
-              },
-            ]
-          : [{ role: "delete" }, { type: "separator" }, { role: "selectAll" }]),
-      ],
-    },
-    // { role: 'viewMenu' }
-    {
-      label: "View",
-      submenu: [
-        { role: "reload" },
-        { role: "forceReload" },
-        { role: "toggleDevTools" },
-        { type: "separator" },
-        { role: "resetZoom" },
-        { role: "zoomIn" },
-        { role: "zoomOut" },
-        { type: "separator" },
-        { role: "togglefullscreen" },
-      ],
-    },
-    // { role: 'windowMenu' }
-    {
-      label: "Window",
-      submenu: [
-        { role: "minimize" },
-        { role: "zoom" },
-        ...(isMac
-          ? [{ type: "separator" }, { role: "front" }, { type: "separator" }, { role: "window" }]
-          : [{ role: "close" }]),
-      ],
-    },
-    {
-      // Open/Close developer tools
-      label: "Toggle Developer Tools",
-      click: () => mainWindow.webContents.toggleDevTools(),
-      accelerater: isMac ? "Command+Option+I" : "Control+Shift+I",
-    },
-    {
-      role: "help",
-      submenu: [
-        {
-          label: "Learn More",
-          click: async () => {
-            await shell.openExternal("https://electronjs.org");
-          },
-        },
-      ],
-    },
-  ];
-
-  const menu = Menu.buildFromTemplate(template);
+  // Build menu from settings (keybindings-driven instead of hardcoded)
+  const menuTemplate = buildMenuTemplate(globalSettings, mainWindow);
+  const menu = Menu.buildFromTemplate(menuTemplate);
   Menu.setApplicationMenu(menu);
 
   const contextMenu = Menu.buildFromTemplate(contextTemplate);

@@ -1,14 +1,16 @@
 import { TabsSlice } from "@/renderer/types/tab-slice";
+import { SettingsSlice, createSettingsSlice } from "./settings-slice";
 import { merge } from "lodash";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { createTabSlice } from "./tab-slice";
 
-type Store = TabsSlice;
+type Store = TabsSlice & SettingsSlice;
 export const useBoundStore = create(
   persist<Store>(
     (...a) => ({
       ...createTabSlice(...a),
+      ...createSettingsSlice(...a),
     }),
     {
       name: "electron-storage",
@@ -21,7 +23,8 @@ export const useBoundStore = create(
       partialize: (state) =>
         ({
           tabs: {},
-        }) as Pick<Store, "tabs">,
+          // Settings are NOT persisted to localStorage — they live on disk via main process.
+        }) as unknown as Store,
     }
   )
 );

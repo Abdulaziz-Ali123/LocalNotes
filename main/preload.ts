@@ -137,11 +137,25 @@ const indexerHandler = {
        ipcRenderer.invoke("indexer:indexFile", directoryId, filePath, config),
 };
 
-
 export default vectorDbHandler;
 
 
-contextBridge.exposeInMainWorld("ipc", handler);
+contextBridge.exposeInMainWorld("ipc", {
+  send(channel: string, value: unknown) {
+    ipcRenderer.send(channel, value);
+  },
+  on(channel: string, callback: (...args: unknown[]) => void) {
+    const subscription = (_event: IpcRendererEvent, ...args: unknown[]) =>
+      callback(...args);
+    ipcRenderer.on(channel, subscription);
+    return () => {
+      ipcRenderer.removeListener(channel, subscription);
+    };
+  },
+  invoke(channel: string, data?: unknown) {
+    return ipcRenderer.invoke(channel, data);
+  },
+});
 contextBridge.exposeInMainWorld("fs", fileSystemHandler);
 contextBridge.exposeInMainWorld("db", vectorDbHandler);
 contextBridge.exposeInMainWorld("indexer", indexerHandler);
@@ -157,26 +171,42 @@ contextBridge.exposeInMainWorld("fileEvents", {
   onDeleted: (callback) =>
     ipcRenderer.on("file:deleted", (_, path) => callback(path)),
 });
-contextBridge.exposeInMainWorld("ipc", {
-  on(channel, callback) {
-    const subscription = (_event, ...args) => callback(...args);
-    ipcRenderer.on(channel, subscription);
 
+// ---------------------------------------------------------------------------
+// Settings API
+// ---------------------------------------------------------------------------
+const settingsHandler = {
+  getGlobal: () => ipcRenderer.invoke("settings:getGlobal"),
+  setGlobal: (dotPath: string, value: any) =>
+    ipcRenderer.invoke("settings:setGlobal", dotPath, value),
+  resetGlobal: (dotPath: string) =>
+    ipcRenderer.invoke("settings:resetGlobal", dotPath),
+  resetAllGlobal: () => ipcRenderer.invoke("settings:resetAllGlobal"),
+
+  getProject: (projectRoot: string) =>
+    ipcRenderer.invoke("settings:getProject", projectRoot),
+  loadProject: (projectRoot: string) =>
+    ipcRenderer.invoke("settings:loadProject", projectRoot),
+  setProject: (projectRoot: string, dotPath: string, value: any) =>
+    ipcRenderer.invoke("settings:setProject", projectRoot, dotPath, value),
+  resetProject: (projectRoot: string, dotPath: string) =>
+    ipcRenderer.invoke("settings:resetProject", projectRoot, dotPath),
+
+  getDefaults: () => ipcRenderer.invoke("settings:getDefaults"),
+  getKeybindingActions: () => ipcRenderer.invoke("settings:getKeybindingActions"),
+
+  /** Listen for settings changes pushed from the main process. */
+  onChange: (callback: (settings: any) => void) => {
+    const subscription = (_event: IpcRendererEvent, settings: any) =>
+      callback(settings);
+    ipcRenderer.on("settings:changed", subscription);
     return () => {
-      ipcRenderer.removeListener(channel, subscription);
+      ipcRenderer.removeListener("settings:changed", subscription);
     };
   },
+};
 
-  send(channel, data) {
-    ipcRenderer.send(channel, data);
-  },
-
-  invoke(channel, data) {
-    return ipcRenderer.invoke(channel, data);
-  }
-});
-
-
+contextBridge.exposeInMainWorld("settings", settingsHandler);
 
 export type IpcHandler = typeof handler;
 export type FileSystemHandler = typeof fileSystemHandler;
@@ -184,3 +214,4 @@ export type TabHandler = typeof tabHandler;
 export type VectorDbHandler = typeof vectorDbHandler;
 export type ChunckerHandler = typeof chunkerHandler;
 export type IndexHandler = typeof indexerHandler;
+export type SettingsHandler = typeof settingsHandler;
