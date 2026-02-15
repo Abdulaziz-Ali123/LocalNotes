@@ -18,7 +18,8 @@ import SearchComponent from "@/renderer/components/SearchComponent";
 import { produce } from "immer";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { TabsSlice } from "@/renderer/types/tab-slice";
-import { useKeyboardShortcuts } from "@/renderer/components/hooks/keyboardshortcuts";
+import { useKeybindings } from "@/renderer/hooks/useKeybindings";
+import SettingsDialog from "@/renderer/components/SettingsDialog";
 import { CiFileOn, CiSearch, CiExport, CiShare2, CiSettings} from "react-icons/ci";
 import { RiRobot2Line, RiFileHistoryLine, RiPaletteLine, RiFolderAddLine, RiFileAddLine, RiFileEditLine, RiFolderUploadLine, RiFileUploadLine} from "react-icons/ri";
 import { Tag } from "lucide-react";
@@ -49,6 +50,9 @@ export default function Editor() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [justAutosaved, setJustAutosaved] = useState(false);
   const [lastAutosaveTime, setLastAutosaveTime] = useState<Date | null>(null);
+
+  // Settings dialog state
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Tag filter states
   const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
@@ -223,65 +227,64 @@ export default function Editor() {
     return () => clearInterval(interval);
   }, [selectedFile, hasUnsavedChanges]);
 
-  useKeyboardShortcuts({
-    onSave: handleSave,
-    onTogglePreview: () => {
-      if (selectedFile?.toLowerCase().endsWith(".md")) {
-        setPreviewMode(prev => !prev);
-        setLivePreview(false);
-      }
-    },
-    onToggleLivePreview: () => {
-      if (selectedFile?.toLowerCase().endsWith(".md")) {
-        setLivePreview(prev => !prev);
-        setPreviewMode(true);
-      }
-    },
-    onToggleSidebar: () => {
-      toggleSidebar();
-    },
-    onNewFile: () => {
-      if (sidebarCollapsed) {
-        setSidebarCollapsed(false);
-        setActiveSidebarPanel('file');
-      }
-      if (fileTreeRef.current) {
-        const targetPath = selectedFile ? window.fs.dirname(selectedFile) : '';
-        if (targetPath) {
-          fileTreeRef.current.createNewFile(targetPath);
+  // Settings-driven keybindings (reads shortcuts from the settings store)
+  useKeybindings({
+    handlers: {
+      "file.save": handleSave,
+      "file.open": async () => {
+        if (sidebarCollapsed) {
+          setSidebarCollapsed(false);
+          setActiveSidebarPanel('file');
         }
-      }
-    },
-    onNewFolder: () => {
-      if (sidebarCollapsed) {
-        setSidebarCollapsed(false);
-        setActiveSidebarPanel('file');
-      }
-      if (fileTreeRef.current) {
-        const targetPath = selectedFile ? window.fs.dirname(selectedFile) : '';
-        if (targetPath) {
-          fileTreeRef.current.createNewFolder(targetPath);
+        const result = await window.fs.openFolderDialog();
+        if (result.success && result.data) {
+          localStorage.setItem("currentFolderPath", result.data);
+          window.location.reload();
         }
-      }
-    },
-    onSearch: () => {
-      setSidebarCollapsed(false);
-      setActiveSidebarPanel('search');
-    },
-    onOpenFolder: async () => {
-      // Open file explorer sidebar if closed
-      if (sidebarCollapsed) {
+      },
+      "file.newFile": () => {
+        if (sidebarCollapsed) {
+          setSidebarCollapsed(false);
+          setActiveSidebarPanel('file');
+        }
+        if (fileTreeRef.current) {
+          const targetPath = selectedFile ? window.fs.dirname(selectedFile) : '';
+          if (targetPath) {
+            fileTreeRef.current.createNewFile(targetPath);
+          }
+        }
+      },
+      "file.newFolder": () => {
+        if (sidebarCollapsed) {
+          setSidebarCollapsed(false);
+          setActiveSidebarPanel('file');
+        }
+        if (fileTreeRef.current) {
+          const targetPath = selectedFile ? window.fs.dirname(selectedFile) : '';
+          if (targetPath) {
+            fileTreeRef.current.createNewFolder(targetPath);
+          }
+        }
+      },
+      "view.togglePreview": () => {
+        if (selectedFile?.toLowerCase().endsWith(".md")) {
+          setPreviewMode(prev => !prev);
+          setLivePreview(false);
+        }
+      },
+      "view.toggleLivePreview": () => {
+        if (selectedFile?.toLowerCase().endsWith(".md")) {
+          setLivePreview(prev => !prev);
+          setPreviewMode(true);
+        }
+      },
+      "view.toggleSidebar": () => {
+        toggleSidebar();
+      },
+      "view.search": () => {
         setSidebarCollapsed(false);
-        setActiveSidebarPanel('file');
-      }
-      // Trigger folder selection dialog
-      const result = await window.fs.openFolderDialog();
-      if (result.success && result.data) {
-        // The FileSystemTree will handle loading the new folder
-        localStorage.setItem("currentFolderPath", result.data);
-        // Reload the page to mount the new folder
-        window.location.reload();
-      }
+        setActiveSidebarPanel('search');
+      },
     },
     enabled: true,
   });
@@ -535,8 +538,11 @@ export default function Editor() {
               </Popover>
               
               {/* Settings button */}
-              <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Settings">
-                {/* <img src="/assets/settings.png" alt="Settings" className="w-16 h-16 object-contain" /> */}
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
+                title="Settings"
+              >
                 <CiSettings className="w-14 h-14 stroke-1" />
               </button>
               {/* File Change History button */}
@@ -627,6 +633,9 @@ export default function Editor() {
             </div>
           </div>
         )}
+
+        {/* Settings Dialog */}
+        <SettingsDialog isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
         {/* Status Bar */}
         <div className="flex items-center justify-between h-7 bg-background border-t border-border px-4 text-xs flex-shrink-0">

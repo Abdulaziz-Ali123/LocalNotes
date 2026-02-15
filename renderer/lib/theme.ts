@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { useBoundStore } from "@/renderer/store/useBoundStore";
 
 export type ThemeType = "light" | "dark" | "nord" | "cozy" | "darker";
 
@@ -12,8 +13,16 @@ const ThemeContext = createContext<{
 } | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const settingsLoaded = useBoundStore((s) => s.settings.loaded);
+  const settingsTheme = useBoundStore(
+    (s) => s.settings.global.appearance.theme
+  ) as ThemeType;
+  const setGlobal = useBoundStore((s) => s.settings.setGlobal);
+
   const [theme, setThemeState] = useState<ThemeType>(() => {
     try {
+      // On first render (before settings load), fall back to localStorage for
+      // backward compatibility so the user doesn't see a flash of wrong theme.
       const stored = loadStoredTheme();
       return stored ?? DEFAULT_THEME;
     } catch (e) {
@@ -21,23 +30,35 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   });
 
+  // Once settings are loaded from the main process, sync theme.
+  useEffect(() => {
+    if (settingsLoaded && settingsTheme) {
+      setThemeState(settingsTheme);
+    }
+  }, [settingsLoaded, settingsTheme]);
+
   useEffect(() => {
     applyTheme(theme);
+    // Keep localStorage in sync for backward-compat / quick first-paint
     storeTheme(theme);
   }, [theme]);
 
-  const setTheme = (t: ThemeType) => setThemeState(t);
+  const setTheme = (t: ThemeType) => {
+    setThemeState(t);
+    // Persist to the settings system (writes to JSON on disk via main process)
+    setGlobal("appearance.theme", t);
+  };
 
   return React.createElement(ThemeContext.Provider, { value: { theme, setTheme } }, children);
 }
 
-// Load stored theme
+// Load stored theme (localStorage fallback)
 export function loadStoredTheme(): ThemeType | null {
   if (typeof window === "undefined") return null;
   return (localStorage.getItem(THEME_KEY) as ThemeType) || null;
 }
 
-// Save theme
+// Save theme to localStorage (backward-compat fast path)
 export function storeTheme(theme: ThemeType) {
   if (typeof window === "undefined") return;
   localStorage.setItem(THEME_KEY, theme);
