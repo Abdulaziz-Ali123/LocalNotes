@@ -3,8 +3,9 @@
  *
  * Central class that handles loading, saving, getting, setting, and resetting
  * settings for both global and project scopes. It deep-merges user overrides
- * on top of defaults so the JSON file on disk only stores explicit changes
- * (sparse storage pattern).
+ * on top of defaults and writes the full resolved settings (including all
+ * defaults) to disk so the JSON file is always complete and visible — even
+ * before the user changes anything.
  *
  * Path resolution is delegated to utility functions provided by teammates
  * (Tickets 1 & 2). During development, stub fallbacks are used.
@@ -163,20 +164,19 @@ export class SettingsManager {
           overrides as Record<string, any>,
           file.version
         ) as Partial<GlobalSettings>;
-        // Persist the migrated version
-        await this.writeFile(filePath, {
-          version: LATEST_SCHEMA_VERSION,
-          settings: overrides,
-        });
       }
 
       this.globalOverrides = overrides;
-      console.log("[Settings] Loaded overrides:", JSON.stringify(overrides));
+      console.log("[Settings] Loaded settings:", JSON.stringify(overrides));
     } catch (err) {
       // File doesn't exist or is corrupt — start fresh
       console.log("[Settings] No existing settings file, starting fresh:", (err as Error).message);
       this.globalOverrides = {};
     }
+
+    // Always persist the full resolved settings (including defaults) to disk
+    // so the JSON file is visible and complete from the very first launch.
+    await this.saveGlobal();
 
     return this.getResolvedGlobal();
   }
@@ -222,20 +222,20 @@ export class SettingsManager {
     return this.getResolvedGlobal();
   }
 
-  /** Persist the current global overrides to disk. */
+  /** Persist the full resolved global settings to disk (defaults + overrides). */
   async saveGlobal(): Promise<void> {
     try {
       const dir = this.getGlobalDir();
       const filePath = this.globalFilePath;
       console.log("[Settings] Saving global settings to:", filePath);
       await this.ensureDir(dir);
+      const resolved = this.getResolvedGlobal();
       await this.writeFile(filePath, {
         version: LATEST_SCHEMA_VERSION,
-        settings: this.globalOverrides,
+        settings: resolved,
       });
       console.log(
-        "[Settings] Saved successfully. Overrides:",
-        JSON.stringify(this.globalOverrides)
+        "[Settings] Saved successfully. Full settings written to disk."
       );
     } catch (err) {
       console.error("[Settings] Failed to save global settings:", err);
@@ -265,16 +265,16 @@ export class SettingsManager {
           overrides as Record<string, any>,
           file.version
         ) as Partial<ProjectSettings>;
-        await this.writeFile(filePath, {
-          version: LATEST_SCHEMA_VERSION,
-          settings: overrides,
-        });
       }
 
       this.projectOverrides.set(projectRoot, overrides);
     } catch {
       this.projectOverrides.set(projectRoot, {});
     }
+
+    // Always persist the full resolved settings to disk so the JSON file
+    // is visible and complete from the very first launch.
+    await this.saveProject(projectRoot);
 
     return this.getResolvedProject(projectRoot);
   }
@@ -322,14 +322,14 @@ export class SettingsManager {
     return this.getResolvedProject(projectRoot);
   }
 
-  /** Persist project overrides to disk. */
+  /** Persist the full resolved project settings to disk (defaults + overrides). */
   async saveProject(projectRoot: string): Promise<void> {
     const dir = this.getProjectDir(projectRoot);
     await this.ensureDir(dir);
-    const overrides = this.projectOverrides.get(projectRoot) ?? {};
+    const resolved = this.getResolvedProject(projectRoot);
     await this.writeFile(this.projectFilePath(projectRoot), {
       version: LATEST_SCHEMA_VERSION,
-      settings: overrides,
+      settings: resolved,
     });
   }
 
