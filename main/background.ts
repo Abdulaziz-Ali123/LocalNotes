@@ -5,6 +5,8 @@ import { createWindow, ensureConfigDirectory, getConfigDirectoryPath } from "./h
 import fs from "fs/promises";
 import * as fsSync from "fs";
 import { loadTags, updateTags, removeTags } from "./tags";
+import { getQueue } from "./fsQueue";
+import { withRetry } from "./fsRetry";
 import { closeDB, initializeDB } from "./database/sqllite";
 import { 
     addDirectory, 
@@ -363,45 +365,91 @@ ipcMain.handle("fs:createFolder", async (event, folderPath: string) => {
   }
 });
 
-ipcMain.handle("fs:createFile", async (event, filePath: string, content: string = "") => {
-  try {
-    await fs.writeFile(filePath, content, "utf-8");
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-});
+ipcMain.handle(
+    "fs:createFile",
+    async (_event, filePath: string, content: string = "") => {
+        const start = Date.now();
 
-ipcMain.handle("fs:deleteItem", async (event, itemPath: string) => {
-  try {
-    const stats = await fs.stat(itemPath);
+        try {
+            const normalized = path.normalize(filePath);
+            const parentDir = path.dirname(normalized);
 
-    if (stats.isDirectory()) {
-      await fs.rm(itemPath, { recursive: true, force: true });
-    } else {
-      await fs.unlink(itemPath);
+            // Queue per directory (simple, low overhead)
+            const queue = getQueue(parentDir);
+
+            const out = await queue.enqueue(async () => {
+                const { retriesUsed } = await withRetry(async () => {
+                    await fs.mkdir(parentDir, { recursive: true });
+
+                    // Atomic create: fails if exists
+                    const handle = await fs.open(normalized, "wx");
+                    try {
+                        await handle.writeFile(content, { encoding: "utf-8" });
+                    } finally {
+                        await handle.close();
+                    }
+                });
+
+                return { retriesUsed };
+            });
+
+            return {
+                success: true,
+                data: {
+                    path: normalized,
+                    ms: Date.now() - start,
+                    retries: out.retriesUsed,
+                },
+            };
+        } catch (error: any) {
+            return {
+                success: false,
+                error: error.message,
+                code: error.code,
+                ms: Date.now() - start,
+            };
+        }
     }
+);
 
-    event.sender.send("fs:itemDeleted", itemPath);
+ipcMain.handle("fs:deleteItem", async (_event, itemPath: string) => {
+    const start = Date.now();
+    try {
+        const p = path.normalize(itemPath);
+        const queue = getQueue(path.dirname(p));
 
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-});
+        await queue.enqueue(async () => {
+            const stats = await fs.stat(p);
+            await withRetry(async () => {
+                if (stats.isDirectory()) await fs.rm(p, { recursive: true, force: true });
+                else await fs.unlink(p);
+            });
+        });
 
-ipcMain.handle("fs:renameItem", async (event, oldPath: string, newPath: string) => {
-  try {
-    const exists = await fs.stat(oldPath).catch(() => null);
-    if (!exists) {
-      throw new Error("Source not found: ${oldPath}");
+        return { success: true, data: { ms: Date.now() - start } };
+    } catch (error: any) {
+        return { success: false, error: error.message, code: error.code, ms: Date.now() - start };
     }
-    await fs.rename(oldPath, newPath);
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
 });
+
+
+ipcMain.handle("fs:renameItem", async (_event, oldPath: string, newPath: string) => {
+    const start = Date.now();
+    try {
+        const oldN = path.normalize(oldPath);
+        const newN = path.normalize(newPath);
+        const queue = getQueue(path.dirname(oldN));
+
+        await queue.enqueue(async () => {
+            await withRetry(() => fs.rename(oldN, newN));
+        });
+
+        return { success: true, data: { ms: Date.now() - start } };
+    } catch (error: any) {
+        return { success: false, error: error.message, code: error.code, ms: Date.now() - start };
+    }
+});
+
 
 ipcMain.handle("fs:readFile", async (event, filePath: string) => {
   try {

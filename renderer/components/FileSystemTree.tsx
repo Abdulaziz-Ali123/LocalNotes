@@ -6,6 +6,8 @@ import { FolderOpen, FilePlus, FolderPlus, Trash2, Edit2, Search, X, Tag } from 
 import InputDialog from "./InputDialog";
 import TagModal from "./TagModal";
 import TagIndicators from "./TagIndicators";
+import { validateFileName } from "@/renderer/utils/fileValidation";
+
 
 interface FileSystemItem {
   name: string;
@@ -70,6 +72,8 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
     const [tagModalOpen, setTagModalOpen] = useState(false);
     const [selectedItemForTags, setSelectedItemForTags] = useState<string | null>(null);
     const [itemTagAssignments, setItemTagAssignments] = useState<Record<string, { tagIds: string[] }>>({});
+    const [isCreating, setIsCreating] = useState(false);
+
 
     // Expose functions to parent component via ref
     useImperativeHandle(ref, () => ({
@@ -397,32 +401,54 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
     };
 
     const createNewFile = async (parentPath: string) => {
-      setInputDialog({
-        isOpen: true,
-        title: "Create New File",
-        placeholder: "File name (e.g., notes.txt)",
-        defaultValue: "",
-        onConfirm: async (fileName) => {
-          setInputDialog((prev) => ({ ...prev, isOpen: false }));
-          const newFilePath = `${parentPath}/${fileName}`;
-          const result = await window.fs.createFile(newFilePath, "");
-          if (result.success) {
-            setLoadedFolders((prev) => {
-              const newSet = new Set(prev);
-              newSet.delete(parentPath);
-              return newSet;
-            });
+        setInputDialog({
+            isOpen: true,
+            title: "Create New File",
+            placeholder: "File name (e.g., notes.txt)",
+            defaultValue: "",
+            onConfirm: async (fileNameRaw) => {
+                setInputDialog((prev) => ({ ...prev, isOpen: false }));
+                if (isCreating) return;
 
-            if (parentPath === rootPath) {
-              await loadDirectory(parentPath);
-            } else {
-              await loadDirectory(parentPath, parentPath);
-            }
-          } else {
-            alert(`Failed to create file: ${result.error}`);
-          }
-        },
-      });
+                const v = validateFileName(fileNameRaw);
+
+                if (v.ok === false) {
+                    alert(v.error);
+                    return;
+                }
+
+
+                // Normalize parent path for consistent keys + IDs
+                const parentNorm = window.fs.normalize(parentPath);
+
+                // Safe join (no mixed slashes)
+                const newFilePath = window.fs.join(parentNorm, v.name);
+
+                try {
+                    setIsCreating(true);
+
+                    const result = await window.fs.createFile(newFilePath, "");
+                    if (!result.success) {
+                        alert(`Failed to create file: ${result.error}`);
+                        return;
+                    }
+
+                    // Invalidate cached folder + reload
+                    setLoadedFolders((prev) => {
+                        const next = new Set(prev);
+                        next.delete(parentNorm);
+                        return next;
+                    });
+
+                    await loadDirectory(parentNorm, parentNorm);
+
+                    // Optional: dev log perf if returned by main
+                    // console.log("[createFile]", result.data?.ms, "ms retries:", result.data?.retries);
+                } finally {
+                    setIsCreating(false);
+                }
+            },
+        });
     };
 
     const openTagModal = (itemPath: string) => {

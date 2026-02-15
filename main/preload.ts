@@ -50,7 +50,8 @@ const fileSystemHandler = {
   dirname: (filePath: string) => path.dirname(filePath),
   join: (...segments: string[]) => path.join(...segments),
   exists: async (targetPath: string) => ipcRenderer.invoke("fs:exists", targetPath),
-  isDirectory: (path: string) => ipcRenderer.invoke("fs:isDirectory", path),
+    isDirectory: (path: string) => ipcRenderer.invoke("fs:isDirectory", path),
+    normalize: (p: string) => path.normalize(p),
 };
 
 const tabHandler = {
