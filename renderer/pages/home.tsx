@@ -5,9 +5,11 @@ import Image from "next/image";
 import { useRouter } from "next/router";
 import { Button } from "@/renderer/components/ui/button";
 import InputDialog from "@/renderer/components/InputDialog";
+import SettingsDialog from "@/renderer/components/SettingsDialog";
 
 export default function HomePage() {
   const router = useRouter();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [inputDialog, setInputDialog] = useState({
     isOpen: false,
     title: "",
@@ -103,9 +105,11 @@ export default function HomePage() {
                   Configure Settings
                   <p className="text-sm pb-3">Edit settings like themes</p>
                 </span>
-                <button className="bg-accent rounded-md text-base p-2 h-12 w-32 shadow-neumorph-sm active:shadow-neumorph-insert transition-all">
-                  {" "}
-                  Configure{" "}
+                <button
+                  onClick={() => setSettingsOpen(true)}
+                  className="bg-accent rounded-md text-base p-2 h-12 w-32 shadow-neumorph-sm active:shadow-neumorph-insert transition-all"
+                >
+                  Configure
                 </button>
               </div>
             </div>
@@ -119,6 +123,11 @@ export default function HomePage() {
           defaultValue={inputDialog.defaultValue}
           onConfirm={inputDialog.onConfirm}
           onCancel={() => setInputDialog((prev) => ({ ...prev, isOpen: false }))}
+        />
+
+        <SettingsDialog
+          isOpen={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
         />
       </div>
     </React.Fragment>

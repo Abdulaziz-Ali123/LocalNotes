@@ -1,0 +1,94 @@
+/**
+ * Settings Schema v1
+ *
+ * TypeScript interfaces defining the shape of all settings.
+ * These interfaces are the single source of truth for the settings structure
+ * and are shared between the main process SettingsManager and the renderer.
+ */
+
+// ---------------------------------------------------------------------------
+// Appearance
+// ---------------------------------------------------------------------------
+
+export type ThemeType = "light" | "dark" | "nord" | "cozy" | "darker";
+
+export interface AppearanceSettings {
+  theme: ThemeType;
+  fontSize: number;
+  fontFamily: string;
+}
+
+// ---------------------------------------------------------------------------
+// Editor
+// ---------------------------------------------------------------------------
+
+export interface EditorSettings {
+  autosaveEnabled: boolean;
+  autosaveIntervalMs: number;
+  wordWrap: boolean;
+  showLineNumbers: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Keybindings
+// ---------------------------------------------------------------------------
+
+/**
+ * Each key is a dot-separated action ID (e.g. "file.save").
+ * Each value is an Electron accelerator string (e.g. "CommandOrControl+S").
+ * An empty string means the shortcut is unbound.
+ */
+export interface KeybindingMap {
+  "file.save": string;
+  "file.open": string;
+  "file.newFile": string;
+  "file.newFolder": string;
+  "edit.undo": string;
+  "edit.redo": string;
+  "view.toggleSidebar": string;
+  "view.togglePreview": string;
+  "view.toggleLivePreview": string;
+  "view.search": string;
+  "view.toggleDevTools": string;
+  [key: string]: string; // allow custom / future keybindings
+}
+
+// ---------------------------------------------------------------------------
+// Combined settings objects
+// ---------------------------------------------------------------------------
+
+/** The full global settings object (stored in userData). */
+export interface GlobalSettings {
+  appearance: AppearanceSettings;
+  editor: EditorSettings;
+  keybindings: KeybindingMap;
+}
+
+/** Project-level settings (stored in .Local Notes/settings.json per project). */
+export interface ProjectSettings {
+  editor: EditorSettings;
+}
+
+// ---------------------------------------------------------------------------
+// On-disk format (JSON wrapper with version)
+// ---------------------------------------------------------------------------
+
+/**
+ * The raw shape of the JSON file on disk.
+ * `version` tracks which schema migration has been applied.
+ * `settings` holds the actual user-facing values.
+ */
+export interface SettingsFile<T = GlobalSettings | ProjectSettings> {
+  version: number;
+  settings: T;
+}
+
+// ---------------------------------------------------------------------------
+// Path resolver contracts (provided by Tickets 1 & 2)
+// ---------------------------------------------------------------------------
+
+/** Ticket 1 (Wesley): returns the global settings directory path. */
+export type GlobalPathResolver = () => string;
+
+/** Ticket 2 (Atharva): returns the project settings directory for a given project root. */
+export type ProjectPathResolver = (projectRoot: string) => string;

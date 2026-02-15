@@ -1,8 +1,4 @@
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarContent,
-} from "../components/ui/sidebar";
+import { SidebarProvider, Sidebar, SidebarContent } from "../components/ui/sidebar";
 import ThemeSelector from "@/renderer/components/ui/ThemeSelector";
 import TagFilterPanel from "@/renderer/components/TagFilterPanel";
 import React, { useEffect, useRef, useState } from "react";
@@ -18,17 +14,23 @@ import SearchComponent from "@/renderer/components/SearchComponent";
 import { produce } from "immer";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { TabsSlice } from "@/renderer/types/tab-slice";
-import { useKeyboardShortcuts } from "@/renderer/components/hooks/keyboardshortcuts";
-import { CiFileOn, CiSearch, CiExport, CiShare2, CiSettings} from "react-icons/ci";
-import { RiRobot2Line, RiFileHistoryLine, RiPaletteLine, RiFolderAddLine, RiFileAddLine, RiFileEditLine, RiFolderUploadLine, RiFileUploadLine} from "react-icons/ri";
+import { useKeybindings } from "@/renderer/hooks/useKeybindings";
+import SettingsDialog from "@/renderer/components/SettingsDialog";
+import { CiFileOn, CiSearch, CiExport, CiShare2, CiSettings } from "react-icons/ci";
+import {
+  RiRobot2Line,
+  RiFileHistoryLine,
+  RiPaletteLine,
+  RiFolderAddLine,
+  RiFileAddLine,
+  RiFileEditLine,
+  RiFolderUploadLine,
+  RiFileUploadLine,
+} from "react-icons/ri";
 import { Tag } from "lucide-react";
 import EditorSpace from "@/renderer/pages/editorSpace";
 import TabBar from "../components/TabBar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/renderer/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/renderer/components/ui/popover";
 
 // Autosave interval in milliseconds -> 10 seconds
 const AUTOSAVE_INTERVAL = 10000;
@@ -50,6 +52,9 @@ export default function Editor() {
   const [justAutosaved, setJustAutosaved] = useState(false);
   const [lastAutosaveTime, setLastAutosaveTime] = useState<Date | null>(null);
 
+  // Settings dialog state
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   // Tag filter states
   const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
   const [rootPath, setRootPath] = useState<string | null>(null);
@@ -67,13 +72,13 @@ export default function Editor() {
 
   // Track unsaved changes
   useEffect(() => {
-    if (selectedFile && fileContent !== '') {
+    if (selectedFile && fileContent !== "") {
       setHasUnsavedChanges(true);
     }
   }, [fileContent, selectedFile]);
 
   useEffect(() => {
-    document.title = 'LocalNotes';
+    document.title = "LocalNotes";
   }, []);
   useEffect(() => {
     initializeTabs();
@@ -159,7 +164,9 @@ export default function Editor() {
   };
 
   // Sidebar state management for search/file panels
-  const [activeSidebarPanel, setActiveSidebarPanel] = useState<"file" | "search" | "theme" | "tags" | null>("file");
+  const [activeSidebarPanel, setActiveSidebarPanel] = useState<
+    "file" | "search" | "theme" | "tags" | null
+  >("file");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const handleSidebarButtonClick = (panel: "file" | "search" | "theme" | "tags") => {
@@ -216,72 +223,71 @@ export default function Editor() {
           }, 3000);
         }
       } catch (e) {
-        console.error('Autosave failed:', e);
+        console.error("Autosave failed:", e);
       }
     }, AUTOSAVE_INTERVAL);
 
     return () => clearInterval(interval);
   }, [selectedFile, hasUnsavedChanges]);
 
-  useKeyboardShortcuts({
-    onSave: handleSave,
-    onTogglePreview: () => {
-      if (selectedFile?.toLowerCase().endsWith(".md")) {
-        setPreviewMode(prev => !prev);
-        setLivePreview(false);
-      }
-    },
-    onToggleLivePreview: () => {
-      if (selectedFile?.toLowerCase().endsWith(".md")) {
-        setLivePreview(prev => !prev);
-        setPreviewMode(true);
-      }
-    },
-    onToggleSidebar: () => {
-      toggleSidebar();
-    },
-    onNewFile: () => {
-      if (sidebarCollapsed) {
-        setSidebarCollapsed(false);
-        setActiveSidebarPanel('file');
-      }
-      if (fileTreeRef.current) {
-        const targetPath = selectedFile ? window.fs.dirname(selectedFile) : '';
-        if (targetPath) {
-          fileTreeRef.current.createNewFile(targetPath);
+  // Settings-driven keybindings (reads shortcuts from the settings store)
+  useKeybindings({
+    handlers: {
+      "file.save": handleSave,
+      "file.open": async () => {
+        if (sidebarCollapsed) {
+          setSidebarCollapsed(false);
+          setActiveSidebarPanel("file");
         }
-      }
-    },
-    onNewFolder: () => {
-      if (sidebarCollapsed) {
-        setSidebarCollapsed(false);
-        setActiveSidebarPanel('file');
-      }
-      if (fileTreeRef.current) {
-        const targetPath = selectedFile ? window.fs.dirname(selectedFile) : '';
-        if (targetPath) {
-          fileTreeRef.current.createNewFolder(targetPath);
+        const result = await window.fs.openFolderDialog();
+        if (result.success && result.data) {
+          localStorage.setItem("currentFolderPath", result.data);
+          window.location.reload();
         }
-      }
-    },
-    onSearch: () => {
-      setSidebarCollapsed(false);
-      setActiveSidebarPanel('search');
-    },
-    onOpenFolder: async () => {
-      // Open file explorer sidebar if closed
-      if (sidebarCollapsed) {
+      },
+      "file.newFile": () => {
+        if (sidebarCollapsed) {
+          setSidebarCollapsed(false);
+          setActiveSidebarPanel("file");
+        }
+        if (fileTreeRef.current) {
+          const targetPath = selectedFile ? window.fs.dirname(selectedFile) : "";
+          if (targetPath) {
+            fileTreeRef.current.createNewFile(targetPath);
+          }
+        }
+      },
+      "file.newFolder": () => {
+        if (sidebarCollapsed) {
+          setSidebarCollapsed(false);
+          setActiveSidebarPanel("file");
+        }
+        if (fileTreeRef.current) {
+          const targetPath = selectedFile ? window.fs.dirname(selectedFile) : "";
+          if (targetPath) {
+            fileTreeRef.current.createNewFolder(targetPath);
+          }
+        }
+      },
+      "view.togglePreview": () => {
+        if (selectedFile?.toLowerCase().endsWith(".md")) {
+          setPreviewMode((prev) => !prev);
+          setLivePreview(false);
+        }
+      },
+      "view.toggleLivePreview": () => {
+        if (selectedFile?.toLowerCase().endsWith(".md")) {
+          setLivePreview((prev) => !prev);
+          setPreviewMode(true);
+        }
+      },
+      "view.toggleSidebar": () => {
+        toggleSidebar();
+      },
+      "view.search": () => {
         setSidebarCollapsed(false);
-        setActiveSidebarPanel('file');
-      }
-      // Trigger folder selection dialog
-      const result = await window.fs.openFolderDialog();
-      if (result.success && result.data) {
-        // The FileSystemTree will handle loading the new folder
-        localStorage.setItem("currentFolderPath", result.data);
-        // Reload the page to mount the new folder
-        window.location.reload();
-      }
+        setActiveSidebarPanel("search");
+      },
     },
     enabled: true,
   });
@@ -342,7 +348,7 @@ export default function Editor() {
       const result = await window.fs.selectImportFiles();
       if (result.success && result.paths) {
         await window.fs.mergeFiles(result.paths, selectedFile);
-        
+
         // Refresh content
         const readResult = await window.fs.readFile(selectedFile);
         if (readResult.success) {
@@ -366,65 +372,59 @@ export default function Editor() {
   };
 
   const handleExportCurrentFile = async () => {
-      if (!selectedFile) {
-          alert("No file selected to export.");
-          return;
-      }
+    if (!selectedFile) {
+      alert("No file selected to export.");
+      return;
+    }
 
-      const result = await window.fs.selectExportDestination();
-      if (!result.success) return;
+    const result = await window.fs.selectExportDestination();
+    if (!result.success) return;
 
-      const exportResult = await window.fs.exportFile(
-          selectedFile,
-          result.folder
-      );
+    const exportResult = await window.fs.exportFile(selectedFile, result.folder);
 
-      if (exportResult.success) {
-          refreshTree();
-          alert(`File exported to ${exportResult.exportedTo}`);
-      } else {
-          alert("Export failed: " + exportResult.error);
-      }
+    if (exportResult.success) {
+      refreshTree();
+      alert(`File exported to ${exportResult.exportedTo}`);
+    } else {
+      alert("Export failed: " + exportResult.error);
+    }
   };
 
   const handleExportFolder = async () => {
-      const root = localStorage.getItem("currentFolderPath");
-      if (!root) return;
+    const root = localStorage.getItem("currentFolderPath");
+    if (!root) return;
 
-      const dest = await window.fs.selectExportDestination();
-      if (!dest.success) return;
+    const dest = await window.fs.selectExportDestination();
+    if (!dest.success) return;
 
-      const result = await window.fs.exportFolder(root, dest.folder);
+    const result = await window.fs.exportFolder(root, dest.folder);
 
-      if (result.success) {
-          refreshTree();
-          alert("Folder exported successfully!");
-      } else {
-          alert("Export failed: " + result.error);
-      }
+    if (result.success) {
+      refreshTree();
+      alert("Folder exported successfully!");
+    } else {
+      alert("Export failed: " + result.error);
+    }
   };
 
   const fileTreeRef = useRef(null);
 
   const refreshTree = () => {
-      if (fileTreeRef.current && fileTreeRef.current.reloadRoot) {
-          fileTreeRef.current.reloadRoot();
-      }
+    if (fileTreeRef.current && fileTreeRef.current.reloadRoot) {
+      fileTreeRef.current.reloadRoot();
+    }
   };
 
   return (
     <React.Fragment>
       <div className="flex flex-col h-screen">
-
         {/* Main Content Area */}
         <div className="flex flex-row flex-1 overflow-hidden">
           <div className="flex flex-col">
             {/* A drag region to allow dragging from the sidebar */}
-            <div className="app-drag-region h-[41px] bg-background">
-            </div>
+            <div className="app-drag-region h-[41px] bg-background"></div>
             {/* Activity rail / fixed; controls the size of the left bar containing the buttons*/}
             <div className="flex flex-col items-center gap-2 px-2 py-4 bg-secondary w-18 border-r h-full">
-
               {/* justify-center can be added here to make it vertically centered */}
               <button
                 type="button"
@@ -452,40 +452,48 @@ export default function Editor() {
               {/* Import/ Popover */}
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Import/Export">
+                  <button
+                    className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
+                    title="Import/Export"
+                  >
                     <CiExport className="w-14 h-14 stroke-1" />
                   </button>
                 </PopoverTrigger>
                 <PopoverContent side="right" align="start" className="w-56 p-2">
                   <div className="flex flex-col gap-1">
-                    <button 
+                    <button
                       onClick={handleImportFiles}
                       className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent text-left w-full"
                     >
                       <RiFileAddLine className="w-4 h-4" />
                       <span>Import File(s)</span>
                     </button>
-                    <button 
+                    <button
                       onClick={handleImportFolder}
                       className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent text-left w-full"
                     >
                       <RiFolderAddLine className="w-4 h-4" />
                       <span>Import Folder</span>
                     </button>
-                    <button 
+                    <button
                       onClick={handleImportIntoNote}
                       className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent text-left w-full"
                       disabled={!selectedFile}
                     >
                       <RiFileEditLine className="w-4 h-4" />
-                      <span className={!selectedFile ? "text-muted-foreground" : ""}>Import into Note</span>
+                      <span className={!selectedFile ? "text-muted-foreground" : ""}>
+                        Import into Note
+                      </span>
                     </button>
                   </div>
                 </PopoverContent>
               </Popover>
 
               {/* AI Assistant button */}
-              <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Ai Assistant - Coming Soon">
+              <button
+                className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
+                title="Ai Assistant - Coming Soon"
+              >
                 {/* <img src="/assets/ai_helper.png" alt="AI" className="w-16 h-16 object-contain" /> */}
                 <RiRobot2Line className="w-14 h-14" />
               </button>
@@ -513,47 +521,62 @@ export default function Editor() {
               </button>
 
               {/* Share button */}
-              <Popover >
+              <Popover>
                 <PopoverTrigger asChild>
-                  <button 
+                  <button
                     onMouseDown={(e) => e.preventDefault()}
-                    className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Share with Friends">
+                    className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
+                    title="Share with Friends"
+                  >
                     {/* <img src="/assets/share.png" alt="Share" className="w-16 h-16 object-contain" /> */}
                     <CiShare2 className="w-14 h-14 stroke-1" />
                   </button>
                 </PopoverTrigger>
                 <PopoverContent side="right" align="start" className="w-56 p-2">
-                  <button onClick={handleExportCurrentFile} className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent text-left w-full">
+                  <button
+                    onClick={handleExportCurrentFile}
+                    className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent text-left w-full"
+                  >
                     <RiFileUploadLine className="w-4 h-4" />
                     <span>Export Current File</span>
                   </button>
-                  <button onClick={handleExportFolder} className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent text-left w-full">
+                  <button
+                    onClick={handleExportFolder}
+                    className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent text-left w-full"
+                  >
                     <RiFolderUploadLine className="w-4 h-4" />
                     <span>Export Workspace</span>
                   </button>
                 </PopoverContent>
               </Popover>
-              
-              {/* Settings button */}
-              <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="Settings">
-                {/* <img src="/assets/settings.png" alt="Settings" className="w-16 h-16 object-contain" /> */}
+
+              {/* Settings button
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
+                title="Settings"
+              >
                 <CiSettings className="w-14 h-14 stroke-1" />
               </button>
+              */}
               {/* File Change History button */}
-              <button className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center" title="File Change History">
+              <button
+                className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
+                title="File Change History"
+              >
                 {/* <img src="/assets/folder.png" alt="Folder" className="w-16 h-16 object-contain" /> */}
                 <RiFileHistoryLine className="w-14 h-14" />
               </button>
             </div>
           </div>
 
-
           <ResizablePanelGroup
             direction="horizontal"
             className="min-h-screen w-full bg-primary-foreground"
           >
             {/* Sidebar (resizable) + Editor */}
-            <ResizablePanel ref={sidebarPanelRef}
+            <ResizablePanel
+              ref={sidebarPanelRef}
               defaultSize={20}
               minSize={12}
               maxSize={40}
@@ -561,10 +584,10 @@ export default function Editor() {
               collapsedSize={0}
               onCollapse={() => setSidebarCollapsed(true)}
               onExpand={() => setSidebarCollapsed(false)}
-              className={``}>
+              className={``}
+            >
               {/* A drag region to allow dragging from the sidebar area */}
-              <div className="app-drag-region h-10 bg-background">
-              </div>
+              <div className="app-drag-region h-10 bg-background"></div>
 
               <SidebarProvider>
                 {/* Use non-fixed variant so the panel controls width; force w-full so Sidebar doesn't enforce its own CSS width variable */}
@@ -572,10 +595,24 @@ export default function Editor() {
                   <SidebarContent className="h-full p-0">
                     {!sidebarCollapsed && (
                       <>
-                        {activeSidebarPanel === "file" && <FileSystemTree  ref={refreshTree}onFileSelect={handleFileSelect} isVisible={!sidebarCollapsed} autoOpen={true} />}
-                        {activeSidebarPanel === "search" && <SearchComponent onFileSelect={handleFileSelect} />}
+                        {activeSidebarPanel === "file" && (
+                          <FileSystemTree
+                            ref={refreshTree}
+                            onFileSelect={handleFileSelect}
+                            isVisible={!sidebarCollapsed}
+                            autoOpen={true}
+                          />
+                        )}
+                        {activeSidebarPanel === "search" && (
+                          <SearchComponent onFileSelect={handleFileSelect} />
+                        )}
                         {activeSidebarPanel === "theme" && <ThemeSelector />}
-                        {activeSidebarPanel === "tags" && <TagFilterPanel rootPath={rootPath} onFiltersChange={setSelectedTagFilters} />}
+                        {activeSidebarPanel === "tags" && (
+                          <TagFilterPanel
+                            rootPath={rootPath}
+                            onFiltersChange={setSelectedTagFilters}
+                          />
+                        )}
                       </>
                     )}
                   </SidebarContent>
@@ -602,7 +639,6 @@ export default function Editor() {
           </ResizablePanelGroup>
         </div>
 
-
         {/* Shortcuts Modal */}
         {showShortcuts && (
           <div
@@ -615,25 +651,54 @@ export default function Editor() {
             >
               <h2 className="text-lg font-semibold mb-4">Keyboard Shortcuts</h2>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span>Save</span><kbd className="px-2 py-1 bg-muted rounded">Ctrl+S</kbd></div>
-                <div className="flex justify-between"><span>New File</span><kbd className="px-2 py-1 bg-muted rounded">Ctrl+N</kbd></div>
-                <div className="flex justify-between"><span>New Folder</span><kbd className="px-2 py-1 bg-muted rounded">Ctrl+Shift+N</kbd></div>
-                <div className="flex justify-between"><span>Toggle Preview (MD files)</span><kbd className="px-2 py-1 bg-muted rounded">Ctrl+P</kbd></div>
-                <div className="flex justify-between"><span>Toggle Live Preview (MD files)</span><kbd className="px-2 py-1 bg-muted rounded">Ctrl+Shift+P</kbd></div>
-                <div className="flex justify-between"><span>Toggle Sidebar</span><kbd className="px-2 py-1 bg-muted rounded">Ctrl+B</kbd></div>
-                <div className="flex justify-between"><span>Open Folder</span><kbd className="px-2 py-1 bg-muted rounded">Ctrl+O</kbd></div>
-                <div className="flex justify-between"><span>Search</span><kbd className="px-2 py-1 bg-muted rounded">Ctrl+F</kbd></div>
+                <div className="flex justify-between">
+                  <span>Save</span>
+                  <kbd className="px-2 py-1 bg-muted rounded">Ctrl+S</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>New File</span>
+                  <kbd className="px-2 py-1 bg-muted rounded">Ctrl+N</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>New Folder</span>
+                  <kbd className="px-2 py-1 bg-muted rounded">Ctrl+Shift+N</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>Toggle Preview (MD files)</span>
+                  <kbd className="px-2 py-1 bg-muted rounded">Ctrl+P</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>Toggle Live Preview (MD files)</span>
+                  <kbd className="px-2 py-1 bg-muted rounded">Ctrl+Shift+P</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>Toggle Sidebar</span>
+                  <kbd className="px-2 py-1 bg-muted rounded">Ctrl+B</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>Open Folder</span>
+                  <kbd className="px-2 py-1 bg-muted rounded">Ctrl+O</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>Search</span>
+                  <kbd className="px-2 py-1 bg-muted rounded">Ctrl+F</kbd>
+                </div>
               </div>
             </div>
           </div>
         )}
+
+        {/* Settings Dialog */}
+        <SettingsDialog isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
         {/* Status Bar */}
         <div className="flex items-center justify-between h-7 bg-background border-t border-border px-4 text-xs flex-shrink-0">
           <div className="flex items-center gap-3">
             {selectedFile && (
               <>
-                <span className="font-mono text-foreground">{window.fs.basename(selectedFile)}</span>
+                <span className="font-mono text-foreground">
+                  {window.fs.basename(selectedFile)}
+                </span>
               </>
             )}
           </div>
@@ -647,7 +712,7 @@ export default function Editor() {
                 className="h-5 px-2 text-xs text-muted-foreground hover:text-foreground"
                 title="File type"
               >
-                {window.fs.extname(selectedFile).toUpperCase() || 'No Extension Found'}
+                {window.fs.extname(selectedFile).toUpperCase() || "No Extension Found"}
               </Button>
             )}
 
@@ -656,23 +721,24 @@ export default function Editor() {
               <Button
                 variant="ghost"
                 size="sm"
-                className={`h-5 px-2 text-xs ${justAutosaved
-                  ? 'text-green-400 hover:text-green-300'
-                  : hasUnsavedChanges
-                    ? 'text-yellow-400 hover:text-yellow-300'
-                    : 'text-muted-foreground hover:text-foreground'
-                  }`}
+                className={`h-5 px-2 text-xs ${
+                  justAutosaved
+                    ? "text-green-400 hover:text-green-300"
+                    : hasUnsavedChanges
+                      ? "text-yellow-400 hover:text-yellow-300"
+                      : "text-muted-foreground hover:text-foreground"
+                }`}
                 title={
                   justAutosaved
-                    ? `Last autosave: ${lastAutosaveTime?.toLocaleString() || 'Just now'}`
+                    ? `Last autosave: ${lastAutosaveTime?.toLocaleString() || "Just now"}`
                     : hasUnsavedChanges
-                      ? 'Unsaved changes - will autosave soon'
+                      ? "Unsaved changes - will autosave soon"
                       : lastAutosaveTime
                         ? `Last autosave: ${lastAutosaveTime.toLocaleString()}`
-                        : 'No unsaved changes'
+                        : "No unsaved changes"
                 }
               >
-                {justAutosaved ? 'Autosaved ✓' : hasUnsavedChanges ? 'Autosave ✗' : '—'}
+                {justAutosaved ? "Autosaved ✓" : hasUnsavedChanges ? "Autosave ✗" : "—"}
               </Button>
             )}
 
@@ -689,6 +755,6 @@ export default function Editor() {
           </div>
         </div>
       </div>
-    </React.Fragment >
+    </React.Fragment>
   );
 }
