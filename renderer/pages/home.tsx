@@ -15,14 +15,53 @@ export default function HomePage() {
     defaultValue: "",
     onConfirm: (value: string) => {},
   });
+  const [isIndexing, setIsIndexing] = useState(false);
+  const [indexingStatus, setIndexingStatus] = useState("");
 
   const handleOpenFolder = async () => {
     const result = await window.fs.openFolderDialog();
     if (result.success && result.data) {
-      // Store the folder path in localStorage
-      localStorage.setItem("currentFolderPath", result.data);
-      // Navigate to editor page
-      router.push("/editor");
+      try {
+        setIsIndexing(true);
+        setIndexingStatus("Adding directory to database...");
+        
+        // Store the folder path in localStorage
+        localStorage.setItem("currentFolderPath", result.data);
+
+        // Generate UUID and add directory to database
+        const uuid: string = crypto.randomUUID();
+        const dirResult = await window.db.addDirectory(uuid, result.data);
+        
+        if (!dirResult.success) {
+          throw new Error(dirResult.error || "Failed to add directory");
+        }
+        
+        console.log("Directory added with ID:", uuid);
+        
+        // Index the directory
+        setIndexingStatus("Indexing files...");
+        const storeResult = await window.indexer.indexDirectory(uuid, result.data);
+
+        if (storeResult.success && storeResult.data) {
+          console.log(`✓ Indexing complete!`);
+          console.log(`Files processed: ${storeResult.data.filesProcessed}`);
+          console.log(`Chunks created: ${storeResult.data.chunksCreated}`);
+          
+          setIndexingStatus("Complete!");
+          
+          // Navigate to editor page
+          setTimeout(() => {
+            router.push("/editor");
+          }, 500);
+        } else {
+          throw new Error(storeResult.error || "Failed to index directory");
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        alert(`Failed to open and index folder: ${error}`);
+        setIndexingStatus("");
+        setIsIndexing(false);
+      }
     }
   };
 
@@ -34,18 +73,36 @@ export default function HomePage() {
       defaultValue: "",
       onConfirm: async (folderName) => {
         setInputDialog((prev) => ({ ...prev, isOpen: false }));
+        
         const result = await window.fs.openFolderDialog();
         if (result.success && result.data) {
-          const parentPath = result.data;
-          const newFolderPath = `${parentPath}/${folderName}`;
-          const createResult = await window.fs.createFolder(newFolderPath);
-          if (createResult.success) {
+          try {
+            const parentPath = result.data;
+            const newFolderPath = `${parentPath}/${folderName}`;
+            
+            // Create the folder
+            const createResult = await window.fs.createFolder(newFolderPath);
+            if (!createResult.success) {
+              throw new Error(createResult.error || "Failed to create folder");
+            }
+            
             // Store the folder path in localStorage
             localStorage.setItem("currentFolderPath", newFolderPath);
-            // Navigate to editor page
-            router.push("/editor");
-          } else {
-            alert(`Failed to create folder: ${createResult.error}`);
+
+            // Add directory to database
+            const uuid: string = crypto.randomUUID();
+            const storeResult = await window.db.addDirectory(uuid, newFolderPath);
+
+            if (storeResult.success) {
+              console.log("Directory added to database with ID:", uuid);
+              // Navigate to editor page
+              router.push("/editor");
+            } else {
+              throw new Error(storeResult.error || "Failed to add directory to database");
+            }
+          } catch (error) {
+            console.error("Error:", error);
+            alert(`Failed to create folder: ${error}`);
           }
         }
       },
@@ -55,7 +112,7 @@ export default function HomePage() {
   return (
     <React.Fragment>
       <div className="flex flex-col justify-center items-center bg-secondary">
-        {/* this is is the region that will allow dragging the window*/}
+        {/* this is the region that will allow dragging the window*/}
         <div className="w-full p-5 app-drag-region"> </div>
         <div className="h-screen flex justify-center items-center bg-seco">
           <div className="p-5 h-auto w-[600px] flex items-center flex-col justify-center rounded-2xl shadow-neumorph bg-secondary">
@@ -69,6 +126,14 @@ export default function HomePage() {
                 height={256}
               />
             </div>
+            
+            {/* Show indexing status */}
+            {isIndexing && (
+              <div className="w-4/5 mb-4 p-4 bg-accent/20 rounded-lg text-center">
+                <p className="text-lg font-semibold">{indexingStatus}</p>
+              </div>
+            )}
+            
             <div className="grid grid-col-1 text-2xl w-4/5 ">
               <div className="flex flex-row justify-between items-center py-3">
                 <span>
@@ -77,7 +142,8 @@ export default function HomePage() {
                 </span>
                 <button
                   onClick={handleCreateFolder}
-                  className="bg-accent rounded-md text-base p-2 h-12 w-32 shadow-neumorph-sm active:shadow-neumorph-insert transition-all"
+                  disabled={isIndexing}
+                  className="bg-accent rounded-md text-base p-2 h-12 w-32 shadow-neumorph-sm active:shadow-neumorph-insert transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Create Folder
                 </button>
@@ -87,13 +153,14 @@ export default function HomePage() {
               <div className="flex flex-row justify-between items-center py-3">
                 <span>
                   Open an Existing Folder
-                  <p className="text-sm pb-3">Open an existing folder that hold your notes</p>
+                  <p className="text-sm pb-3">Open an existing folder that holds your notes</p>
                 </span>
                 <button
                   onClick={handleOpenFolder}
-                  className="bg-accent rounded-md text-base p-2 h-12 w-32 shadow-neumorph-sm active:shadow-neumorph-insert transition-all"
+                  disabled={isIndexing}
+                  className="bg-accent rounded-md text-base p-2 h-12 w-32 shadow-neumorph-sm active:shadow-neumorph-insert transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Open Folder
+                  {isIndexing ? "Indexing..." : "Open Folder"}
                 </button>
               </div>
 
@@ -103,9 +170,11 @@ export default function HomePage() {
                   Configure Settings
                   <p className="text-sm pb-3">Edit settings like themes</p>
                 </span>
-                <button className="bg-accent rounded-md text-base p-2 h-12 w-32 shadow-neumorph-sm active:shadow-neumorph-insert transition-all">
-                  {" "}
-                  Configure{" "}
+                <button 
+                  disabled={isIndexing}
+                  className="bg-accent rounded-md text-base p-2 h-12 w-32 shadow-neumorph-sm active:shadow-neumorph-insert transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Configure
                 </button>
               </div>
             </div>
