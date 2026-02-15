@@ -1,10 +1,28 @@
 import path from "path";
 import { app, ipcMain, Menu, dialog, shell } from "electron";
 import serve from "electron-serve";
-import { createWindow, ensureConfigDirectory } from "./helpers";
+import { createWindow, ensureConfigDirectory, getConfigDirectoryPath } from "./helpers";
 import fs from "fs/promises";
 import * as fsSync from "fs";
 import { loadTags, updateTags, removeTags } from "./tags";
+import { closeDB, initializeDB } from "./database/sqllite";
+import { 
+    addDirectory, 
+    updateDirectory, 
+    deleteDirectory, 
+    getDirectory, 
+    getAllDirectories,
+    addFile,
+    updateFileHash,
+    deleteFile,
+    getFilesByDirectory,
+    addChunk,
+    deleteChunksByFile,
+    getChunksByDirectory,
+    getChunksByFile
+} from "./database/documentRepository";
+import { chunkDirectory, chunkSingleFile, getChunkStats, DirectoryChunkerConfig, chunkAndStoreDirectory, chunkAndStoreFile } from "./indexing/DirectoryChuncker";
+import { UUID } from "crypto";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -280,11 +298,33 @@ if (isProd) {
   } else {
     const port = process.argv[2];
     await mainWindow.loadURL(`http://localhost:${port}/home`);
+    
   }
+
+    try {
+        initializeDB();
+        console.log("✓ Database ready");
+    } catch (error) {
+        console.error("✗ Failed to initialize database:", error);
+        app.quit();
+        return;
+    }
 })();
 
+
 app.on("window-all-closed", () => {
-  app.quit();
+    if (process.platform !== "darwin") {
+        closeDB();
+        app.quit();
+    }
+});
+
+app.on("will-quit", () => {
+    closeDB();
+});
+
+app.on("before-quit", () => {
+    closeDB();
 });
 
 ipcMain.on("message", async (event, arg) => {
@@ -424,6 +464,7 @@ ipcMain.handle("fs:writeFile", async (event, filePath: string, content: string) 
 
 ipcMain.handle("fs:openFolderDialog", async () => {
   try {
+    console.log(getConfigDirectoryPath())
     const result = await dialog.showOpenDialog({
       properties: ["openDirectory"],
     });
@@ -650,6 +691,201 @@ ipcMain.handle("fs:exportFolder", async (_, sourceFolder: string, targetFolder: 
     }
 });
 
+ipcMain.handle("db:addDirectory", async (_, uuid: string, path: string) => {
+    try {
+        const result = addDirectory(uuid, path);
+        return { success: true, data: result };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
 
+ipcMain.handle("db:updateDirectory", async (_, id: UUID, name?: string, path?: string) => {
+    try {
+        const result = updateDirectory(id, name, path);
+        return { success: true, data: result };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
 
+ipcMain.handle("db:deleteDirectory", async (_, id: UUID) => {
+    try {
+        deleteDirectory(id);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
 
+ipcMain.handle("db:getDirectory", async (_, id: UUID) => {
+    try {
+        const data = getDirectory(id);
+        return { success: true, data };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:getAllDirectories", async () => {
+    try {
+        const data = getAllDirectories();
+        return { success: true, data };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+// ========== FILES ==========
+ipcMain.handle("db:addFile", async (_, directoryId: UUID, filePath: string, fileHash: string, lastModified: number) => {
+    try {
+        const result = addFile(directoryId, filePath, fileHash, lastModified);
+        return { success: true, data: result };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:updateFileHash", async (_, fileId: UUID, fileHash: string, lastModified: number) => {
+    try {
+        const result = updateFileHash(fileId, fileHash, lastModified);
+        return { success: true, data: result };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:deleteFile", async (_, fileId: UUID) => {
+    try {
+        deleteFile(fileId);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:getFilesByDirectory", async (_, directoryId: UUID) => {
+    try {
+        const data = getFilesByDirectory(directoryId);
+        return { success: true, data };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+// ========== CHUNKS ==========
+ipcMain.handle("db:addChunk", async (_, fileId: UUID, directoryId: UUID, contentHash: string, content: string, embedding: Buffer) => {
+    try {
+        const result = addChunk(fileId, directoryId, contentHash, content, embedding);
+        return { success: true, data: result };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:addChunks", async (_, chunks: Array<{
+    fileId: UUID;
+    directoryId: UUID;
+    contentHash: string;
+    content: string;
+    embedding: Buffer;
+}>) => {
+    try {
+        // Use existing addChunk in a loop
+        const results = [];
+        for (const chunk of chunks) {
+            const result = addChunk(
+                chunk.fileId,
+                chunk.directoryId,
+                chunk.contentHash,
+                chunk.content,
+                chunk.embedding
+            );
+            results.push(result);
+        }
+        return { success: true, data: results };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:deleteChunksByFile", async (_, fileId: UUID) => {
+    try {
+        const result = deleteChunksByFile(fileId);
+        return { success: true, data: result };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:getChunksByDirectory", async (_, directoryId: UUID) => {
+    try {
+        const data = getChunksByDirectory(directoryId);
+        return { success: true, data };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:getChunksByFile", async (_, fileId: UUID) => {
+    try {
+        const data = getChunksByFile(fileId);
+        return { success: true, data };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("chunker:chunkDirectory", async (_, directoryPath: string, config?: DirectoryChunkerConfig) => {
+    try {
+        const result = await chunkDirectory(directoryPath, config);
+        return { success: true, data: result };
+    } catch (error) {
+        console.error("Failed to chunk directory:", error);
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("chunker:chunkFile", async (_, filePath: string, config?: DirectoryChunkerConfig["chunkingConfig"]) => {
+    try {
+        const chunks = await chunkSingleFile(filePath, config);
+        return { success: true, data: chunks };
+    } catch (error) {
+        console.error("Failed to chunk file:", error);
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+// ========== DATABASE INDEXING (chunk + embed + store) ==========
+
+/**
+ * Index a directory: chunk files, generate placeholder embeddings, and store in database
+ */
+ipcMain.handle("indexer:indexDirectory", async (_, directoryId: string, directoryPath: string, config?: DirectoryChunkerConfig) => {
+    try {
+        console.log(`Starting indexing for directory: ${directoryPath}`);
+        console.log("Using placeholder embeddings (384-dimensional vectors)");
+        
+        const stats = await chunkAndStoreDirectory(directoryId, directoryPath, config);
+        return { success: true, data: stats };
+    } catch (error) {
+        console.error("Failed to index directory:", error);
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+/**
+ * Index a single file to database with placeholder embeddings
+ */
+ipcMain.handle("indexer:indexFile", async (_, directoryId: string, filePath: string, config?: any) => {
+    try {
+        console.log(`Indexing file: ${filePath}`);
+        console.log("Using placeholder embeddings (384-dimensional vectors)");
+
+        const result = await chunkAndStoreFile(directoryId, filePath, config);
+        return { success: true, data: result };
+    } catch (error) {
+        console.error("Failed to index file:", error);
+        return { success: false, error: (error as Error).message };
+    }
+});
