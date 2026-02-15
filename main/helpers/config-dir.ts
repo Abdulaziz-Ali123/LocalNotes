@@ -4,6 +4,7 @@ import os from "os";
 import path from "path";
 
 const APP_CONFIG_DIR_NAME = "LocalNotes";
+let CONFIG_PATH_CREATED = false
 
 const getBaseDataDirectory = (): string => {
 	if (process.platform === "win32") {
@@ -55,7 +56,12 @@ export const ensureConfigDirectory = async (): Promise<string> => {
 		console.log(statusMessage);
 	} else {
 		console.log(statusMessage);
+		CONFIG_PATH_CREATED = true
 	}
 
 	return configDirectoryPath;
 };
+
+export const getConfigDirectoryPath = (): string => {
+	return getBaseDataDirectory() + "/" +APP_CONFIG_DIR_NAME
+}
