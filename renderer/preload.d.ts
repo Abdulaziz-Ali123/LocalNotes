@@ -1,10 +1,11 @@
-import { IpcHandler, FileSystemHandler, SettingsHandler } from "../main/preload";
+import { IpcHandler, FileSystemHandler, SettingsHandler, ProjectSettingsHandler } from "../main/preload";
 
 declare global {
   interface Window {
     ipc: IpcHandler;
     fs: FileSystemHandler;
     settings: SettingsHandler;
+    projectSettings: ProjectSettingsHandler;
     tabs: {
       getAllTabIds: () => Promise<number[]>;
       getSelectedTabId: () => Promise<number>;

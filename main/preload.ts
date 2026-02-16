@@ -208,6 +208,22 @@ const settingsHandler = {
 
 contextBridge.exposeInMainWorld("settings", settingsHandler);
 
+// Project Settings API
+const projectSettingsHandler = {
+  load: (projectRoot: string) => 
+    ipcRenderer.invoke("projectSettings:load", projectRoot),
+  save: (projectRoot: string, settings: any) => 
+    ipcRenderer.invoke("projectSettings:save", projectRoot, settings),
+  update: (projectRoot: string, updates: any) => 
+    ipcRenderer.invoke("projectSettings:update", projectRoot, updates),
+  addRecentFile: (projectRoot: string, filePath: string) => 
+    ipcRenderer.invoke("projectSettings:addRecentFile", projectRoot, filePath),
+  togglePinnedFile: (projectRoot: string, filePath: string) => 
+    ipcRenderer.invoke("projectSettings:togglePinnedFile", projectRoot, filePath),
+};
+
+contextBridge.exposeInMainWorld("projectSettings", projectSettingsHandler);
+
 export type IpcHandler = typeof handler;
 export type FileSystemHandler = typeof fileSystemHandler;
 export type TabHandler = typeof tabHandler;
@@ -215,3 +231,5 @@ export type VectorDbHandler = typeof vectorDbHandler;
 export type ChunckerHandler = typeof chunkerHandler;
 export type IndexHandler = typeof indexerHandler;
 export type SettingsHandler = typeof settingsHandler;
+export type SettingsHandler = typeof settingsHandler;
+export type ProjectSettingsHandler = typeof projectSettingsHandler;
