@@ -1,5 +1,14 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
 import path from "path";
+import { DirectoryChunkerConfig, DirectoryChunkResult} from "./indexing/DirectoryChuncker";
+import { Chunk } from "./indexing/chunking";
+import { UUID } from "crypto";
+
+interface DbResponse<T = any> {
+   success: boolean;
+    data?: T;
+    error?: string;
+}
 
 const handler = {
   send(channel: string, value: unknown) {
@@ -54,6 +63,83 @@ const tabHandler = {
   reorder: (ids: number[]) => ipcRenderer.invoke("tabs:reorder", ids),
 };
 
+const vectorDbHandler = {
+    addDirectory: (uuid: string, path: string) => 
+        ipcRenderer.invoke("db:addDirectory", uuid, path),
+    updateDirectory: (id: UUID, name?: string, path?: string) => 
+        ipcRenderer.invoke("db:updateDirectory", id, name, path),
+    deleteDirectory: (id: UUID) => 
+        ipcRenderer.invoke("db:deleteDirectory", id),
+    getDirectory: (id: UUID) => 
+        ipcRenderer.invoke("db:getDirectory", id),
+    getAllDirectories: () => 
+        ipcRenderer.invoke("db:getAllDirectories"),
+    addFile: (directoryId: UUID, filePath: string, fileHash: string, lastModified: number) =>
+        ipcRenderer.invoke("db:addFile", directoryId, filePath, fileHash, lastModified),
+    updateFileHash: (fileId: UUID, fileHash: string, lastModified: number) =>
+        ipcRenderer.invoke("db:updateFileHash", fileId, fileHash, lastModified),
+    deleteFile: (fileId: UUID) =>
+        ipcRenderer.invoke("db:deleteFile", fileId),
+    getFilesByDirectory: (directoryId: UUID) =>
+        ipcRenderer.invoke("db:getFilesByDirectory", directoryId),
+    addChunk: (fileId: UUID, directoryId: UUID, contentHash: string, content: string, embedding: Buffer) =>
+        ipcRenderer.invoke("db:addChunk", fileId, directoryId, contentHash, content, embedding),
+    addChunks: (chunks: Array<{
+        fileId: UUID;
+        directoryId: UUID;
+        contentHash: string;
+        content: string;
+        embedding: Buffer;
+    }>) => ipcRenderer.invoke("db:addChunks", chunks),
+    deleteChunksByFile: (fileId: UUID) =>
+        ipcRenderer.invoke("db:deleteChunksByFile", fileId),
+    getChunksByDirectory: (directoryId: UUID) =>
+        ipcRenderer.invoke("db:getChunksByDirectory", directoryId),
+    getChunksByFile: (fileId: UUID) =>
+        ipcRenderer.invoke("db:getChunksByFile", fileId)
+};
+
+const chunkerHandler = {
+    // Chunk entire directory
+    chunkDirectory: (directoryPath: string, config?: DirectoryChunkerConfig): Promise<DbResponse<DirectoryChunkResult>> =>
+        ipcRenderer.invoke("chunker:chunkDirectory", directoryPath, config),
+    
+    // Chunk single file
+    chunkFile: (filePath: string, config?: DirectoryChunkerConfig["chunkingConfig"]): Promise<DbResponse<Chunk[]>> =>
+       ipcRenderer.invoke("chunker:chunkFile", filePath, config),
+  };
+
+
+const indexerHandler = {
+    // Index entire directory with placeholder embeddings
+   indexDirectory: (
+       directoryId: UUID, 
+       directoryPath: string, 
+       config?: DirectoryChunkerConfig
+   ): Promise<DbResponse<{
+       filesProcessed: number;
+       filesSkipped: number;
+       chunksCreated: number;
+       errors: number;
+       errorFiles: string[];
+   }>> =>
+       ipcRenderer.invoke("indexer:indexDirectory", directoryId, directoryPath, config),
+   
+   // Index single file with placeholder embeddings
+   indexFile: (
+       directoryId: UUID, 
+       filePath: string, 
+       config?: DirectoryChunkerConfig["chunkingConfig"]
+   ): Promise<DbResponse<{
+       fileId: UUID;
+       chunksCreated: number;
+   }>> =>
+       ipcRenderer.invoke("indexer:indexFile", directoryId, filePath, config),
+};
+
+export default vectorDbHandler;
+
+
 contextBridge.exposeInMainWorld("ipc", {
   send(channel: string, value: unknown) {
     ipcRenderer.send(channel, value);
@@ -71,12 +157,16 @@ contextBridge.exposeInMainWorld("ipc", {
   },
 });
 contextBridge.exposeInMainWorld("fs", fileSystemHandler);
+contextBridge.exposeInMainWorld("db", vectorDbHandler);
+contextBridge.exposeInMainWorld("indexer", indexerHandler);
 contextBridge.exposeInMainWorld("tabs", tabHandler);
+contextBridge.exposeInMainWorld("chunker", chunkerHandler);
 contextBridge.exposeInMainWorld("autosaveAPI", {
   save: (filePath: string, content: string) =>
     ipcRenderer.invoke("autosave:save", { filePath, content }),
   load: (filePath: string) => ipcRenderer.invoke("autosave:load", filePath),
 });
+
 contextBridge.exposeInMainWorld("fileEvents", {
   onDeleted: (callback) =>
     ipcRenderer.on("file:deleted", (_, path) => callback(path)),
@@ -137,5 +227,9 @@ contextBridge.exposeInMainWorld("projectSettings", projectSettingsHandler);
 export type IpcHandler = typeof handler;
 export type FileSystemHandler = typeof fileSystemHandler;
 export type TabHandler = typeof tabHandler;
+export type VectorDbHandler = typeof vectorDbHandler;
+export type ChunckerHandler = typeof chunkerHandler;
+export type IndexHandler = typeof indexerHandler;
+export type SettingsHandler = typeof settingsHandler;
 export type SettingsHandler = typeof settingsHandler;
 export type ProjectSettingsHandler = typeof projectSettingsHandler;
