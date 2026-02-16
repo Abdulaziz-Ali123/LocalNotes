@@ -1,11 +1,22 @@
 import path from "path";
 import { app, ipcMain, Menu, dialog, shell } from "electron";
 import serve from "electron-serve";
-import { createWindow } from "./helpers";
+import { createWindow, ensureConfigDirectory } from "./helpers";
 import fs from "fs/promises";
 import * as fsSync from "fs";
 import { loadTags, updateTags, removeTags } from "./tags";
 import { SettingsManager, registerSettingsIpc, buildMenuTemplate } from "./settings";
+import { getQueue } from "./fsQueue";
+import { withRetry } from "./fsRetry";
+import {
+  ensureLocalNotesFolder,
+  loadProjectSettings,
+  saveProjectSettings,
+  updateProjectSettings,
+  addRecentFile,
+  togglePinnedFile,
+  isLocalNotesPath,
+} from "./helpers/project-settings";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -139,6 +150,9 @@ let mainWindowRef: Electron.BrowserWindow | null = null;
 
 (async () => {
   await app.whenReady();
+  process.stderr.write("[Local Notes] Initializing config directory...\n");
+  const configDirectoryPath = await ensureConfigDirectory();
+  process.stderr.write(`[Local Notes] Config directory ready at: ${configDirectoryPath}\n`);
 
   // Load global settings before creating the window
   const globalSettings = await settingsManager.loadGlobal();
@@ -203,17 +217,19 @@ ipcMain.handle("fs:readDirectory", async (event, dirPath: string) => {
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
     const items = await Promise.all(
-      entries.map(async (entry) => {
-        const fullPath = path.join(dirPath, entry.name);
-        const stats = await fs.stat(fullPath);
-        return {
-          name: entry.name,
-          path: fullPath,
-          isDirectory: entry.isDirectory(),
-          size: stats.size,
-          modified: stats.mtime,
-        };
-      })
+      entries
+        .filter((entry) => entry.name !== ".Local Notes") // Filter out .Local Notes folder
+        .map(async (entry) => {
+          const fullPath = path.join(dirPath, entry.name);
+          const stats = await fs.stat(fullPath);
+          return {
+            name: entry.name,
+            path: fullPath,
+            isDirectory: entry.isDirectory(),
+            size: stats.size,
+            modified: stats.mtime,
+          };
+        })
     );
     return { success: true, data: items };
   } catch (error: any) {
@@ -230,45 +246,91 @@ ipcMain.handle("fs:createFolder", async (event, folderPath: string) => {
   }
 });
 
-ipcMain.handle("fs:createFile", async (event, filePath: string, content: string = "") => {
-  try {
-    await fs.writeFile(filePath, content, "utf-8");
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-});
+ipcMain.handle(
+    "fs:createFile",
+    async (_event, filePath: string, content: string = "") => {
+        const start = Date.now();
 
-ipcMain.handle("fs:deleteItem", async (event, itemPath: string) => {
-  try {
-    const stats = await fs.stat(itemPath);
+        try {
+            const normalized = path.normalize(filePath);
+            const parentDir = path.dirname(normalized);
 
-    if (stats.isDirectory()) {
-      await fs.rm(itemPath, { recursive: true, force: true });
-    } else {
-      await fs.unlink(itemPath);
+            // Queue per directory (simple, low overhead)
+            const queue = getQueue(parentDir);
+
+            const out = await queue.enqueue(async () => {
+                const { retriesUsed } = await withRetry(async () => {
+                    await fs.mkdir(parentDir, { recursive: true });
+
+                    // Atomic create: fails if exists
+                    const handle = await fs.open(normalized, "wx");
+                    try {
+                        await handle.writeFile(content, { encoding: "utf-8" });
+                    } finally {
+                        await handle.close();
+                    }
+                });
+
+                return { retriesUsed };
+            });
+
+            return {
+                success: true,
+                data: {
+                    path: normalized,
+                    ms: Date.now() - start,
+                    retries: out.retriesUsed,
+                },
+            };
+        } catch (error: any) {
+            return {
+                success: false,
+                error: error.message,
+                code: error.code,
+                ms: Date.now() - start,
+            };
+        }
     }
+);
 
-    event.sender.send("fs:itemDeleted", itemPath);
+ipcMain.handle("fs:deleteItem", async (_event, itemPath: string) => {
+    const start = Date.now();
+    try {
+        const p = path.normalize(itemPath);
+        const queue = getQueue(path.dirname(p));
 
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-});
+        await queue.enqueue(async () => {
+            const stats = await fs.stat(p);
+            await withRetry(async () => {
+                if (stats.isDirectory()) await fs.rm(p, { recursive: true, force: true });
+                else await fs.unlink(p);
+            });
+        });
 
-ipcMain.handle("fs:renameItem", async (event, oldPath: string, newPath: string) => {
-  try {
-    const exists = await fs.stat(oldPath).catch(() => null);
-    if (!exists) {
-      throw new Error("Source not found: ${oldPath}");
+        return { success: true, data: { ms: Date.now() - start } };
+    } catch (error: any) {
+        return { success: false, error: error.message, code: error.code, ms: Date.now() - start };
     }
-    await fs.rename(oldPath, newPath);
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
 });
+
+
+ipcMain.handle("fs:renameItem", async (_event, oldPath: string, newPath: string) => {
+    const start = Date.now();
+    try {
+        const oldN = path.normalize(oldPath);
+        const newN = path.normalize(newPath);
+        const queue = getQueue(path.dirname(oldN));
+
+        await queue.enqueue(async () => {
+            await withRetry(() => fs.rename(oldN, newN));
+        });
+
+        return { success: true, data: { ms: Date.now() - start } };
+    } catch (error: any) {
+        return { success: false, error: error.message, code: error.code, ms: Date.now() - start };
+    }
+});
+
 
 ipcMain.handle("fs:readFile", async (event, filePath: string) => {
   try {
@@ -337,7 +399,18 @@ ipcMain.handle("fs:openFolderDialog", async () => {
     if (result.canceled) {
       return { success: false, canceled: true };
     }
-    return { success: true, data: result.filePaths[0] };
+    
+    const folderPath = result.filePaths[0];
+    
+    // Initialize .Local Notes folder for this project
+    try {
+      await ensureLocalNotesFolder(folderPath);
+    } catch (error) {
+      console.error("Failed to initialize .Local Notes folder:", error);
+      // Non-critical, continue anyway
+    }
+    
+    return { success: true, data: folderPath };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
@@ -413,6 +486,53 @@ ipcMain.handle("tags:remove", (event, projectRoot: string, itemPath: string) => 
   removeTags(projectRoot, itemPath);
   return { success: true };
 });
+
+// Project Settings handlers
+ipcMain.handle("projectSettings:load", async (event, projectRoot: string) => {
+  try {
+    const settings = await loadProjectSettings(projectRoot);
+    return { success: true, data: settings };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("projectSettings:save", async (event, projectRoot: string, settings: any) => {
+  try {
+    await saveProjectSettings(projectRoot, settings);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("projectSettings:update", async (event, projectRoot: string, updates: any) => {
+  try {
+    const newSettings = await updateProjectSettings(projectRoot, updates);
+    return { success: true, data: newSettings };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("projectSettings:addRecentFile", async (event, projectRoot: string, filePath: string) => {
+  try {
+    await addRecentFile(projectRoot, filePath);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("projectSettings:togglePinnedFile", async (event, projectRoot: string, filePath: string) => {
+  try {
+    const isPinned = await togglePinnedFile(projectRoot, filePath);
+    return { success: true, data: { isPinned } };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle("fs:mergeFiles", async (event, fileNames: string[], targetNotePath: string) => {
     try {
         let targetContent = await fs.readFile(targetNotePath, "utf-8");
@@ -496,21 +616,63 @@ ipcMain.handle("fs:importFolder", async (event, sourcePath: string, targetPath: 
     }
 });
 
-// Show save dialog and copy a source file to user-selected destination
-ipcMain.handle("fs:saveFileAs", async (event, srcPath: string) => {
-  try {
-    const defaultName = path.basename(srcPath);
-    const result = await dialog.showSaveDialog({
-      defaultPath: defaultName,
-    });
-
-    if (result.canceled || !result.filePath) {
-      return { success: false, canceled: true };
+ipcMain.handle("fs:selectExportDestination", async () => {
+    try {
+        const result = await dialog.showOpenDialog({
+            properties: ["openDirectory"]
+        });
+        if (result.canceled) return { success: false, canceled: true };
+        return { success: true, folder: result.filePaths[0] };
+    } catch (err: any) {
+        return { success: false, error: err.message };
     }
+});
 
-    await fs.copyFile(srcPath, result.filePath);
-    return { success: true, path: result.filePath };
-  } catch (err: any) {
-    return { success: false, error: err.message };
-  }
+ipcMain.handle("fs:exportFile", async (_, sourceFile, destFolder) => {
+    try {
+        const fileName = path.basename(sourceFile);
+        const destPath = path.join(destFolder, fileName);
+
+        fs.copyFile(sourceFile, destPath);
+
+        return { success: true, exportedTo: destPath };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+});
+
+
+ipcMain.handle("fs:exportFolder", async (_, sourceFolder: string, targetFolder: string) => {
+    try {
+        const folderName = path.basename(sourceFolder);
+        const destination = path.join(targetFolder, folderName);
+
+        const copyFolderRecursiveSync = (src: string, dest: string) => {
+            // Create destination folder if missing
+            if (!fsSync.existsSync(dest)) {
+                fsSync.mkdirSync(dest, { recursive: true });
+            }
+
+            // Read items inside source folder
+            const items = fsSync.readdirSync(src, { withFileTypes: true });
+
+            for (const item of items) {
+                const srcPath = path.join(src, item.name);
+                const destPath = path.join(dest, item.name);
+
+                if (item.isDirectory()) {
+                    // Recursively copy subfolders
+                    copyFolderRecursiveSync(srcPath, destPath);
+                } else {
+                    // Copy files directly
+                    fsSync.copyFileSync(srcPath, destPath);
+                }
+            }
+        }
+        copyFolderRecursiveSync(sourceFolder, destination);
+
+        return { success: true, importedTo: destination };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
 });
