@@ -19,6 +19,11 @@ export default function HomePage() {
   const [indexingStatus, setIndexingStatus] = useState("");
 
   const handleOpenFolder = async () => {
+    if (!window.fs?.openFolderDialog || !window.db?.addDirectory || !window.indexer?.indexDirectory) {
+      alert("App APIs are not available. Please restart the app to reload preload scripts.");
+      return;
+    }
+
     const result = await window.fs.openFolderDialog();
     if (result.success && result.data) {
       try {
@@ -66,6 +71,11 @@ export default function HomePage() {
   };
 
   const handleCreateFolder = async () => {
+    if (!window.fs?.openFolderDialog || !window.fs?.createFolder || !window.db?.addDirectory) {
+      alert("App APIs are not available. Please restart the app to reload preload scripts.");
+      return;
+    }
+
     setInputDialog({
       isOpen: true,
       title: "Create New Folder",

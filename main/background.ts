@@ -8,6 +8,7 @@ import { loadTags, updateTags, removeTags } from "./tags";
 import { SettingsManager, registerSettingsIpc, buildMenuTemplate } from "./settings";
 import { getQueue } from "./fsQueue";
 import { withRetry } from "./fsRetry";
+import { debouncedWriter } from "./helpers/debounced-writer";
 import { closeDB, initializeDB } from "./database/sqllite";
 import { 
     addDirectory, 
@@ -235,8 +236,26 @@ app.on("will-quit", () => {
     closeDB();
 });
 
-app.on("before-quit", () => {
-    closeDB();
+let isFlushingWritesOnQuit = false;
+
+app.on("before-quit", (event) => {
+    if (isFlushingWritesOnQuit || !debouncedWriter.hasPending()) {
+        closeDB();
+        return;
+    }
+
+    event.preventDefault();
+    isFlushingWritesOnQuit = true;
+
+    void debouncedWriter
+      .flushAll()
+      .catch((error) => {
+        console.error("Failed to flush pending writes before quit:", error);
+      })
+      .finally(() => {
+        closeDB();
+        app.quit();
+      });
 });
 
 ipcMain.on("message", async (event, arg) => {
@@ -413,7 +432,10 @@ ipcMain.handle("fs:readFile", async (event, filePath: string) => {
 
 ipcMain.handle("fs:writeFile", async (event, filePath: string, content: string) => {
   try {
-    await fs.writeFile(filePath, content, "utf-8");
+    await debouncedWriter.enqueue(filePath, content, {
+      debounceMs: 250,
+      maxWaitMs: 1200,
+    });
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -439,7 +461,10 @@ ipcMain.handle("fs:openFolderDialog", async () => {
 ipcMain.handle("autosave:save", async (_event, { filePath, content }) => {
   try {
     if (!filePath) throw new Error("Missing file path");
-    await fs.writeFile(filePath, content, "utf-8"); // no .promises
+    await debouncedWriter.enqueue(filePath, content, {
+      debounceMs: 600,
+      maxWaitMs: 2000,
+    });
     return { success: true };
   } catch (error) {
     console.error("Autosave error:", error);
