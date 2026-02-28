@@ -231,5 +231,4 @@ export type VectorDbHandler = typeof vectorDbHandler;
 export type ChunckerHandler = typeof chunkerHandler;
 export type IndexHandler = typeof indexerHandler;
 export type SettingsHandler = typeof settingsHandler;
-export type SettingsHandler = typeof settingsHandler;
 export type ProjectSettingsHandler = typeof projectSettingsHandler;
