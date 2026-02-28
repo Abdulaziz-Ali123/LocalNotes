@@ -30,6 +30,7 @@ import {
 import { Tag } from "lucide-react";
 import EditorSpace from "@/renderer/pages/editorSpace";
 import TabBar from "../components/TabBar";
+import AIChatPanel from "@/renderer/components/AIChatPanel";
 import { Popover, PopoverContent, PopoverTrigger } from "@/renderer/components/ui/popover";
 
 // Autosave interval in milliseconds -> 10 seconds
@@ -54,6 +55,9 @@ export default function Editor() {
 
   // Settings dialog state
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Main view: editor (file tabs) vs AI chat
+  const [activeMainView, setActiveMainView] = useState<"editor" | "ai">("editor");
 
   // Tag filter states
   const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
@@ -491,10 +495,14 @@ export default function Editor() {
 
               {/* AI Assistant button */}
               <button
-                className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
-                title="Ai Assistant - Coming Soon"
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setActiveMainView((v) => (v === "ai" ? "editor" : "ai"))}
+                className={`size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center transition-colors ${
+                  activeMainView === "ai" ? "bg-accent/20 text-accent" : ""
+                }`}
+                title="AI Assistant"
               >
-                {/* <img src="/assets/ai_helper.png" alt="AI" className="w-16 h-16 object-contain" /> */}
                 <RiRobot2Line className="w-14 h-14" />
               </button>
 
@@ -622,19 +630,46 @@ export default function Editor() {
             <ResizableHandle className="w-0 hover:bg-accent hover:w-1 z-50 cursor-col-resize" />
 
             <ResizablePanel defaultSize={75} minSize={60}>
-              <TabBar />
-              <EditorSpace
-                selectedFile={selectedFile}
-                previewMode={previewMode}
-                livePreview={livePreview}
-                fileContent={fileContent}
-                isSaving={isSaving}
-                handleSave={handleSave}
-                setPreviewMode={setPreviewMode}
-                setLivePreview={setLivePreview}
-                setFileContent={setFileContent}
-                saveMessage={saveMessage}
-              />
+              {activeMainView === "ai" ? (
+                <div className="flex flex-col h-full overflow-hidden">
+                  {/* AI view header with back-to-files affordance */}
+                  <div className="flex-shrink-0 flex items-center bg-background h-10 px-4 app-drag-region">
+                    <div className="app-nodrag-region flex items-center gap-2 mt-2">
+                      <button
+                        onClick={() => setActiveMainView("editor")}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      >
+                        <CiFileOn className="w-4 h-4" />
+                        Back to Files
+                      </button>
+                      <span className="text-xs text-muted-foreground/50">|</span>
+                      <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                        <RiRobot2Line className="w-3.5 h-3.5" />
+                        AI Chat
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-h-0">
+                    <AIChatPanel />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <TabBar />
+                  <EditorSpace
+                    selectedFile={selectedFile}
+                    previewMode={previewMode}
+                    livePreview={livePreview}
+                    fileContent={fileContent}
+                    isSaving={isSaving}
+                    handleSave={handleSave}
+                    setPreviewMode={setPreviewMode}
+                    setLivePreview={setLivePreview}
+                    setFileContent={setFileContent}
+                    saveMessage={saveMessage}
+                  />
+                </>
+              )}
             </ResizablePanel>
           </ResizablePanelGroup>
         </div>
