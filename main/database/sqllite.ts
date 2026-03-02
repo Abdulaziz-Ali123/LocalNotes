@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import { load } from "sqlite-vec";
 import * as fs from "fs";
 import * as path from "path";
 import { app } from "electron";
@@ -28,6 +29,13 @@ export function initializeDB(): void {
 
     // Connect to database
     dbInstance = new Database(databasePath);
+    dbInstance.exec(`
+        PRAGMA foreign_keys = ON;
+        PRAGMA journal_mode = WAL;
+    `);
+
+    load(dbInstance); //this enables vec0
+
     console.log("Database connected");
 
     // Initialize schema if new database
@@ -49,7 +57,7 @@ export function initializeDB(): void {
     try {
         const tables = dbInstance.prepare(`
             SELECT name FROM sqlite_master 
-            WHERE type='table' AND name IN ('directories', 'chunks', 'files')
+            WHERE type='table'
         `).all();
         console.log("Tables found:", tables);
     } catch (error) {

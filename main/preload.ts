@@ -3,6 +3,7 @@ import path from "path";
 import { DirectoryChunkerConfig, DirectoryChunkResult} from "./indexing/DirectoryChuncker";
 import { Chunk } from "./indexing/chunking";
 import { UUID } from "crypto";
+import { addEmbedding } from "./database/documentRepository";
 
 interface DbResponse<T = any> {
    success: boolean;
@@ -82,21 +83,24 @@ const vectorDbHandler = {
         ipcRenderer.invoke("db:deleteFile", fileId),
     getFilesByDirectory: (directoryId: UUID) =>
         ipcRenderer.invoke("db:getFilesByDirectory", directoryId),
-    addChunk: (fileId: UUID, directoryId: UUID, contentHash: string, content: string, embedding: Buffer) =>
-        ipcRenderer.invoke("db:addChunk", fileId, directoryId, contentHash, content, embedding),
+    addChunk: (fileId: UUID, directoryId: UUID, contentHash: string, content: string) =>
+        ipcRenderer.invoke("db:addChunk", fileId, directoryId, contentHash, content),
     addChunks: (chunks: Array<{
         fileId: UUID;
         directoryId: UUID;
         contentHash: string;
         content: string;
-        embedding: Buffer;
     }>) => ipcRenderer.invoke("db:addChunks", chunks),
     deleteChunksByFile: (fileId: UUID) =>
         ipcRenderer.invoke("db:deleteChunksByFile", fileId),
     getChunksByDirectory: (directoryId: UUID) =>
         ipcRenderer.invoke("db:getChunksByDirectory", directoryId),
     getChunksByFile: (fileId: UUID) =>
-        ipcRenderer.invoke("db:getChunksByFile", fileId)
+        ipcRenderer.invoke("db:getChunksByFile", fileId),
+    addEmbedding: (embedding: Float32Array | number[]) =>
+        ipcRenderer.invoke("db:addEmbedding", embedding),
+    addEmbeddings: (embeddings: Array<Float32Array | number[]>) =>
+        ipcRenderer.invoke("db:addEmbeddings", embeddings),
 };
 
 const chunkerHandler = {

@@ -23,7 +23,8 @@ import {
     addChunk,
     deleteChunksByFile,
     getChunksByDirectory,
-    getChunksByFile
+    getChunksByFile,
+    addEmbedding
 } from "./database/documentRepository";
 import { chunkDirectory, chunkSingleFile, getChunkStats, DirectoryChunkerConfig, chunkAndStoreDirectory, chunkAndStoreFile } from "./indexing/DirectoryChuncker";
 import { UUID } from "crypto";
@@ -685,7 +686,7 @@ ipcMain.handle("db:addDirectory", async (_, uuid: string, path: string) => {
 
 ipcMain.handle("db:updateDirectory", async (_, id: UUID, name?: string, path?: string) => {
     try {
-        const result = updateDirectory(id, name, path);
+        const result = updateDirectory(id, path);
         return { success: true, data: result };
     } catch (error) {
         return { success: false, error: (error as Error).message };
@@ -757,21 +758,48 @@ ipcMain.handle("db:getFilesByDirectory", async (_, directoryId: UUID) => {
 });
 
 // ========== CHUNKS ==========
-ipcMain.handle("db:addChunk", async (_, fileId: UUID, directoryId: UUID, contentHash: string, content: string, embedding: Buffer) => {
+ipcMain.handle("db:addChunk", async (_, fileId: UUID, contentHash: string, content: string) => {
     try {
-        const result = addChunk(fileId, directoryId, contentHash, content, embedding);
+        const result = addChunk(fileId, contentHash, content);
         return { success: true, data: result };
     } catch (error) {
         return { success: false, error: (error as Error).message };
     }
 });
 
+ipcMain.handle("db:addEmbedding", async (_, embedding: Float32Array | number[]) => {
+    try {
+        const result = addEmbedding(embedding);
+        return { success: true, data: result };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:addEmbeddings", async (_, embeddings: Array<{
+    embedding: Float32Array | number[];
+}>) => {
+    try {
+        // Use existing addChunk in a loop
+        const results = [];
+        for (const embedding of embeddings) {
+            const result = addEmbedding(
+                embedding.embedding
+            );
+            results.push(result);
+        }
+        return { success: true, data: results };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+
 ipcMain.handle("db:addChunks", async (_, chunks: Array<{
     fileId: UUID;
     directoryId: UUID;
     contentHash: string;
     content: string;
-    embedding: Buffer;
 }>) => {
     try {
         // Use existing addChunk in a loop
@@ -779,10 +807,8 @@ ipcMain.handle("db:addChunks", async (_, chunks: Array<{
         for (const chunk of chunks) {
             const result = addChunk(
                 chunk.fileId,
-                chunk.directoryId,
                 chunk.contentHash,
                 chunk.content,
-                chunk.embedding
             );
             results.push(result);
         }
