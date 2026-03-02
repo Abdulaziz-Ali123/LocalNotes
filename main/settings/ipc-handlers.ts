@@ -10,6 +10,7 @@ import { SettingsManager } from "./settings-manager";
 import { KEYBINDING_ACTIONS } from "./keybindings";
 import { buildMenuTemplate } from "./menu-builder";
 import { GlobalSettings } from "./schema";
+import { upsertLLMModel, listLLMModels, getDefaultLLMModel, deleteLLMModel } from "./llm-registry";
 
 /**
  * Register all settings IPC handlers.
@@ -74,6 +75,42 @@ export function registerSettingsIpc(
     }
 
     return updated;
+  });
+
+  // -----------------------------------------------------------------------
+  // LLM model registry (OpenAI-compatible endpoints)
+  // -----------------------------------------------------------------------
+
+  ipcMain.handle(
+    "llm:upsertModel",
+    async (_event, spec: any, setAsDefault: boolean = true) => {
+      await upsertLLMModel(manager, spec, setAsDefault);
+
+      // Notify renderer so Zustand (or any store) stays in sync
+      const updated = manager.getResolvedGlobal();
+      const win = getMainWindow();
+      if (win && !win.isDestroyed()) {
+        win.webContents.send("settings:changed", updated);
+      }
+    }
+  );
+
+  ipcMain.handle("llm:listModels", async () => {
+    return listLLMModels(manager);
+  });
+
+  ipcMain.handle("llm:getDefaultModel", async () => {
+    return getDefaultLLMModel(manager);
+  });
+
+  ipcMain.handle("llm:deleteModel", async (_event, modelId: string) => {
+    await deleteLLMModel(manager, modelId);
+
+    const updated = manager.getResolvedGlobal();
+    const win = getMainWindow();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("settings:changed", updated);
+    }
   });
 
   // -----------------------------------------------------------------------
