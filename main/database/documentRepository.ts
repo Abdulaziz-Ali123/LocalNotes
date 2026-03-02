@@ -198,38 +198,55 @@ export function getFilesByDirectory(directoryId: UUID) {
     }
 }
 
-// Updated: removed directoryId parameter
 export function addChunk(
     fileId: UUID,
     contentHash: string,
-    content: string,
-    embedding: Buffer
+    content: string
 ) {
     const db = getDB();
     const id: UUID = randomUUID();
 
     const sql = `
         INSERT INTO chunks (
-            id,
             file_id,
             content_hash,
-            content,
-            embedding
+            content
         )
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (?, ?, ?)
     `;
 
     try {
         const stmt = db.prepare(sql);
         return stmt.run(
-            id,
             fileId,
             contentHash,
             content,
-            embedding
         );
     } catch (error) {
         console.error("Failed to add chunk:", error);
+        throw error;
+    }
+}
+
+export function addEmbedding(
+    embedding: Float32Array | number[],
+) {
+    const db = getDB();
+
+    const sql = `
+        INSERT INTO embeddings (
+            embedding
+        )
+        VALUES (?)
+    `;
+
+    try {
+        const stmt = db.prepare(sql);``
+        return stmt.run(
+            embedding
+        );
+    } catch (error) {
+        console.error("Failed to add embedding:", error);
         throw error;
     }
 }

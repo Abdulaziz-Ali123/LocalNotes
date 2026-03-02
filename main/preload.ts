@@ -3,6 +3,7 @@ import path from "path";
 import { DirectoryChunkerConfig, DirectoryChunkResult} from "./indexing/DirectoryChuncker";
 import { Chunk } from "./indexing/chunking";
 import { UUID } from "crypto";
+import { addEmbedding } from "./database/documentRepository";
 
 interface DbResponse<T = any> {
    success: boolean;
@@ -66,8 +67,8 @@ const tabHandler = {
 const vectorDbHandler = {
     addDirectory: (uuid: string, path: string) => 
         ipcRenderer.invoke("db:addDirectory", uuid, path),
-    updateDirectory: (id: UUID, name?: string, path?: string) => 
-        ipcRenderer.invoke("db:updateDirectory", id, name, path),
+    updateDirectory: (id: UUID, path?: string) => 
+        ipcRenderer.invoke("db:updateDirectory", id, path),
     deleteDirectory: (id: UUID) => 
         ipcRenderer.invoke("db:deleteDirectory", id),
     getDirectory: (id: UUID) => 
@@ -82,21 +83,23 @@ const vectorDbHandler = {
         ipcRenderer.invoke("db:deleteFile", fileId),
     getFilesByDirectory: (directoryId: UUID) =>
         ipcRenderer.invoke("db:getFilesByDirectory", directoryId),
-    addChunk: (fileId: UUID, directoryId: UUID, contentHash: string, content: string, embedding: Buffer) =>
-        ipcRenderer.invoke("db:addChunk", fileId, directoryId, contentHash, content, embedding),
+    addChunk: (fileId: UUID, contentHash: string, content: string) =>
+        ipcRenderer.invoke("db:addChunk", fileId, contentHash, content),
     addChunks: (chunks: Array<{
         fileId: UUID;
-        directoryId: UUID;
         contentHash: string;
         content: string;
-        embedding: Buffer;
     }>) => ipcRenderer.invoke("db:addChunks", chunks),
     deleteChunksByFile: (fileId: UUID) =>
         ipcRenderer.invoke("db:deleteChunksByFile", fileId),
     getChunksByDirectory: (directoryId: UUID) =>
         ipcRenderer.invoke("db:getChunksByDirectory", directoryId),
     getChunksByFile: (fileId: UUID) =>
-        ipcRenderer.invoke("db:getChunksByFile", fileId)
+        ipcRenderer.invoke("db:getChunksByFile", fileId),
+    addEmbedding: (embedding: Float32Array | number[]) =>
+        ipcRenderer.invoke("db:addEmbedding", embedding),
+    addEmbeddings: (embeddings: Array<Float32Array | number[]>) =>
+        ipcRenderer.invoke("db:addEmbeddings", embeddings),
 };
 
 const chunkerHandler = {
@@ -137,6 +140,28 @@ const indexerHandler = {
        ipcRenderer.invoke("indexer:indexFile", directoryId, filePath, config),
 };
 
+const watcherHandler = {
+    // Start watching a directory
+    start: (directoryId: UUID, directoryPath: string): Promise<DbResponse<void>> =>
+        ipcRenderer.invoke("watcher:start", directoryId, directoryPath),
+    
+    // Stop watching a directory
+    stop: (directoryId: UUID): Promise<DbResponse<void>> =>
+        ipcRenderer.invoke("watcher:stop", directoryId),
+    
+    // Stop all watchers
+    stopAll: (): Promise<DbResponse<void>> =>
+        ipcRenderer.invoke("watcher:stopAll"),
+    
+    // Get all active watchers
+    getActive: (): Promise<DbResponse<Array<{ directoryId: UUID; directoryPath: string }>>> =>
+        ipcRenderer.invoke("watcher:getActive"),
+    
+    // Check if a directory is being watched
+    isWatching: (directoryId: UUID): Promise<DbResponse<boolean>> =>
+        ipcRenderer.invoke("watcher:isWatching", directoryId),
+};
+
 export default vectorDbHandler;
 
 
@@ -161,6 +186,7 @@ contextBridge.exposeInMainWorld("db", vectorDbHandler);
 contextBridge.exposeInMainWorld("indexer", indexerHandler);
 contextBridge.exposeInMainWorld("tabs", tabHandler);
 contextBridge.exposeInMainWorld("chunker", chunkerHandler);
+contextBridge.exposeInMainWorld("watcher", watcherHandler);
 contextBridge.exposeInMainWorld("autosaveAPI", {
   save: (filePath: string, content: string) =>
     ipcRenderer.invoke("autosave:save", { filePath, content }),
@@ -193,7 +219,19 @@ const settingsHandler = {
     ipcRenderer.invoke("settings:resetProject", projectRoot, dotPath),
 
   getDefaults: () => ipcRenderer.invoke("settings:getDefaults"),
-  getKeybindingActions: () => ipcRenderer.invoke("settings:getKeybindingActions"),
+    getKeybindingActions: () => ipcRenderer.invoke("settings:getKeybindingActions"),
+
+  // -----------------------------------------------------------------------
+  // LLM model registry (OpenAI-compatible endpoints)
+  // -----------------------------------------------------------------------
+  llmUpsertModel: (spec: any, setAsDefault: boolean = true) =>
+  ipcRenderer.invoke("llm:upsertModel", spec, setAsDefault),
+
+  llmListModels: () => ipcRenderer.invoke("llm:listModels"),
+
+  llmGetDefaultModel: () => ipcRenderer.invoke("llm:getDefaultModel"),
+
+  llmDeleteModel: (modelId: string) => ipcRenderer.invoke("llm:deleteModel", modelId),
 
   /** Listen for settings changes pushed from the main process. */
   onChange: (callback: (settings: any) => void) => {
@@ -230,5 +268,6 @@ export type TabHandler = typeof tabHandler;
 export type VectorDbHandler = typeof vectorDbHandler;
 export type ChunckerHandler = typeof chunkerHandler;
 export type IndexHandler = typeof indexerHandler;
+export type WatcherHandler = typeof watcherHandler;
 export type SettingsHandler = typeof settingsHandler;
 export type ProjectSettingsHandler = typeof projectSettingsHandler;
