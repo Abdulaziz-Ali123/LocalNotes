@@ -1,9 +1,9 @@
 {
   "private": true,
-  "name": "my-nextron-app",
+  "name": "LocalNotes",
   "description": "My application description",
   "version": "1.0.0",
-  "author": "Yoshihide Shiono <shiono.yoshihide@gmail.com>",
+  "author": "abdulazizAli <abdulazizali476@gmail.com>",
   "main": "app/background.js",
   "scripts": {
     "dev": "nextron",
@@ -30,9 +30,12 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "electron-serve": "^1.3.0",
+    "embrix": "^1.0.1",
+    "express": "^5.2.1",
     "highlight.js": "^11.8.0",
     "katex": "^0.16.8",
     "lucide-react": "^0.546.0",
+    "node-llama-cpp": "^3.17.1",
     "path": "^0.12.7",
     "react-checkbox": "^0.1.3",
     "react-icons": "^5.5.0",
@@ -42,6 +45,7 @@
     "rehype-katex": "^6.0.2",
     "remark-gfm": "^3.0.1",
     "remark-math": "^5.1.1",
+    "sqlite-vec": "^0.1.7-alpha.2",
     "stream": "^0.0.3",
     "tailwind-merge": "^3.3.1",
     "tw-animate-css": "^1.4.0"

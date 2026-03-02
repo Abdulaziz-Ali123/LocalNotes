@@ -6,7 +6,9 @@ import {
     addFile,
     addChunk,
     getFilesByDirectory,
+    addEmbedding,
 } from "@/main/database/documentRepository";
+import { embedChunk } from "../embeding/embeding";
 
 type UUID = string;
 
@@ -51,28 +53,6 @@ const DEFAULT_CONFIG: DirectoryChunkerConfig = {
     ignorePatterns: ["node_modules", ".git", "dist", "build", ".next", ".vscode"],
     maxFileSize: 10 * 1024 * 1024, // 10MB
 };
-
-/**
- * Generate placeholder embeddings for testing
- */
-function generatePlaceholderEmbedding(text: string): number[] {
-    const dimension = 384;
-    const embedding: number[] = [];
-    
-    let hash = 0;
-    for (let i = 0; i < text.length; i++) {
-        hash = ((hash << 5) - hash) + text.charCodeAt(i);
-        hash = hash & hash;
-    }
-    
-    for (let i = 0; i < dimension; i++) {
-        const seed = (hash + i * 12345) & 0x7fffffff;
-        const value = (Math.sin(seed) * 10000) % 1;
-        embedding.push(value);
-    }
-    
-    return embedding;
-}
 
 /**
  * Compute file hash
@@ -266,7 +246,7 @@ export function getChunkStats(result: DirectoryChunkResult): {
 }
 
 /**
- * Chunk directory and add to database with placeholder embeddings
+ * Chunk directory and add to database with embeddings
  */
 export async function chunkAndStoreDirectory(
     directoryId: UUID,
@@ -352,16 +332,15 @@ export async function chunkAndStoreDirectory(
                     
                     try {
                         // Generate placeholder embedding
-                        const embedding = generatePlaceholderEmbedding(chunk.content);
-                        const embeddingBuffer = Buffer.from(new Float32Array(embedding).buffer);
+                        const embedding = await embedChunk(chunk.content);
                         
-                        // FIXED: Correct parameter order - no directoryId
                         addChunk(
                             fileId,
                             chunk.contentHash,
-                            chunk.content,
-                            embeddingBuffer
+                            chunk.content
                         );
+                
+                        addEmbedding(embedding);
                         
                         stats.chunksCreated++;
                     } catch (error) {
@@ -395,7 +374,7 @@ export async function chunkAndStoreDirectory(
 }
 
 /**
- * Chunk single file and add to database with placeholder embeddings
+ * Chunk single file and add to database with embeddings
  */
 export async function chunkAndStoreFile(
     directoryId: UUID,
@@ -430,16 +409,16 @@ export async function chunkAndStoreFile(
     // Store chunks with placeholder embeddings
     let chunksCreated = 0;
     for (const chunk of chunks) {
-        const embedding = generatePlaceholderEmbedding(chunk.content);
-        const embeddingBuffer = Buffer.from(new Float32Array(embedding).buffer);
+        const embedding = await embedChunk(chunk.content);
         
       
         addChunk(
             fileId,
             chunk.contentHash,
-            chunk.content,
-            embeddingBuffer
+            chunk.content
         );
+
+        addEmbedding(embedding);
         
         chunksCreated++;
     }
