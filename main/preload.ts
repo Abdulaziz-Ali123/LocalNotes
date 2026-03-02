@@ -197,7 +197,19 @@ const settingsHandler = {
     ipcRenderer.invoke("settings:resetProject", projectRoot, dotPath),
 
   getDefaults: () => ipcRenderer.invoke("settings:getDefaults"),
-  getKeybindingActions: () => ipcRenderer.invoke("settings:getKeybindingActions"),
+    getKeybindingActions: () => ipcRenderer.invoke("settings:getKeybindingActions"),
+
+  // -----------------------------------------------------------------------
+  // LLM model registry (OpenAI-compatible endpoints)
+  // -----------------------------------------------------------------------
+  llmUpsertModel: (spec: any, setAsDefault: boolean = true) =>
+  ipcRenderer.invoke("llm:upsertModel", spec, setAsDefault),
+
+  llmListModels: () => ipcRenderer.invoke("llm:listModels"),
+
+  llmGetDefaultModel: () => ipcRenderer.invoke("llm:getDefaultModel"),
+
+  llmDeleteModel: (modelId: string) => ipcRenderer.invoke("llm:deleteModel", modelId),
 
   /** Listen for settings changes pushed from the main process. */
   onChange: (callback: (settings: any) => void) => {
