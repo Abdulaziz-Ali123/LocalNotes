@@ -517,3 +517,164 @@
 .mdxeditor ::-webkit-scrollbar-thumb:hover {
   background: rgba(136, 192, 208);
 }
+
+/* ---------------------------
+   TIPTAP TXT EDITOR
+---------------------------- */
+.tiptap-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--secondary) 80%, var(--background));
+}
+
+.tiptap-group-title {
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  margin-right: 0.25rem;
+}
+
+.tiptap-divider {
+  width: 1px;
+  height: 1.25rem;
+  margin: 0 0.25rem;
+  background: var(--border);
+}
+
+.tiptap-label {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.tiptap-btn,
+.tiptap-select,
+.tiptap-color {
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--foreground);
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.5rem;
+}
+
+.tiptap-btn {
+  line-height: 1;
+}
+
+.tiptap-btn.active {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.tiptap-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tiptap-select {
+  min-width: 6rem;
+}
+
+.tiptap-color {
+  width: 2rem;
+  height: 1.8rem;
+  padding: 0.1rem;
+}
+
+.tiptap-dropdown {
+  position: relative;
+}
+
+.tiptap-dropdown-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  width: min(38rem, 80vw);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  border: 1px solid var(--border);
+  background: var(--background);
+  border-radius: 0.5rem;
+  padding: 0.65rem;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.25);
+}
+
+.tiptap-dropdown-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tiptap-dropdown-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--muted-foreground);
+}
+
+.tiptap-dropdown-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.tiptap-editor-wrap {
+  flex: 1;
+  overflow: auto;
+  padding: 0.75rem;
+}
+
+.tiptap-content {
+  outline: none;
+  min-height: 100%;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.tiptap-content p {
+  margin: 0.4rem 0;
+}
+
+.tiptap-content pre {
+  background: color-mix(in srgb, var(--secondary) 80%, #000 20%);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  overflow-x: auto;
+}
+
+.tiptap-content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.tiptap-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+}
+
+.tiptap-content th,
+.tiptap-content td {
+  border: 1px solid var(--border);
+  padding: 0.45rem 0.55rem;
+  vertical-align: top;
+}
+
+.tiptap-content th {
+  background: color-mix(in srgb, var(--secondary) 82%, var(--background));
+}
+
+.tiptap-content .selectedCell {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+}
