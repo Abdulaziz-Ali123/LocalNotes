@@ -1,18 +1,80 @@
-import React, { useEffect, useRef, useState } from "react";
+/**
+ * File: CanvasEditor.tsx
+ * Project: LocalNotes
+ * Course: EECS 582 Software Engineering Capstone
+ *
+ * Authors / Contributors:
+ * - Malek Kchaou
+ * - If you worked on this file besides me, add your name here when you see this.
+ *
+ * Date Created: 03/2026
+ * Last Updated: 03/2026
+ *
+ * Change Summary:
+ * Refactored the old single-page canvas editor into a vertically scrollable,
+ * structured multi-page notebook editor. This version supports page-based storage,
+ * automatic page growth while drawing, page-aware undo/clear behavior, and
+ * renderer-side orchestration of the multi-page canvas workflow.
+ */
 
-interface Stroke {
-  color: string;
-  size: number;
-  points: Array<{ x: number; y: number }>;
-}
+/**
+ * Purpose:
+ * This component is the main controller for the multi-page canvas experience.
+ * It owns the current canvas document state, captures pointer input, converts
+ * raw pointer motion into structured page-local strokes, and persists updates
+ * back to the parent editor through onChange.
+ *
+ * Why this file exists:
+ * The supporting files in the canvas folder each solve one focused problem:
+ * - canvasTypes.ts defines the data model
+ * - canvasDoc.ts handles parsing/serialization/migration
+ * - pageMath.ts handles notebook/page coordinate math
+ * - strokeSplit.ts splits continuous strokes across page boundaries
+ * - PageCanvas.tsx renders one page
+ *
+ * This file ties all of those pieces together into the user-facing editor.
+ *
+ * Role in the multi-page canvas workflow:
+ * 1. Load the persisted .canvas file into a structured multi-page document.
+ * 2. Track a temporary in-progress stroke in notebook/global coordinates.
+ * 3. Auto-scroll and grow pages as the user draws downward.
+ * 4. Split the completed stroke into page-specific fragments.
+ * 5. Commit those fragments into the page array and serialize the document.
+ * 6. Render the scrollable notebook as a stack of page canvases.
+ */
 
-interface CanvasDoc {
-  width?: number;
-  height?: number;
-  background?: string;
-  strokes: Stroke[];
-}
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
+import PageCanvas from "./canvas/PageCanvas";
+import {
+  type CanvasDocV1,
+  type GlobalCanvasPoint,
+} from "./canvas/canvasTypes";
+import {
+  createEmptyCanvasDoc,
+  parseCanvasDoc,
+  serializeCanvasDoc,
+} from "./canvas/canvasDoc";
+import {
+  ensurePageExists,
+  ensurePagesThroughY,
+  getVisiblePageRange,
+} from "./canvas/pageMath";
+import { splitStrokeAcrossPages } from "./canvas/strokeSplit";
+
+/**
+ * Props accepted by the canvas editor.
+ *
+ * value:
+ * Raw persisted file content coming from the editor system.
+ *
+ * onChange:
+ * Callback used to push serialized canvas document updates back to the parent.
+ *
+ * onSave / isSaving:
+ * Optional save integration so the canvas editor can reuse the same save controls
+ * as the rest of the file editing experience.
+ */
 interface CanvasEditorProps {
   value: string;
   onChange: (value: string) => void;
@@ -20,163 +82,329 @@ interface CanvasEditorProps {
   isSaving?: boolean;
 }
 
-const CanvasEditor: React.FC<CanvasEditorProps> = ({ value, onChange, onSave, isSaving }) => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [strokes, setStrokes] = useState<Stroke[]>([]);
-  const [currentColor, setCurrentColor] = useState<string>("#111827"); // near text-foreground in dark themes
-  const [currentSize, setCurrentSize] = useState<number>(4);
-  const [background, setBackground] = useState<string>("#ffffff");
+/**
+ * Auto-scroll configuration.
+ *
+ * AUTO_SCROLL_EDGE_THRESHOLD:
+ * When the pointer gets this close to the top or bottom edge of the viewport
+ * during drawing, the notebook begins to scroll.
+ *
+ * AUTO_SCROLL_STEP:
+ * The number of pixels to pan the notebook per pointer-move step while drawing.
+ */
+const AUTO_SCROLL_EDGE_THRESHOLD = 80;
+const AUTO_SCROLL_STEP = 24;
 
-  // Load initial value
+const CanvasEditor: React.FC<CanvasEditorProps> = ({
+  value,
+  onChange,
+  onSave,
+  isSaving,
+}) => {
+  /**
+   * Ref to the scrollable notebook container.
+   *
+   * This is the key DOM element for:
+   * - measuring viewport size
+   * - reading/writing scrollTop
+   * - converting client coordinates into notebook coordinates
+   */
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * doc:
+   * The current structured multi-page canvas document in memory.
+   *
+   * activeStroke:
+   * Temporary in-progress stroke stored in notebook/global coordinates while
+   * the user is actively drawing.
+   *
+   * isDrawing:
+   * Tracks whether a pointer stroke is currently active.
+   *
+   * visibleRange:
+   * Stores the currently relevant page range for nearby-page rendering logic
+   * and debug visibility tracking.
+   */
+  const [doc, setDoc] = useState<CanvasDocV1>(createEmptyCanvasDoc());
+  const [activeStroke, setActiveStroke] = useState<GlobalCanvasPoint[]>([]);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 2 });
+
+  /**
+   * Basic drawing tool configuration.
+   * These settings are applied when a completed stroke is committed.
+   */
+  const [currentColor, setCurrentColor] = useState<string>("#111827");
+  const [currentSize, setCurrentSize] = useState<number>(4);
+
+  /**
+   * Load or reload the canvas document whenever the incoming file content changes.
+   *
+   * parseCanvasDoc handles:
+   * - empty content
+   * - valid V1 multi-page content
+   * - migration from old single-page canvas JSON
+   */
   useEffect(() => {
-    if (!value) return;
-    try {
-      const parsed: CanvasDoc = JSON.parse(value);
-      setStrokes(Array.isArray(parsed.strokes) ? parsed.strokes : []);
-      if (parsed.background) setBackground(parsed.background);
-    } catch {
-      // If not JSON, ignore (could be empty file); start fresh
-    }
+    setDoc(parseCanvasDoc(value));
   }, [value]);
 
-  // Resize canvas to fit container
-  const resizeCanvas = () => {
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
-    const rect = container.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.floor(rect.width * dpr);
-    canvas.height = Math.floor(rect.height * dpr);
-    canvas.style.width = `${rect.width}px`;
-    canvas.style.height = `${rect.height}px`;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.scale(dpr, dpr);
-    drawAll();
-  };
-
+  /**
+   * Temporary debug hook exposed on window for manual DevTools inspection.
+   *
+   * This was useful during development to verify:
+   * - page counts
+   * - active stroke points
+   * - visible page ranges
+   * - scroll container dimensions
+   *
+   * This can be removed later if no longer needed.
+   */
   useEffect(() => {
-    resizeCanvas();
-    const handle = () => resizeCanvas();
-    window.addEventListener("resize", handle);
-    return () => window.removeEventListener("resize", handle);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    (window as any).__canvasDebug = {
+      getDoc: () => doc,
+      getActiveStroke: () => activeStroke,
+      getVisibleRange: () => visibleRange,
+      getScrollInfo: () => {
+        const el = containerRef.current;
+        if (!el) return null;
+        return {
+          scrollTop: el.scrollTop,
+          clientHeight: el.clientHeight,
+          scrollHeight: el.scrollHeight,
+        };
+      },
+    };
+  }, [doc, activeStroke, visibleRange]);
+
+  /**
+   * Commits a fully updated canvas document into local state and immediately
+   * serializes it back to the parent editor.
+   *
+   * This centralizes document persistence behavior so save-worthy updates do not
+   * have to manually repeat setDoc + JSON serialization logic everywhere.
+   */
+  const commitDoc = useCallback(
+    (nextDoc: CanvasDocV1) => {
+      setDoc(nextDoc);
+      onChange(serializeCanvasDoc(nextDoc));
+    },
+    [onChange]
+  );
+
+  /**
+   * Converts browser client coordinates into notebook/global coordinates.
+   *
+   * Why this matters:
+   * In the old single-page editor, pointer coordinates could be stored directly
+   * relative to one canvas. In the new notebook model, drawing happens inside
+   * a scrollable document, so the current scrollTop must be included.
+   */
+  const getNotebookPos = useCallback((clientX: number, clientY: number) => {
+    const container = containerRef.current;
+    if (!container) return null;
+
+    const rect = container.getBoundingClientRect();
+
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top + container.scrollTop,
+      t: performance.now(),
+    };
   }, []);
 
-  // Redraw entire canvas from strokes
-  const drawAll = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+  /**
+   * Recomputes which pages are near the current viewport.
+   *
+   * This supports nearby-page awareness and can also help with future rendering
+   * optimizations or virtualization if desired.
+   */
+  const updateVisibleRange = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-    // Clear and fill background
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0); // ensure transform reset
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.restore();
+    setVisibleRange(
+      getVisiblePageRange(doc, container.scrollTop, container.clientHeight, 1)
+    );
+  }, [doc]);
 
-    const cssWidth = parseFloat(canvas.style.width || `${canvas.width}px`);
-    const cssHeight = parseFloat(canvas.style.height || `${canvas.height}px`);
-
-    ctx.fillStyle = background;
-    ctx.fillRect(0, 0, cssWidth, cssHeight);
-
-    for (const stroke of strokes) {
-      if (!stroke.points.length) continue;
-      ctx.strokeStyle = stroke.color;
-      ctx.lineWidth = stroke.size;
-      ctx.lineJoin = "round";
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-      for (let i = 1; i < stroke.points.length; i++) {
-        ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
-      }
-      ctx.stroke();
-    }
-  };
-
+  /**
+   * Refresh the visible range whenever the document changes.
+   * This keeps page visibility metadata aligned with content growth and reloads.
+   */
   useEffect(() => {
-    drawAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [strokes, background]);
+    updateVisibleRange();
+  }, [doc, updateVisibleRange]);
 
-  const getPos = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current!;
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    };
-  };
+  /**
+   * Begins a new drawing stroke.
+   *
+   * Workflow:
+   * - capture the pointer
+   * - convert the first point into notebook/global coordinates
+   * - initialize activeStroke with that first point
+   */
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLCanvasElement>) => {
+      const target = e.currentTarget;
+      target.setPointerCapture(e.pointerId);
 
-  const startDrawing = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const pos = getPos(e);
-    const newStroke: Stroke = {
-      color: currentColor,
-      size: currentSize,
-      points: [pos],
-    };
-    setStrokes((prev) => [...prev, newStroke]);
-    setIsDrawing(true);
-  };
+      const pos = getNotebookPos(e.clientX, e.clientY);
+      if (!pos) return;
 
-  const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
-    const pos = getPos(e);
-    setStrokes((prev) => {
-      const last = prev[prev.length - 1];
-      if (!last) return prev;
-      const updated = [...prev];
-      updated[updated.length - 1] = {
-        ...last,
-        points: [...last.points, pos],
+      setIsDrawing(true);
+      setActiveStroke([pos]);
+    },
+    [getNotebookPos]
+  );
+
+  /**
+   * Continues an in-progress stroke while the pointer moves.
+   *
+   * Responsibilities:
+   * - auto-scroll the notebook if the pointer nears the top/bottom edge
+   * - convert the live pointer position into notebook/global coordinates
+   * - append the point to the active stroke
+   * - ensure enough pages exist for the current drawing position
+   * - refresh visibility information as scrolling changes
+   *
+   * This is the key handler that gives the notebook its "keep drawing downward"
+   * behavior rather than forcing the user to stop at page boundaries.
+   */
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isDrawing) return;
+
+      const container = containerRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+
+      // Auto-pan downward or upward while the pointer stays near the viewport edge.
+      if (e.clientY > rect.bottom - AUTO_SCROLL_EDGE_THRESHOLD) {
+        container.scrollTop += AUTO_SCROLL_STEP;
+      } else if (e.clientY < rect.top + AUTO_SCROLL_EDGE_THRESHOLD) {
+        container.scrollTop -= AUTO_SCROLL_STEP;
+      }
+
+      const pos = getNotebookPos(e.clientX, e.clientY);
+      if (!pos) return;
+
+      setActiveStroke((prev) => [...prev, pos]);
+
+      // Grow the page list on demand so the notebook can extend downward naturally.
+      setDoc((prevDoc) => ensurePagesThroughY(prevDoc, pos.y));
+
+      setVisibleRange(
+        getVisiblePageRange(doc, container.scrollTop, container.clientHeight, 1)
+      );
+    },
+    [doc, getNotebookPos, isDrawing]
+  );
+
+  /**
+   * Finalizes the current active stroke.
+   *
+   * Workflow:
+   * 1. If no valid stroke exists, just reset drawing state.
+   * 2. Split the temporary notebook/global stroke into page-local fragments.
+   * 3. Append each fragment to the correct page.
+   * 4. Commit the updated multi-page document.
+   *
+   * This function is the main bridge from "live pointer input" to
+   * "structured persisted page-based strokes."
+   */
+  const handlePointerUp = useCallback(() => {
+    if (!isDrawing || !activeStroke.length) {
+      setIsDrawing(false);
+      setActiveStroke([]);
+      return;
+    }
+
+    let nextDoc = doc;
+
+    const fragments = splitStrokeAcrossPages(
+      nextDoc,
+      activeStroke,
+      currentColor,
+      currentSize
+    );
+
+    for (const fragment of fragments) {
+      nextDoc = ensurePageExists(nextDoc, fragment.pageIndex);
+      const pages = [...nextDoc.pages];
+      const page = pages[fragment.pageIndex];
+
+      pages[fragment.pageIndex] = {
+        ...page,
+        strokes: [...page.strokes, fragment.stroke],
       };
-      return updated;
-    });
-  };
 
-  const endDrawing = () => {
-    if (!isDrawing) return;
+      nextDoc = {
+        ...nextDoc,
+        pages,
+      };
+    }
+
+    commitDoc(nextDoc);
     setIsDrawing(false);
-    // Persist to file content
-    const canvas = canvasRef.current;
-    const width = canvas?.width || 0;
-    const height = canvas?.height || 0;
-    const doc: CanvasDoc = { width, height, background, strokes };
-    onChange(JSON.stringify(doc));
-  };
+    setActiveStroke([]);
+  }, [isDrawing, activeStroke, doc, currentColor, currentSize, commitDoc]);
 
-  const handleUndo = () => {
-    setStrokes((prev) => prev.slice(0, -1));
-    const canvas = canvasRef.current;
-    const doc: CanvasDoc = {
-      width: canvas?.width || 0,
-      height: canvas?.height || 0,
-      background,
-      strokes: strokes.slice(0, -1),
-    };
-    onChange(JSON.stringify(doc));
-  };
+  /**
+   * Removes the most recently committed stroke from the last page that still
+   * contains strokes.
+   *
+   * This is the multi-page equivalent of undoing the last action in the old
+   * flat stroke list model.
+   */
+  const handleUndo = useCallback(() => {
+    let lastPageIndex = -1;
 
-  const handleClear = () => {
-    setStrokes([]);
-    const canvas = canvasRef.current;
-    const doc: CanvasDoc = {
-      width: canvas?.width || 0,
-      height: canvas?.height || 0,
-      background,
-      strokes: [],
+    for (let i = doc.pages.length - 1; i >= 0; i--) {
+      if (doc.pages[i].strokes.length > 0) {
+        lastPageIndex = i;
+        break;
+      }
+    }
+
+    if (lastPageIndex === -1) return;
+
+    const pages = [...doc.pages];
+    const page = pages[lastPageIndex];
+
+    pages[lastPageIndex] = {
+      ...page,
+      strokes: page.strokes.slice(0, -1),
     };
-    onChange(JSON.stringify(doc));
-  };
+
+    commitDoc({
+      ...doc,
+      pages,
+    });
+  }, [doc, commitDoc]);
+
+  /**
+   * Resets the canvas editor to a fresh blank document.
+   *
+   * In the current implementation, clear returns the notebook to a new
+   * single empty page with default layout settings.
+   */
+  const handleClear = useCallback(() => {
+    commitDoc(createEmptyCanvasDoc());
+  }, [commitDoc]);
 
   return (
-    <div className="flex flex-col h-full w-full bg-background rounded-lg border border-border overflow-hidden">
+    /**
+     * Root canvas editor layout.
+     *
+     * Important layout detail:
+     * min-h-0 and overflow-hidden are necessary so the notebook container below
+     * becomes a real bounded scroll viewport instead of expanding to full content height.
+     */
+    <div className="flex flex-col h-full min-h-0 w-full bg-background rounded-lg border border-border overflow-hidden">
+      {/* Toolbar / controls section */}
       <div className="flex items-center gap-2 p-2 border-b border-border bg-muted">
         <label className="text-xs text-muted-foreground">Color</label>
         <input
@@ -185,6 +413,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ value, onChange, onSave, is
           onChange={(e) => setCurrentColor(e.target.value)}
           className="h-6 w-6 p-0 border border-border rounded"
         />
+
         <label className="text-xs text-muted-foreground ml-2">Size</label>
         <input
           type="range"
@@ -194,6 +423,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ value, onChange, onSave, is
           onChange={(e) => setCurrentSize(Number(e.target.value))}
           className="w-24"
         />
+
         <button
           className="px-2 py-1 text-sm rounded-md bg-background border border-border hover:bg-accent"
           onClick={handleUndo}
@@ -201,6 +431,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ value, onChange, onSave, is
         >
           Undo
         </button>
+
         <button
           className="px-2 py-1 text-sm rounded-md bg-background border border-border hover:bg-accent"
           onClick={handleClear}
@@ -208,19 +439,57 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ value, onChange, onSave, is
         >
           Clear
         </button>
+
+        {onSave && (
+          <button
+            className="px-2 py-1 text-sm rounded-md bg-background border border-border hover:bg-accent ml-auto"
+            onClick={onSave}
+            disabled={isSaving}
+            title="Save canvas"
+          >
+            {isSaving ? "Saving..." : "Save"}
+          </button>
+        )}
       </div>
-      <div ref={containerRef} className="flex-1 relative">
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full touch-none cursor-crosshair"
-          onPointerDown={(e) => {
-            (e.target as HTMLCanvasElement).setPointerCapture(e.pointerId);
-            startDrawing(e);
-          }}
-          onPointerMove={draw}
-          onPointerUp={endDrawing}
-          onPointerLeave={endDrawing}
-        />
+
+      {/* Scrollable notebook viewport */}
+      <div
+        ref={containerRef}
+        data-canvas-scroll="true"
+        className="flex-1 min-h-0 h-0 overflow-y-auto bg-zinc-200"
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
+        onScroll={updateVisibleRange}
+      >
+        {/* Stacked page shells */}
+        <div className="py-6">
+          {doc.pages.map((page, index) => (
+            <div
+              key={page.id}
+              data-canvas-page={index}
+              className="mx-auto mb-6 bg-white shadow border border-zinc-400 relative"
+              style={{
+                width: doc.page.width,
+                height: doc.page.height,
+              }}
+            >
+              {/* Temporary page label added during development/debugging */}
+              <div className="absolute top-2 left-2 z-10 text-xs px-2 py-1 rounded bg-black/70 text-white">
+                Page {index}
+              </div>
+
+              {/* Render a single page using the dedicated per-page canvas component */}
+              <PageCanvas
+                page={page}
+                width={doc.page.width}
+                height={doc.page.height}
+                background={doc.page.background}
+                onPointerDown={handlePointerDown}
+              />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
