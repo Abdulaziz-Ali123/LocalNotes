@@ -1,7 +1,12 @@
 import React from "react";
+import dynamic from "next/dynamic";
 import {Button} from "@/renderer/components/ui/button";
 import MarkdownViewer from "@/renderer/components/MarkdownViewer";
 import CanvasEditor from "@/renderer/components/CanvasEditor";
+
+const TiptapTextEditor = dynamic(() => import("@/renderer/components/TiptapTextEditor"), {
+  ssr: false,
+});
 
 export interface EditorSpaceProps {
   selectedFile: string | null;
@@ -17,6 +22,7 @@ export interface EditorSpaceProps {
 }
 
 export default function EditorSpace({selectedFile, previewMode, livePreview, fileContent, isSaving, handleSave, setPreviewMode, setLivePreview, setFileContent, saveMessage}: EditorSpaceProps) {
+              const markdownBaseDir = selectedFile ? window.fs.dirname(selectedFile) : null;
               return (
               <div className="flex h-full flex-col p-3 pr-1 bg-secondary">
                 {selectedFile ? (
@@ -82,12 +88,12 @@ export default function EditorSpace({selectedFile, previewMode, livePreview, fil
                               autoFocus
                             />
                             <div className="h-[97%] w-1/2 overflow-auto bg-secondary custom-scrollbar rounded-lg p-3 border border-border">
-                              <MarkdownViewer content={fileContent} />
+                              <MarkdownViewer content={fileContent} baseDir={markdownBaseDir} />
                             </div>
                           </div>
                         ) : previewMode ? (
                           <div className="h-[97%]  overflow-auto custom-scrollbar">
-                            <MarkdownViewer content={fileContent} />
+                            <MarkdownViewer content={fileContent} baseDir={markdownBaseDir} />
                           </div>
                         ) : (
                           <textarea
@@ -111,6 +117,10 @@ export default function EditorSpace({selectedFile, previewMode, livePreview, fil
                               isSaving={isSaving}
                             />
                           </div>
+                        </div>
+                      ) : selectedFile.toLowerCase().endsWith(".txt") ? (
+                        <div className="h-[97%] w-full">
+                          <TiptapTextEditor value={fileContent} onChange={setFileContent} />
                         </div>
                       ) : (
                         <textarea

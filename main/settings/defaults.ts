@@ -45,6 +45,11 @@ export const DEFAULT_KEYBINDINGS: KeybindingMap = {
   "view.toggleDevTools": "CommandOrControl+Shift+I",
 };
 
+export const DEFAULT_LLM = {
+    defaultModelId: null,
+    models: {},
+};
+
 // ---------------------------------------------------------------------------
 // Composite defaults
 // ---------------------------------------------------------------------------
@@ -53,6 +58,10 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   appearance: { ...DEFAULT_APPEARANCE },
   editor: { ...DEFAULT_EDITOR },
   keybindings: { ...DEFAULT_KEYBINDINGS },
+  llm: {
+    defaultModelId: DEFAULT_LLM.defaultModelId,
+    models: { ...DEFAULT_LLM.models },
+  },
 };
 
 export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {

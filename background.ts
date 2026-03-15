@@ -1,22 +1,39 @@
 import path from "path";
 import { app, ipcMain, Menu, dialog, shell } from "electron";
 import serve from "electron-serve";
-import { createWindow, ensureConfigDirectory } from "./helpers";
+import { createWindow, ensureConfigDirectory, getConfigDirectoryPath } from "./helpers";
 import fs from "fs/promises";
 import * as fsSync from "fs";
 import { loadTags, updateTags, removeTags } from "./tags";
 import { SettingsManager, registerSettingsIpc, buildMenuTemplate } from "./settings";
 import { getQueue } from "./fsQueue";
 import { withRetry } from "./fsRetry";
-import {
-  ensureLocalNotesFolder,
-  loadProjectSettings,
-  saveProjectSettings,
-  updateProjectSettings,
-  addRecentFile,
-  togglePinnedFile,
-  isLocalNotesPath,
-} from "./helpers/project-settings";
+import { debouncedWriter } from "./helpers/debounced-writer";
+import { closeDB, initializeDB } from "./database/sqllite";
+import { 
+    startWatching, 
+    stopWatching, 
+    stopAllWatchers, 
+    getActiveWatchers, 
+    isWatching 
+} from "./watcher/fileWatcher";
+import { 
+    addDirectory, 
+    updateDirectory, 
+    deleteDirectory, 
+    getDirectory, 
+    getAllDirectories,
+    addFile,
+    updateFileHash,
+    deleteFile,
+    getFilesByDirectory,
+    addChunk,
+    deleteChunksByFile,
+    getChunksByDirectory,
+    getChunksByFile
+} from "./database/documentRepository";
+import { chunkDirectory, chunkSingleFile, getChunkStats, DirectoryChunkerConfig, chunkAndStoreDirectory, chunkAndStoreFile } from "./indexing/DirectoryChuncker";
+import { UUID } from "crypto";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -201,11 +218,74 @@ let mainWindowRef: Electron.BrowserWindow | null = null;
   } else {
     const port = process.argv[2];
     await mainWindow.loadURL(`http://localhost:${port}/home`);
+    
   }
+
+    try {
+        initializeDB();
+        console.log("✓ Database ready");
+
+        // Initialize file watchers for all existing directories
+        try {
+            const directories = getAllDirectories() as any[];
+            console.log(`Initializing watchers for ${directories.length} directories...`);
+            
+            for (const dir of directories) {
+                if (dir.path && fsSync.existsSync(dir.path)) {
+                    startWatching(dir.id, dir.path);
+                } else {
+                    console.warn(`Directory not found, skipping watcher: ${dir.path}`);
+                }
+            }
+            
+            console.log(`✓ Watchers initialized for ${directories.length} directories`);
+        } catch (error) {
+            console.error("Failed to initialize watchers:", error);
+        }
+    } catch (error) {
+        console.error("✗ Failed to initialize database:", error);
+        app.quit();
+        return;
+    }
 })();
 
+
 app.on("window-all-closed", () => {
-  app.quit();
+    if (process.platform !== "darwin") {
+        void stopAllWatchers().then(() => {
+            closeDB();
+            app.quit();
+        });
+    }
+});
+
+app.on("will-quit", () => {
+    void stopAllWatchers();
+    closeDB();
+});
+
+let isFlushingWritesOnQuit = false;
+
+app.on("before-quit", (event) => {
+    if (isFlushingWritesOnQuit || !debouncedWriter.hasPending()) {
+        closeDB();
+        return;
+    }
+
+    event.preventDefault();
+    isFlushingWritesOnQuit = true;
+
+    void debouncedWriter
+      .flushAll()
+      .catch((error) => {
+        console.error("Failed to flush pending writes before quit:", error);
+      })
+      .finally(() => {
+        void stopAllWatchers().then(() => {
+            closeDB();
+            app.quit();
+        });
+      });
 });
 
 ipcMain.on("message", async (event, arg) => {
@@ -217,19 +297,17 @@ ipcMain.handle("fs:readDirectory", async (event, dirPath: string) => {
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
     const items = await Promise.all(
-      entries
-        .filter((entry) => entry.name !== ".Local Notes") // Filter out .Local Notes folder
-        .map(async (entry) => {
-          const fullPath = path.join(dirPath, entry.name);
-          const stats = await fs.stat(fullPath);
-          return {
-            name: entry.name,
-            path: fullPath,
-            isDirectory: entry.isDirectory(),
-            size: stats.size,
-            modified: stats.mtime,
-          };
-        })
+      entries.map(async (entry) => {
+        const fullPath = path.join(dirPath, entry.name);
+        const stats = await fs.stat(fullPath);
+        return {
+          name: entry.name,
+          path: fullPath,
+          isDirectory: entry.isDirectory(),
+          size: stats.size,
+          modified: stats.mtime,
+        };
+      })
     );
     return { success: true, data: items };
   } catch (error: any) {
@@ -384,7 +462,10 @@ ipcMain.handle("fs:readFile", async (event, filePath: string) => {
 
 ipcMain.handle("fs:writeFile", async (event, filePath: string, content: string) => {
   try {
-    await fs.writeFile(filePath, content, "utf-8");
+    await debouncedWriter.enqueue(filePath, content, {
+      debounceMs: 250,
+      maxWaitMs: 1200,
+    });
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -393,24 +474,14 @@ ipcMain.handle("fs:writeFile", async (event, filePath: string, content: string) 
 
 ipcMain.handle("fs:openFolderDialog", async () => {
   try {
+    console.log(getConfigDirectoryPath())
     const result = await dialog.showOpenDialog({
       properties: ["openDirectory"],
     });
     if (result.canceled) {
       return { success: false, canceled: true };
     }
-    
-    const folderPath = result.filePaths[0];
-    
-    // Initialize .Local Notes folder for this project
-    try {
-      await ensureLocalNotesFolder(folderPath);
-    } catch (error) {
-      console.error("Failed to initialize .Local Notes folder:", error);
-      // Non-critical, continue anyway
-    }
-    
-    return { success: true, data: folderPath };
+    return { success: true, data: result.filePaths[0] };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
@@ -420,7 +491,10 @@ ipcMain.handle("fs:openFolderDialog", async () => {
 ipcMain.handle("autosave:save", async (_event, { filePath, content }) => {
   try {
     if (!filePath) throw new Error("Missing file path");
-    await fs.writeFile(filePath, content, "utf-8"); // no .promises
+    await debouncedWriter.enqueue(filePath, content, {
+      debounceMs: 600,
+      maxWaitMs: 2000,
+    });
     return { success: true };
   } catch (error) {
     console.error("Autosave error:", error);
@@ -486,53 +560,6 @@ ipcMain.handle("tags:remove", (event, projectRoot: string, itemPath: string) => 
   removeTags(projectRoot, itemPath);
   return { success: true };
 });
-
-// Project Settings handlers
-ipcMain.handle("projectSettings:load", async (event, projectRoot: string) => {
-  try {
-    const settings = await loadProjectSettings(projectRoot);
-    return { success: true, data: settings };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle("projectSettings:save", async (event, projectRoot: string, settings: any) => {
-  try {
-    await saveProjectSettings(projectRoot, settings);
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle("projectSettings:update", async (event, projectRoot: string, updates: any) => {
-  try {
-    const newSettings = await updateProjectSettings(projectRoot, updates);
-    return { success: true, data: newSettings };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle("projectSettings:addRecentFile", async (event, projectRoot: string, filePath: string) => {
-  try {
-    await addRecentFile(projectRoot, filePath);
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle("projectSettings:togglePinnedFile", async (event, projectRoot: string, filePath: string) => {
-  try {
-    const isPinned = await togglePinnedFile(projectRoot, filePath);
-    return { success: true, data: { isPinned } };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-});
-
 ipcMain.handle("fs:mergeFiles", async (event, fileNames: string[], targetNotePath: string) => {
     try {
         let targetContent = await fs.readFile(targetNotePath, "utf-8");
@@ -674,5 +701,286 @@ ipcMain.handle("fs:exportFolder", async (_, sourceFolder: string, targetFolder: 
         return { success: true, importedTo: destination };
     } catch (err: any) {
         return { success: false, error: err.message };
+    }
+});
+
+ipcMain.handle("db:addDirectory", async (_, uuid: string, path: string) => {
+    try {
+        const result = addDirectory(uuid, path);
+        
+        // Start watching the directory
+        if (fsSync.existsSync(path)) {
+            startWatching(uuid, path);
+            console.log(`Started watching directory: ${path}`);
+        } else {
+            console.warn(`Directory not found, skipping watcher: ${path}`);
+        }
+        
+        return { success: true, data: result };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:updateDirectory", async (_, id: UUID, path?: string) => {
+    try {
+        const result = updateDirectory(id, path);
+        return { success: true, data: result };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:deleteDirectory", async (_, id: UUID) => {
+    try {
+        // Stop watching the directory first
+        await stopWatching(id);
+        console.log(`Stopped watching directory: ${id}`);
+        
+        deleteDirectory(id);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:getDirectory", async (_, id: UUID) => {
+    try {
+        const data = getDirectory(id);
+        return { success: true, data };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:getAllDirectories", async () => {
+    try {
+        const data = getAllDirectories();
+        return { success: true, data };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+// ========== FILES ==========
+ipcMain.handle("db:addFile", async (_, directoryId: UUID, filePath: string, fileHash: string, lastModified: number) => {
+    try {
+        const result = addFile(directoryId, filePath, fileHash, lastModified);
+        return { success: true, data: result };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:updateFileHash", async (_, fileId: UUID, fileHash: string, lastModified: number) => {
+    try {
+        const result = updateFileHash(fileId, fileHash, lastModified);
+        return { success: true, data: result };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:deleteFile", async (_, fileId: UUID) => {
+    try {
+        deleteFile(fileId);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:getFilesByDirectory", async (_, directoryId: UUID) => {
+    try {
+        const data = getFilesByDirectory(directoryId);
+        return { success: true, data };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+// ========== CHUNKS ==========
+ipcMain.handle("db:addChunk", async (_, fileId: UUID, contentHash: string, content: string, embedding: Buffer) => {
+    try {
+        const result = addChunk(fileId, contentHash, content, embedding);
+        return { success: true, data: result };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:addChunks", async (_, chunks: Array<{
+    fileId: UUID;
+    contentHash: string;
+    content: string;
+    embedding: Buffer;
+}>) => {
+    try {
+        // Use existing addChunk in a loop
+        const results = [];
+        for (const chunk of chunks) {
+            const result = addChunk(
+                chunk.fileId,
+                chunk.contentHash,
+                chunk.content,
+                chunk.embedding
+            );
+            results.push(result);
+        }
+        return { success: true, data: results };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:deleteChunksByFile", async (_, fileId: UUID) => {
+    try {
+        const result = deleteChunksByFile(fileId);
+        return { success: true, data: result };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:getChunksByDirectory", async (_, directoryId: UUID) => {
+    try {
+        const data = getChunksByDirectory(directoryId);
+        return { success: true, data };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:getChunksByFile", async (_, fileId: UUID) => {
+    try {
+        const data = getChunksByFile(fileId);
+        return { success: true, data };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("chunker:chunkDirectory", async (_, directoryPath: string, config?: DirectoryChunkerConfig) => {
+    try {
+        const result = await chunkDirectory(directoryPath, config);
+        return { success: true, data: result };
+    } catch (error) {
+        console.error("Failed to chunk directory:", error);
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("chunker:chunkFile", async (_, filePath: string, config?: DirectoryChunkerConfig["chunkingConfig"]) => {
+    try {
+        const chunks = await chunkSingleFile(filePath, config);
+        return { success: true, data: chunks };
+    } catch (error) {
+        console.error("Failed to chunk file:", error);
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+// ========== DATABASE INDEXING (chunk + embed + store) ==========
+
+/**
+ * Index a directory: chunk files, generate placeholder embeddings, and store in database
+ */
+ipcMain.handle("indexer:indexDirectory", async (_, directoryId: string, directoryPath: string, config?: DirectoryChunkerConfig) => {
+    try {
+        console.log(`Starting indexing for directory: ${directoryPath}`);
+        console.log("Using placeholder embeddings (384-dimensional vectors)");
+        
+        const stats = await chunkAndStoreDirectory(directoryId, directoryPath, config);
+        return { success: true, data: stats };
+    } catch (error) {
+        console.error("Failed to index directory:", error);
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+/**
+ * Index a single file to database with placeholder embeddings
+ */
+ipcMain.handle("indexer:indexFile", async (_, directoryId: string, filePath: string, config?: any) => {
+    try {
+        console.log(`Indexing file: ${filePath}`);
+        console.log("Using placeholder embeddings (384-dimensional vectors)");
+
+        const result = await chunkAndStoreFile(directoryId, filePath, config);
+        return { success: true, data: result };
+    } catch (error) {
+        console.error("Failed to index file:", error);
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+// ========== FILE WATCHER ==========
+
+/**
+ * Start watching a directory
+ */
+ipcMain.handle("watcher:start", async (_, directoryId: UUID, directoryPath: string) => {
+    try {
+        if (!fsSync.existsSync(directoryPath)) {
+            return { success: false, error: "Directory does not exist" };
+        }
+        
+        startWatching(directoryId, directoryPath);
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to start watcher:", error);
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+/**
+ * Stop watching a directory
+ */
+ipcMain.handle("watcher:stop", async (_, directoryId: UUID) => {
+    try {
+        await stopWatching(directoryId);
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to stop watcher:", error);
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+/**
+ * Stop all watchers
+ */
+ipcMain.handle("watcher:stopAll", async () => {
+    try {
+        await stopAllWatchers();
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to stop all watchers:", error);
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+/**
+ * Get active watchers
+ */
+ipcMain.handle("watcher:getActive", async () => {
+    try {
+        const watchers = getActiveWatchers();
+        return { success: true, data: watchers };
+    } catch (error) {
+        console.error("Failed to get active watchers:", error);
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+/**
+ * Check if a directory is being watched
+ */
+ipcMain.handle("watcher:isWatching", async (_, directoryId: UUID) => {
+    try {
+        const watching = isWatching(directoryId);
+        return { success: true, data: watching };
+    } catch (error) {
+        console.error("Failed to check watcher status:", error);
+        return { success: false, error: (error as Error).message };
     }
 });

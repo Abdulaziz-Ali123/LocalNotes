@@ -54,6 +54,30 @@ export interface KeybindingMap {
 }
 
 // ---------------------------------------------------------------------------
+// LLM (Bring-your-own OpenAI-compatible endpoint)
+// ---------------------------------------------------------------------------
+
+export interface LLMCapabilities {
+    text: boolean;
+    vision: boolean;
+    voice: boolean;
+}
+
+export interface LLMModelSpec {
+    id: string;          // stable key like "openai", "local", "lab"
+    name: string;        // friendly label
+    baseUrl: string;     // OpenAI-compatible base, typically ends with /v1
+    apiKey?: string;     // empty for local is fine
+    model: string;       // model name string sent to provider
+    capabilities: LLMCapabilities;
+}
+
+export interface LLMSettings {
+    defaultModelId: string | null;
+    models: Record<string, LLMModelSpec>;
+}
+
+// ---------------------------------------------------------------------------
 // Combined settings objects
 // ---------------------------------------------------------------------------
 
@@ -61,7 +85,8 @@ export interface KeybindingMap {
 export interface GlobalSettings {
   appearance: AppearanceSettings;
   editor: EditorSettings;
-  keybindings: KeybindingMap;
+    keybindings: KeybindingMap;
+    llm: LLMSettings;
 }
 
 /** Project-level settings (stored in .Local Notes/settings.json per project). */
