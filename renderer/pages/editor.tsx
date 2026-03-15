@@ -46,7 +46,8 @@ export default function Editor() {
   // (removed fileTreeRef used for selectPath)
   const sidebarPanelRef = useRef<ImperativePanelHandle>(null);
   const initializeTabs = useBoundStore((state) => state.tabs.initialize);
-  const [showShortcuts, setShowShortcuts] = useState(false);
+  // Which tab the settings dialog should open to
+  const [settingsDefaultTab, setSettingsDefaultTab] = useState<"appearance" | "editor" | "keybindings">("appearance");
 
   // Autosave states
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -558,15 +559,14 @@ export default function Editor() {
                 </PopoverContent>
               </Popover>
 
-              {/* Settings button
+              {/* Settings button */}
               <button
-                onClick={() => setSettingsOpen(true)}
+                onClick={() => { setSettingsDefaultTab("appearance"); setSettingsOpen(true); }}
                 className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
                 title="Settings"
               >
                 <CiSettings className="w-14 h-14 stroke-1" />
               </button>
-              */}
               {/* File Change History button */}
               <button
                 className="size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
@@ -674,57 +674,10 @@ export default function Editor() {
           </ResizablePanelGroup>
         </div>
 
-        {/* Shortcuts Modal */}
-        {showShortcuts && (
-          <div
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-            onClick={() => setShowShortcuts(false)}
-          >
-            <div
-              className="bg-background border border-border rounded-lg p-6 w-97"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 className="text-lg font-semibold mb-4">Keyboard Shortcuts</h2>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Save</span>
-                  <kbd className="px-2 py-1 bg-muted rounded">Ctrl+S</kbd>
-                </div>
-                <div className="flex justify-between">
-                  <span>New File</span>
-                  <kbd className="px-2 py-1 bg-muted rounded">Ctrl+N</kbd>
-                </div>
-                <div className="flex justify-between">
-                  <span>New Folder</span>
-                  <kbd className="px-2 py-1 bg-muted rounded">Ctrl+Shift+N</kbd>
-                </div>
-                <div className="flex justify-between">
-                  <span>Toggle Preview (MD files)</span>
-                  <kbd className="px-2 py-1 bg-muted rounded">Ctrl+P</kbd>
-                </div>
-                <div className="flex justify-between">
-                  <span>Toggle Live Preview (MD files)</span>
-                  <kbd className="px-2 py-1 bg-muted rounded">Ctrl+Shift+P</kbd>
-                </div>
-                <div className="flex justify-between">
-                  <span>Toggle Sidebar</span>
-                  <kbd className="px-2 py-1 bg-muted rounded">Ctrl+B</kbd>
-                </div>
-                <div className="flex justify-between">
-                  <span>Open Folder</span>
-                  <kbd className="px-2 py-1 bg-muted rounded">Ctrl+O</kbd>
-                </div>
-                <div className="flex justify-between">
-                  <span>Search</span>
-                  <kbd className="px-2 py-1 bg-muted rounded">Ctrl+F</kbd>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+
 
         {/* Settings Dialog */}
-        <SettingsDialog isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <SettingsDialog isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} defaultTab={settingsDefaultTab} />
 
         {/* Status Bar */}
         <div className="flex items-center justify-between h-7 bg-background border-t border-border px-4 text-xs flex-shrink-0">
@@ -782,7 +735,7 @@ export default function Editor() {
               variant="ghost"
               size="sm"
               className="h-5 px-2 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => setShowShortcuts(true)}
+              onClick={() => { setSettingsDefaultTab("keybindings"); setSettingsOpen(true); }}
               title="View all keyboard shortcuts"
             >
               Shortcuts
