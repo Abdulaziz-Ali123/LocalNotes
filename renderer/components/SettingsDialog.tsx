@@ -21,13 +21,15 @@ import { Label } from "@/renderer/components/ui/label";
 interface SettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Which tab to show when the dialog opens (defaults to "appearance"). */
+  defaultTab?: "appearance" | "editor" | "keybindings";
 }
 
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
-export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
+export default function SettingsDialog({ isOpen, onClose, defaultTab = "appearance" }: SettingsDialogProps) {
   if (!isOpen) return null;
 
   return (
@@ -51,7 +53,7 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
         </div>
 
         {/* Tabs */}
-        <Tabs.Root defaultValue="appearance" className="flex-1 flex flex-col overflow-hidden">
+        <Tabs.Root defaultValue={defaultTab} className="flex-1 flex flex-col overflow-hidden">
           <Tabs.List className="flex border-b border-border px-6 gap-1">
             <TabTrigger value="appearance">Appearance</TabTrigger>
             <TabTrigger value="editor">Editor</TabTrigger>
@@ -242,6 +244,7 @@ function KeybindingsTab() {
   const keybindings = useBoundStore((s) => s.settings.global.keybindings);
   const setGlobal = useBoundStore((s) => s.settings.setGlobal);
   const resetGlobal = useBoundStore((s) => s.settings.resetGlobal);
+  const resetAllGlobal = useBoundStore((s) => s.settings.resetAllGlobal);
 
   /** Which action ID is currently being rebound (user is pressing keys). */
   const [rebindingId, setRebindingId] = useState<string | null>(null);
@@ -249,6 +252,33 @@ function KeybindingsTab() {
   const isMac =
     typeof navigator !== "undefined" &&
     navigator.platform.toUpperCase().includes("MAC");
+
+  // ----- Conflict detection ------------------------------------------------
+
+  /** Build a map of accelerator → action IDs for quick conflict lookup. */
+  const accelToActions = React.useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const action of keybindingActions) {
+      const accel = (keybindings[action.id] ?? action.defaultAccelerator).toLowerCase();
+      if (!accel) continue;
+      if (!map[accel]) map[accel] = [];
+      map[accel].push(action.id);
+    }
+    return map;
+  }, [keybindingActions, keybindings]);
+
+  /** Return the label of the OTHER action that conflicts, or null. */
+  const getConflict = (actionId: string): string | null => {
+    const accel = (keybindings[actionId] ?? keybindingActions.find((a) => a.id === actionId)?.defaultAccelerator ?? "").toLowerCase();
+    if (!accel) return null;
+    const siblings = accelToActions[accel];
+    if (!siblings || siblings.length <= 1) return null;
+    const other = siblings.find((id) => id !== actionId);
+    if (!other) return null;
+    return keybindingActions.find((a) => a.id === other)?.label ?? other;
+  };
+
+  // ----- Key capture -------------------------------------------------------
 
   /**
    * Convert a keyboard event into an Electron accelerator string.
@@ -314,6 +344,11 @@ function KeybindingsTab() {
       .replace(/Control/g, "Ctrl");
   };
 
+  // Check if any keybinding differs from its default
+  const hasCustomBindings = keybindingActions.some(
+    (a) => keybindings[a.id] && keybindings[a.id] !== a.defaultAccelerator
+  );
+
   // Group actions by category
   const categories = ["File", "Edit", "View"] as const;
 
@@ -337,15 +372,23 @@ function KeybindingsTab() {
                 const currentAccel =
                   keybindings[action.id] ?? action.defaultAccelerator;
                 const isRebinding = rebindingId === action.id;
+                const conflict = getConflict(action.id);
 
                 return (
                   <div
                     key={action.id}
                     className={`flex items-center justify-between px-4 py-2.5 text-sm ${
                       idx > 0 ? "border-t border-border" : ""
-                    }`}
+                    } ${conflict ? "bg-destructive/5" : ""}`}
                   >
-                    <span>{action.label}</span>
+                    <div className="flex flex-col">
+                      <span>{action.label}</span>
+                      {conflict && (
+                        <span className="text-xs text-destructive mt-0.5">
+                          ⚠ Conflicts with &ldquo;{conflict}&rdquo;
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() =>
@@ -354,7 +397,9 @@ function KeybindingsTab() {
                         className={`px-3 py-1 rounded-md text-xs font-mono min-w-[120px] text-center transition-colors ${
                           isRebinding
                             ? "bg-accent text-accent-foreground ring-2 ring-ring animate-pulse"
-                            : "bg-muted hover:bg-accent"
+                            : conflict
+                              ? "bg-destructive/10 hover:bg-accent"
+                              : "bg-muted hover:bg-accent"
                         }`}
                       >
                         {isRebinding
@@ -381,6 +426,19 @@ function KeybindingsTab() {
           </div>
         );
       })}
+
+      {/* Restore All Defaults */}
+      <div className="flex justify-end pt-2 border-t border-border">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!hasCustomBindings}
+          onClick={() => resetAllGlobal()}
+          className="text-xs"
+        >
+          Restore All Defaults
+        </Button>
+      </div>
     </div>
   );
 }
