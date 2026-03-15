@@ -9,9 +9,10 @@ import "katex/dist/katex.min.css";
 
 type Props = {
   content: string;
+  baseDir?: string | null;
 };
 
-export default function MarkdownViewer({ content }: Props) {
+export default function MarkdownViewer({ content, baseDir }: Props) {
   const [processedContent, setProcessedContent] = useState(content);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -22,7 +23,8 @@ export default function MarkdownViewer({ content }: Props) {
 
       try {
         const currentFolder = localStorage.getItem("currentFolderPath");
-        if (!currentFolder) {
+        const resolvedBaseDir = baseDir || currentFolder;
+        if (!resolvedBaseDir) {
           setProcessedContent(content);
           setIsProcessing(false);
           return;
@@ -40,7 +42,7 @@ export default function MarkdownViewer({ content }: Props) {
           if (src.startsWith("http") || src.startsWith("data:")) continue;
 
           try {
-            const imagePath = window.fs.join(currentFolder, src);
+            const imagePath = window.fs.join(resolvedBaseDir, src);
             const result = await window.fs.readFile(imagePath);
 
             if (result.success && result.type === "binary") {
@@ -74,7 +76,7 @@ export default function MarkdownViewer({ content }: Props) {
     };
 
     processImages();
-  }, [content]);
+  }, [content, baseDir]);
 
   return (
     <div className="prose prose-sm max-w-full overflow-auto markdown-body">
@@ -97,8 +99,10 @@ export default function MarkdownViewer({ content }: Props) {
               <code className="block bg-gray-900 p-4 rounded mb-4 overflow-x-auto" {...props} />
             ),
           img: ({ node, ...props }) => {
-            const src = props.src || node.properties?.src;
-            const alt = props.alt || node.properties?.alt || "";
+            const srcValue = props.src || node.properties?.src;
+            const altValue = props.alt || node.properties?.alt || "";
+            const src = typeof srcValue === "string" ? srcValue : String(srcValue ?? "");
+            const alt = typeof altValue === "string" ? altValue : String(altValue ?? "");
             return <img className="inline-block max-w-full h-auto my-2" src={src} alt={alt} />;
           },
         }}
