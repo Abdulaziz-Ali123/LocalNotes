@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/router";
 import { Button } from "@/renderer/components/ui/button";
 import InputDialog from "@/renderer/components/InputDialog";
+import SettingsDialog from "@/renderer/components/SettingsDialog";
 
 export default function HomePage() {
   const router = useRouter();
@@ -17,6 +18,7 @@ export default function HomePage() {
   });
   const [isIndexing, setIsIndexing] = useState(false);
   const [indexingStatus, setIndexingStatus] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const handleOpenFolder = async () => {
     if (!window.fs?.openFolderDialog || !window.db?.addDirectory || !window.indexer?.indexDirectory) {
@@ -181,6 +183,7 @@ export default function HomePage() {
                   <p className="text-sm pb-3">Edit settings like themes</p>
                 </span>
                 <button 
+                  onClick={() => setSettingsOpen(true)}
                   disabled={isIndexing}
                   className="bg-accent rounded-md text-base p-2 h-12 w-32 shadow-neumorph-sm active:shadow-neumorph-insert transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -199,6 +202,8 @@ export default function HomePage() {
           onConfirm={inputDialog.onConfirm}
           onCancel={() => setInputDialog((prev) => ({ ...prev, isOpen: false }))}
         />
+
+        <SettingsDialog isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
       </div>
     </React.Fragment>
   );
