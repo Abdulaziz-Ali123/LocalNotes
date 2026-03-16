@@ -29,10 +29,31 @@ export interface KeybindingMap {
   [key: string]: string;
 }
 
+export interface LLMCapabilities {
+  text: boolean;
+  vision: boolean;
+  voice: boolean;
+}
+
+export interface LLMModelSpec {
+  id: string;
+  name: string;
+  baseUrl: string;
+  apiKey?: string;
+  model: string;
+  capabilities: LLMCapabilities;
+}
+
+export interface LLMSettings {
+  defaultModelId: string | null;
+  models: Record<string, LLMModelSpec>;
+}
+
 export interface GlobalSettings {
   appearance: AppearanceSettings;
   editor: EditorSettings;
   keybindings: KeybindingMap;
+  llm: LLMSettings;
 }
 
 export interface KeybindingAction {
@@ -115,6 +136,10 @@ const INITIAL_GLOBAL: GlobalSettings = {
     showLineNumbers: false,
   },
   keybindings: DEFAULT_KEYBINDINGS,
+  llm: {
+    defaultModelId: null,
+    models: {},
+  },
 };
 
 // ---------------------------------------------------------------------------
