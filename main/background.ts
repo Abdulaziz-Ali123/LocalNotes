@@ -1,5 +1,16 @@
+/**
+ * File: main/background.ts
+ * Purpose: Main Electron process bootstrap and IPC registration.
+ * Summary of what was added/changed:
+ * - Added central IPC handler for renderer error reporting.
+ * - Added process-level fallback logging for uncaught exceptions and unhandled rejections.
+ * Author: Malek Kchaou (add your name if you made changes here)
+ * Date Created: 
+ * Last Updated: 2026-03-28
+ */
+
 import path from "path";
-import { app, ipcMain, Menu, dialog, shell } from "electron";
+import { app, ipcMain, BrowserWindow, Menu, dialog, shell } from "electron";
 import serve from "electron-serve";
 import { createWindow, ensureConfigDirectory, getConfigDirectoryPath } from "./helpers";
 import fs from "fs/promises";
@@ -28,6 +39,11 @@ import {
 } from "./database/documentRepository";
 import { chunkDirectory, chunkSingleFile, getChunkStats, DirectoryChunkerConfig, chunkAndStoreDirectory, chunkAndStoreFile } from "./indexing/DirectoryChuncker";
 import { UUID } from "crypto";
+import {
+    logMainError,
+    logRendererError,
+} from "./logging/errorLogger";
+import { registerErrorLoggingIpc } from "./logging/registerErrorLoggingIpc";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -153,6 +169,20 @@ if (isProd) {
   app.setPath("userData", `${app.getPath("userData")} (development)`);
 }
 
+/**
+ * Adds top-level safety nets so catastrophic main-process issues
+ * still get written to the same log file.
+ */
+function registerProcessLevelErrorHandlers(): void {
+    process.on("uncaughtException", (error) => {
+        logMainError(error, "process.uncaughtException");
+    });
+
+    process.on("unhandledRejection", (reason) => {
+        logMainError(reason, "process.unhandledRejection");
+    });
+}
+
 // ---------------------------------------------------------------------------
 // Settings manager (singleton)
 // ---------------------------------------------------------------------------
@@ -160,68 +190,110 @@ const settingsManager = new SettingsManager();
 let mainWindowRef: Electron.BrowserWindow | null = null;
 
 (async () => {
-  await app.whenReady();
-  process.stderr.write("[Local Notes] Initializing config directory...\n");
-  const configDirectoryPath = await ensureConfigDirectory();
-  process.stderr.write(`[Local Notes] Config directory ready at: ${configDirectoryPath}\n`);
-
-  // Load global settings before creating the window
-  const globalSettings = await settingsManager.loadGlobal();
-
-  const mainWindow = createWindow("main", {
-    width: 1000,
-    height: 600,
-    webPreferences: {
-      preload: path.join(app.getAppPath(), "app", "preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false,
-    },
-    // remove the default titlebar
-    titleBarStyle: "hidden",
-    // expose window controls in Windows/Linux
-    ...(process.platform !== "darwin" ? { titleBarOverlay: true } : {}),
-  });
-
-  mainWindowRef = mainWindow;
-
-  // Register settings IPC handlers
-  registerSettingsIpc(settingsManager, () => mainWindowRef);
-
-  // Context menu
-  const contextTemplate: any = [
-    { role: "copy" },
-    { role: "cut" },
-    { role: "paste" },
-    { role: "selectall" },
-  ];
-
-  // Build menu from settings (keybindings-driven instead of hardcoded)
-  const menuTemplate = buildMenuTemplate(globalSettings, mainWindow);
-  const menu = Menu.buildFromTemplate(menuTemplate);
-  Menu.setApplicationMenu(menu);
-
-  const contextMenu = Menu.buildFromTemplate(contextTemplate);
-
-  mainWindow.webContents.on("context-menu", (_event, params) => {
-    contextMenu.popup();
-  });
-
-  if (isProd) {
-    await mainWindow.loadURL("app://./home");
-  } else {
-    const port = process.argv[2];
-    await mainWindow.loadURL(`http://localhost:${port}/home`);
-    
-  }
-
     try {
-        initializeDB();
-        console.log("✓ Database ready");
+        /**
+         * Wait for Electron to finish initialization before using app APIs.
+         */
+        await app.whenReady();
+
+        /**
+         * Register centralized error plumbing as early as possible.
+         * This ensures both renderer-reported errors and startup/runtime crashes
+         * can be captured consistently.
+         */
+        registerErrorLoggingIpc();
+        registerProcessLevelErrorHandlers();
+
+        process.stderr.write("[Local Notes] Initializing config directory...\n");
+        const configDirectoryPath = await ensureConfigDirectory();
+        process.stderr.write(
+            `[Local Notes] Config directory ready at: ${configDirectoryPath}\n`
+        );
+
+        /**
+         * Load global settings before creating the main window so the initial
+         * UI and menu state reflect the saved configuration.
+         */
+        const globalSettings = await settingsManager.loadGlobal();
+
+        const mainWindow = createWindow("main", {
+            width: 1000,
+            height: 600,
+            webPreferences: {
+                preload: path.join(app.getAppPath(), "app", "preload.js"),
+                contextIsolation: true,
+                nodeIntegration: false,
+                sandbox: false,
+            },
+            // Remove the default title bar.
+            titleBarStyle: "hidden",
+            // Expose window controls in Windows/Linux.
+            ...(process.platform !== "darwin" ? { titleBarOverlay: true } : {}),
+        });
+
+        mainWindowRef = mainWindow;
+
+        /**
+         * Register settings IPC handlers after the window reference exists.
+         * This preserves the current app architecture and avoids unnecessary changes.
+         */
+        registerSettingsIpc(settingsManager, () => mainWindowRef);
+
+        /**
+         * Context menu definition for standard text actions.
+         */
+        const contextTemplate: any = [
+            { role: "copy" },
+            { role: "cut" },
+            { role: "paste" },
+            { role: "selectall" },
+        ];
+
+        /**
+         * Build the application menu from persisted settings so keyboard shortcuts
+         * and related behavior stay driven by settings instead of hardcoded values.
+         */
+        const menuTemplate = buildMenuTemplate(globalSettings, mainWindow);
+        const menu = Menu.buildFromTemplate(menuTemplate);
+        Menu.setApplicationMenu(menu);
+
+        const contextMenu = Menu.buildFromTemplate(contextTemplate);
+
+        mainWindow.webContents.on("context-menu", (_event, _params) => {
+            contextMenu.popup();
+        });
+
+        /**
+         * Load the correct renderer entry depending on environment.
+         */
+        if (isProd) {
+            await mainWindow.loadURL("app://./home");
+        } else {
+            const port = process.argv[2];
+            await mainWindow.loadURL(`http://localhost:${port}/home`);
+        }
+
+        /**
+         * Initialize the database after the app window is ready.
+         * If this fails, log through the central logger and then exit cleanly.
+         */
+        try {
+            initializeDB();
+            console.log("✓ Database ready");
+        } catch (error) {
+            logMainError(error, "database.initialize");
+            console.error("✗ Failed to initialize database:", error);
+            app.quit();
+            return;
+        }
     } catch (error) {
-        console.error("✗ Failed to initialize database:", error);
+        /**
+         * Final startup safety net.
+         * Any failure during bootstrap gets logged to the same central system.
+         */
+        logMainError(error, "background.bootstrap");
+        console.error("✗ Fatal startup error:", error);
         app.quit();
-        return;
     }
 })();
 
@@ -898,3 +970,4 @@ ipcMain.handle("indexer:indexFile", async (_, directoryId: string, filePath: str
         return { success: false, error: (error as Error).message };
     }
 });
+
