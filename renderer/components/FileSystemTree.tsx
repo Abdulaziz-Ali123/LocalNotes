@@ -7,7 +7,8 @@ import InputDialog from "./InputDialog";
 import TagModal from "./TagModal";
 import TagIndicators from "./TagIndicators";
 import { validateFileName } from "@/renderer/utils/fileValidation";
-
+import { useErrorToast } from "@/renderer/components/feedback/ErrorToastProvider";
+import { reportAppError } from "@/renderer/lib/reportAppError";
 
 interface FileSystemItem {
   name: string;
@@ -74,6 +75,10 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
     const [itemTagAssignments, setItemTagAssignments] = useState<Record<string, { tagIds: string[] }>>({});
     const [isCreating, setIsCreating] = useState(false);
 
+    /**
+     * Global error toast helper used for user-facing failure feedback.
+    */
+    const { showErrorToast } = useErrorToast();
 
     // Expose functions to parent component via ref
     useImperativeHandle(ref, () => ({
@@ -146,23 +151,39 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
     };
 
     // Trigger search
-    const handleSearch = async () => {
-      if (!searchQuery.trim() || !rootPath) return;
+        const handleSearch = async () => {
+            if (!searchQuery.trim() || !rootPath) return;
 
-      setIsSearching(true);
-      setSearchResults(new Set());
+            setIsSearching(true);
+            setSearchResults(new Set());
 
-      try {
-        const results = await searchFileContents(rootPath, searchQuery);
-        const resultPaths = new Set(results.map((r) => r.path));
-        setSearchResults(resultPaths);
-      } catch (e) {
-        console.error("Search error:", e);
-        alert("An error occurred while searching");
-      } finally {
-        setIsSearching(false);
-      }
-    };
+            try {
+                throw new Error("Test search failure");
+
+                const results = await searchFileContents(rootPath, searchQuery);
+                const resultPaths = new Set(results.map((r) => r.path));
+                setSearchResults(resultPaths);
+            } catch (error) {
+                /**
+                 * Show a user-facing toast so the failure is visible immediately,
+                 * then report the full error centrally for debugging.
+                 */
+                showErrorToast("An error occurred while searching.");
+
+                await reportAppError({
+                    error,
+                    context: "fileSystemTree.search",
+                    details: {
+                        rootPath,
+                        query: searchQuery,
+                        useRegex,
+                        matchCase,
+                    },
+                });
+            } finally {
+                setIsSearching(false);
+            };
+        }
 
     // Clear search
     const clearSearch = () => {
