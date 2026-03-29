@@ -158,8 +158,6 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
             setSearchResults(new Set());
 
             try {
-                throw new Error("Test search failure");
-
                 const results = await searchFileContents(rootPath, searchQuery);
                 const resultPaths = new Set(results.map((r) => r.path));
                 setSearchResults(resultPaths);
@@ -429,6 +427,24 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
             defaultValue: "",
             onConfirm: async (fileNameRaw) => {
                 setInputDialog((prev) => ({ ...prev, isOpen: false }));
+
+                try {
+                    throw new Error("Test create file failure");
+                } catch (error) {
+                    showErrorToast("Failed to create file.");
+
+                    await reportAppError({
+                        error,
+                        context: "fileSystemTree.createFile.test",
+                        details: {
+                            parentPath,
+                            fileNameRaw,
+                        },
+                    });
+
+                    return;
+                }
+
                 if (isCreating) return;
 
                 const v = validateFileName(fileNameRaw);
