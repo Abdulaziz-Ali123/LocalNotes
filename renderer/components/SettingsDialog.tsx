@@ -483,38 +483,6 @@ function AiTab() {
 
   return (
     <div className="space-y-6">
-      {/* Endpoint */}
-      <SettingRow label="Endpoint URL" description="Base URL for your LLM server (e.g. Ollama)">
-        <input
-          type="text"
-          value={aiSettings?.endpointUrl ?? "http://localhost:11434"}
-          onChange={(e) => setGlobal("ai.endpointUrl", e.target.value)}
-          className="w-64 p-2 rounded-md bg-secondary text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-ring text-sm font-mono"
-          placeholder="http://localhost:11434"
-        />
-      </SettingRow>
-
-      {/* API Key */}
-      <SettingRow label="API Key" description="Leave blank for local / unauthenticated servers">
-        <div className="flex items-center gap-1.5">
-          <input
-            type={showKey ? "text" : "password"}
-            value={aiSettings?.apiKey ?? ""}
-            onChange={(e) => setGlobal("ai.apiKey", e.target.value)}
-            className="w-56 p-2 rounded-md bg-secondary text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-ring text-sm font-mono"
-            placeholder="sk-..."
-          />
-          <button
-            type="button"
-            onClick={() => setShowKey((v) => !v)}
-            className="p-2 rounded-md hover:bg-muted transition-colors text-muted-foreground"
-            title={showKey ? "Hide key" : "Show key"}
-          >
-            {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          </button>
-        </div>
-      </SettingRow>
-
       {/* Per-model capabilities */}
       <div>
         <div className="flex items-center justify-between mb-3">
