@@ -29,10 +29,37 @@ export interface KeybindingMap {
   [key: string]: string;
 }
 
+export interface ModelCapabilities {
+  fileUpload: boolean;
+  voice: boolean;
+  thinking: boolean;
+}
+
+export interface AiModelConfig {
+  capabilities: ModelCapabilities;
+}
+
+export interface CustomModel {
+  id: string;
+  name: string;
+  provider: string;
+  apiKey?: string;
+  baseUrl?: string;
+  capabilities: ModelCapabilities;
+}
+
+export interface AiSettings {
+  endpointUrl: string;
+  apiKey: string;
+  modelConfigs: Record<string, AiModelConfig>;
+  customModels: CustomModel[];
+}
+
 export interface GlobalSettings {
   appearance: AppearanceSettings;
   editor: EditorSettings;
   keybindings: KeybindingMap;
+  ai: AiSettings;
 }
 
 export interface KeybindingAction {
@@ -99,6 +126,19 @@ const DEFAULT_KEYBINDINGS: KeybindingMap = Object.fromEntries(
 );
 
 // ---------------------------------------------------------------------------
+// Default AI model capabilities
+// ---------------------------------------------------------------------------
+
+export const DEFAULT_MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {};
+
+const INITIAL_AI: AiSettings = {
+  endpointUrl: "http://localhost:11434",
+  apiKey: "",
+  modelConfigs: {},
+  customModels: [],
+};
+
+// ---------------------------------------------------------------------------
 // Default state (before loading)
 // ---------------------------------------------------------------------------
 
@@ -115,6 +155,7 @@ const INITIAL_GLOBAL: GlobalSettings = {
     showLineNumbers: false,
   },
   keybindings: DEFAULT_KEYBINDINGS,
+  ai: INITIAL_AI,
 };
 
 // ---------------------------------------------------------------------------
