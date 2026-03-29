@@ -15,10 +15,7 @@ import { Button } from "@/renderer/components/ui/button";
 import { Checkbox } from "@/renderer/components/ui/checkbox";
 import { Label } from "@/renderer/components/ui/label";
 import AddModelsModal from "@/renderer/components/AddModelsModal";
-import {
-  DEFAULT_MODEL_CAPABILITIES,
-  type ModelCapabilities,
-} from "@/renderer/store/settings-slice";
+import { type ModelCapabilities } from "@/renderer/store/settings-slice";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -457,17 +454,6 @@ function KeybindingsTab() {
 // AI tab
 // ---------------------------------------------------------------------------
 
-const MODEL_LABELS: Record<string, string> = {
-  "llama3.2":    "Llama 3.2",
-  "mistral":     "Mistral",
-  "gemma2":      "Gemma 2",
-  "phi3":        "Phi-3",
-  "codellama":   "Code Llama",
-  "deepseek-r1": "DeepSeek R1",
-  "qwen2.5":     "Qwen 2.5",
-  "llava":       "LLaVA (Vision)",
-};
-
 function AiTab() {
   const aiSettings = useBoundStore((s) => s.settings.global.ai);
   const setGlobal   = useBoundStore((s) => s.settings.setGlobal);
@@ -476,15 +462,13 @@ function AiTab() {
   // Add Models UI state
   const [isAddModelsOpen, setIsAddModelsOpen] = useState(false);
 
-  const modelIds = [
-    ...Object.keys(DEFAULT_MODEL_CAPABILITIES),
-    ...(aiSettings?.customModels?.map(m => m.id) || []),
-  ];
+  const modelIds = aiSettings?.customModels?.map(m => m.id) || [];
 
   const getCaps = (modelId: string): ModelCapabilities => {
     return (
       aiSettings?.modelConfigs?.[modelId]?.capabilities ??
-      DEFAULT_MODEL_CAPABILITIES[modelId] ?? { fileUpload: false, voice: true, thinking: false }
+      aiSettings?.customModels?.find(m => m.id === modelId)?.capabilities ??
+      { fileUpload: false, voice: true, thinking: false }
     );
   };
 
@@ -559,29 +543,36 @@ function AiTab() {
             <span className="w-24 text-center">Voice</span>
             <span className="w-24 text-center">Thinking</span>
           </div>
-          {modelIds.map((id, idx) => {
-            const caps = getCaps(id);
-            return (
-              <div
-                key={id}
-                className={`flex items-center px-4 py-2.5 text-sm ${
-                  idx > 0 ? "border-t border-border" : ""
-                }`}
-              >
-                <span className="flex-1 font-medium truncate">
-                  {MODEL_LABELS[id] ?? aiSettings?.customModels?.find(m => m.id === id)?.name ?? id}
-                </span>
-                {(["fileUpload", "voice", "thinking"] as const).map((cap) => (
-                  <div key={cap} className="w-24 flex justify-center">
-                    <Checkbox
-                      checked={caps[cap]}
-                      onCheckedChange={(checked) => toggleCap(id, cap, !!checked)}
-                    />
-                  </div>
-                ))}
-              </div>
-            );
-          })}
+          {modelIds.length === 0 ? (
+            <div className="px-4 py-8 flex flex-col items-center justify-center text-center text-sm text-muted-foreground bg-muted/10">
+              <p>No models configured yet.</p>
+              <p className="mt-1 opacity-70">Click &quot;Add Models...&quot; to get started.</p>
+            </div>
+          ) : (
+            modelIds.map((id, idx) => {
+              const caps = getCaps(id);
+              return (
+                <div
+                  key={id}
+                  className={`flex items-center px-4 py-2.5 text-sm ${
+                    idx > 0 ? "border-t border-border" : ""
+                  }`}
+                >
+                  <span className="flex-1 font-medium truncate">
+                    {aiSettings?.customModels?.find(m => m.id === id)?.name ?? id}
+                  </span>
+                  {(["fileUpload", "voice", "thinking"] as const).map((cap) => (
+                    <div key={cap} className="w-24 flex justify-center">
+                      <Checkbox
+                        checked={caps[cap]}
+                        onCheckedChange={(checked) => toggleCap(id, cap, !!checked)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 

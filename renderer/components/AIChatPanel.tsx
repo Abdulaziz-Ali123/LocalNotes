@@ -46,17 +46,6 @@ interface Conversation {
   createdAt: Date;
 }
 
-const MODEL_OPTIONS = [
-  { id: "llama3.2", name: "Llama 3.2", provider: "Ollama" },
-  { id: "mistral", name: "Mistral", provider: "Ollama" },
-  { id: "gemma2", name: "Gemma 2", provider: "Ollama" },
-  { id: "phi3", name: "Phi-3", provider: "Ollama" },
-  { id: "codellama", name: "Code Llama", provider: "Ollama" },
-  { id: "deepseek-r1", name: "DeepSeek R1", provider: "Ollama" },
-  { id: "qwen2.5", name: "Qwen 2.5", provider: "Ollama" },
-  { id: "llava", name: "LLaVA (Vision)", provider: "Ollama" },
-];
-
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
@@ -83,23 +72,25 @@ function ModelSelector({
   }, []);
 
   const customModels = aiSettings?.customModels || [];
-  const allModels = [...MODEL_OPTIONS, ...customModels];
-  const current = allModels.find((m) => m.id === selectedModel) ?? allModels[0];
+  const current = customModels.find((m) => m.id === selectedModel) ?? customModels[0];
 
   return (
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background border border-border text-sm font-medium hover:bg-muted transition-colors"
+        disabled={customModels.length === 0}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background border border-border text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <span className="truncate max-w-[140px]">{current.name}</span>
+        <span className="truncate max-w-[140px]">
+          {current ? current.name : "No Models Added"}
+        </span>
         <RiArrowDownSLine
           className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
-      {open && (
+      {open && customModels.length > 0 && (
         <div className="absolute top-full left-0 mt-1 w-56 bg-background border border-border rounded-lg shadow-lg z-50 py-1 max-h-64 overflow-y-auto">
-          {allModels.map((model) => (
+          {customModels.map((model) => (
             <button
               key={model.id}
               onClick={() => {
@@ -231,7 +222,7 @@ export default function AIChatPanel() {
       id: generateId(),
       title: "New Chat",
       messages: [],
-      model: "llama3.2",
+      model: aiSettings?.customModels?.[0]?.id ?? "",
       createdAt: new Date(),
     },
   ]);
@@ -251,8 +242,8 @@ export default function AIChatPanel() {
   // Derive capabilities for the active model
   const caps = (
     aiSettings?.modelConfigs?.[activeConvo.model]?.capabilities ??
-    DEFAULT_MODEL_CAPABILITIES[activeConvo.model] ??
-    { fileUpload: false, voice: true, thinking: false }
+    aiSettings?.customModels?.find(m => m.id === activeConvo.model)?.capabilities ??
+    { fileUpload: false, voice: false, thinking: false }
   );
 
   // Auto-scroll to bottom when messages change

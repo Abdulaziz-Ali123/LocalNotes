@@ -129,26 +129,12 @@ const DEFAULT_KEYBINDINGS: KeybindingMap = Object.fromEntries(
 // Default AI model capabilities
 // ---------------------------------------------------------------------------
 
-export const DEFAULT_MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
-  "llama3.2":    { fileUpload: false, voice: true,  thinking: false },
-  "mistral":     { fileUpload: false, voice: true,  thinking: false },
-  "gemma2":      { fileUpload: false, voice: true,  thinking: false },
-  "phi3":        { fileUpload: false, voice: true,  thinking: false },
-  "codellama":   { fileUpload: false, voice: true,  thinking: false },
-  "deepseek-r1": { fileUpload: false, voice: true,  thinking: true  },
-  "qwen2.5":     { fileUpload: false, voice: true,  thinking: true  },
-  "llava":       { fileUpload: true,  voice: true,  thinking: false },
-};
+export const DEFAULT_MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {};
 
 const INITIAL_AI: AiSettings = {
   endpointUrl: "http://localhost:11434",
   apiKey: "",
-  modelConfigs: Object.fromEntries(
-    Object.entries(DEFAULT_MODEL_CAPABILITIES).map(([id, caps]) => [
-      id,
-      { capabilities: caps },
-    ])
-  ),
+  modelConfigs: {},
   customModels: [],
 };
 
