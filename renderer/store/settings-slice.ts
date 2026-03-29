@@ -3,6 +3,9 @@
  *
  * Loads settings from the main process on init and keeps them in sync.
  * Exposes setter helpers that persist changes via IPC and update local state.
+ * 
+ * Revision History:
+ *  • Wesley McDougal - 29MAR2026 - Custom theme types and initial state
  */
 
 import { StateCreator } from "zustand";
@@ -10,12 +13,42 @@ import { StateCreator } from "zustand";
 // Re-declare the types inline so the renderer doesn't import from main/.
 // These mirror main/settings/schema.ts exactly.
 
-export type ThemeType = "light" | "dark" | "nord" | "cozy" | "darker";
+export type ThemeType = string;
+
+export interface CustomThemeTokens {
+  background: string;
+  foreground: string;
+  card: string;
+  cardForeground: string;
+  primary: string;
+  primaryForeground: string;
+  secondary: string;
+  secondaryForeground: string;
+  muted: string;
+  mutedForeground: string;
+  accent: string;
+  accentForeground: string;
+  border: string;
+  input: string;
+  ring: string;
+  sidebar: string;
+  sidebarForeground: string;
+  sidebarAccent: string;
+  sidebarAccentForeground: string;
+  sidebarBorder: string;
+}
+
+export interface CustomThemeDefinition {
+  id: string;
+  name: string;
+  tokens: CustomThemeTokens;
+}
 
 export interface AppearanceSettings {
   theme: ThemeType;
   fontSize: number;
   fontFamily: string;
+  customThemes: Record<string, CustomThemeDefinition>;
 }
 
 export interface EditorSettings {
@@ -107,6 +140,7 @@ const INITIAL_GLOBAL: GlobalSettings = {
     theme: "nord",
     fontSize: 14,
     fontFamily: "monospace",
+    customThemes: {},
   },
   editor: {
     autosaveEnabled: true,

@@ -4,18 +4,51 @@
  * TypeScript interfaces defining the shape of all settings.
  * These interfaces are the single source of truth for the settings structure
  * and are shared between the main process SettingsManager and the renderer.
+ * 
+ * Revision History:
+ *  • Wesley McDougal - 29MAR2026 - Added CustomThemeTokens and customThemes to AppearanceSettings
  */
 
 // ---------------------------------------------------------------------------
 // Appearance
 // ---------------------------------------------------------------------------
 
-export type ThemeType = "light" | "dark" | "nord" | "cozy" | "darker";
+export type ThemeType = string;
+
+export interface CustomThemeTokens {
+  background: string;
+  foreground: string;
+  card: string;
+  cardForeground: string;
+  primary: string;
+  primaryForeground: string;
+  secondary: string;
+  secondaryForeground: string;
+  muted: string;
+  mutedForeground: string;
+  accent: string;
+  accentForeground: string;
+  border: string;
+  input: string;
+  ring: string;
+  sidebar: string;
+  sidebarForeground: string;
+  sidebarAccent: string;
+  sidebarAccentForeground: string;
+  sidebarBorder: string;
+}
+
+export interface CustomThemeDefinition {
+  id: string;
+  name: string;
+  tokens: CustomThemeTokens;
+}
 
 export interface AppearanceSettings {
   theme: ThemeType;
   fontSize: number;
   fontFamily: string;
+  customThemes: Record<string, CustomThemeDefinition>;
 }
 
 // ---------------------------------------------------------------------------

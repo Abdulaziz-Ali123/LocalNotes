@@ -3,12 +3,15 @@
  *
  * Full-screen modal dialog for managing global settings.
  * Contains three tabs: Appearance, Editor, and Keybindings.
+ * 
+ * Revision History:
+ * - 29 MAR 2026: Wesley McDougal - Updated Appearance tab to include custom themes in dropdown
  */
 
 import React, { useState, useEffect, useCallback } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
-import { useTheme, type ThemeType } from "@/renderer/lib/theme";
+import { useTheme } from "@/renderer/lib/theme";
 import { X } from "lucide-react";
 import { Button } from "@/renderer/components/ui/button";
 import { Checkbox } from "@/renderer/components/ui/checkbox";
@@ -100,6 +103,10 @@ function AppearanceTab() {
   const { theme, setTheme } = useTheme();
   const globalSettings = useBoundStore((s) => s.settings.global);
   const setGlobal = useBoundStore((s) => s.settings.setGlobal);
+  const customThemes = globalSettings.appearance.customThemes ?? {};
+  const customThemeList = Object.values(customThemes).sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+  );
 
   const fontSize = globalSettings.appearance.fontSize;
   const fontFamily = globalSettings.appearance.fontFamily;
@@ -110,14 +117,25 @@ function AppearanceTab() {
       <SettingRow label="Theme" description="Choose the color theme for the app">
         <select
           value={theme}
-          onChange={(e) => setTheme(e.target.value as ThemeType)}
+          onChange={(e) => setTheme(e.target.value)}
           className="w-48 p-2 rounded-md bg-secondary text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-ring text-sm"
         >
-          <option value="nord">Nord (Default)</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-          <option value="cozy">Cozy</option>
-          <option value="darker">Darker</option>
+          <optgroup label="Built-in">
+            <option value="nord">Nord (Default)</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+            <option value="cozy">Cozy</option>
+            <option value="darker">Darker</option>
+          </optgroup>
+          {customThemeList.length > 0 && (
+            <optgroup label="Custom">
+              {customThemeList.map((custom) => (
+                <option key={custom.id} value={custom.id}>
+                  {custom.name}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
       </SettingRow>
 
