@@ -428,7 +428,8 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
             onConfirm: async (fileNameRaw) => {
                 setInputDialog((prev) => ({ ...prev, isOpen: false }));
 
-                try {
+                // try catch block to tests error logging
+                /*try {
                     throw new Error("Test create file failure");
                 } catch (error) {
                     showErrorToast("Failed to create file.");
@@ -443,7 +444,7 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
                     });
 
                     return;
-                }
+                }*/
 
                 if (isCreating) return;
 
