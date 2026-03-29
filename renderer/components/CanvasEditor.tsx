@@ -43,456 +43,676 @@
  * 6. Render the scrollable notebook as a stack of page canvases.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import PageCanvas from "./canvas/PageCanvas";
 import {
-  type CanvasDocV1,
-  type GlobalCanvasPoint,
+    type CanvasDocV1,
+    type GlobalCanvasPoint,
 } from "./canvas/canvasTypes";
 import {
-  createEmptyCanvasDoc,
-  parseCanvasDoc,
-  serializeCanvasDoc,
+    createEmptyCanvasDoc,
+    parseCanvasDoc,
+    serializeCanvasDoc,
 } from "./canvas/canvasDoc";
 import {
-  ensurePageExists,
-  ensurePagesThroughY,
-  getVisiblePageRange,
+    ensurePageExists,
+    ensurePagesThroughY,
+    getVisiblePageRange,
 } from "./canvas/pageMath";
 import { splitStrokeAcrossPages } from "./canvas/strokeSplit";
 
-/**
- * Props accepted by the canvas editor.
- *
- * value:
- * Raw persisted file content coming from the editor system.
- *
- * onChange:
- * Callback used to push serialized canvas document updates back to the parent.
- *
- * onSave / isSaving:
- * Optional save integration so the canvas editor can reuse the same save controls
- * as the rest of the file editing experience.
- */
 interface CanvasEditorProps {
-  value: string;
-  onChange: (value: string) => void;
-  onSave?: () => void;
-  isSaving?: boolean;
+    value: string;
+    onChange: (value: string) => void;
+    onSave?: () => void;
+    isSaving?: boolean;
 }
 
-/**
- * Auto-scroll configuration.
- *
- * AUTO_SCROLL_EDGE_THRESHOLD:
- * When the pointer gets this close to the top or bottom edge of the viewport
- * during drawing, the notebook begins to scroll.
- *
- * AUTO_SCROLL_STEP:
- * The number of pixels to pan the notebook per pointer-move step while drawing.
- */
 const AUTO_SCROLL_EDGE_THRESHOLD = 80;
 const AUTO_SCROLL_STEP = 24;
 
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2.5;
+const ZOOM_STEP_IN = 1.1;
+const ZOOM_STEP_OUT = 1 / ZOOM_STEP_IN;
+
+const VIEWPORT_PADDING = 24;
+
+interface MousePanState {
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    startScrollLeft: number;
+    startScrollTop: number;
+}
+
+type TouchGestureState =
+    | {
+        mode: "pan";
+        startTouchX: number;
+        startTouchY: number;
+        startScrollLeft: number;
+        startScrollTop: number;
+    }
+    | {
+        mode: "pinch";
+        startDistance: number;
+        startMidX: number;
+        startMidY: number;
+        startZoom: number;
+        anchorNotebookX: number;
+        anchorNotebookY: number;
+        startScrollLeft: number;
+        startScrollTop: number;
+    };
+
 const CanvasEditor: React.FC<CanvasEditorProps> = ({
-  value,
-  onChange,
-  onSave,
-  isSaving,
+    value,
+    onChange,
+    onSave,
+    isSaving,
 }) => {
-  /**
-   * Ref to the scrollable notebook container.
-   *
-   * This is the key DOM element for:
-   * - measuring viewport size
-   * - reading/writing scrollTop
-   * - converting client coordinates into notebook coordinates
-   */
-  const containerRef = useRef<HTMLDivElement | null>(null);
+    const containerRef = useRef<HTMLDivElement | null>(null);
+    const scaledNotebookRef = useRef<HTMLDivElement | null>(null);
+    const mousePanRef = useRef<MousePanState | null>(null);
+    const touchGestureRef = useRef<TouchGestureState | null>(null);
 
-  /**
-   * doc:
-   * The current structured multi-page canvas document in memory.
-   *
-   * activeStroke:
-   * Temporary in-progress stroke stored in notebook/global coordinates while
-   * the user is actively drawing.
-   *
-   * isDrawing:
-   * Tracks whether a pointer stroke is currently active.
-   *
-   * visibleRange:
-   * Stores the currently relevant page range for nearby-page rendering logic
-   * and debug visibility tracking.
-   */
-  const [doc, setDoc] = useState<CanvasDocV1>(createEmptyCanvasDoc());
-  const [activeStroke, setActiveStroke] = useState<GlobalCanvasPoint[]>([]);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 2 });
+    const [doc, setDoc] = useState<CanvasDocV1>(createEmptyCanvasDoc());
+    const [activeStroke, setActiveStroke] = useState<GlobalCanvasPoint[]>([]);
+    const [isDrawing, setIsDrawing] = useState(false);
+    const [visibleRange, setVisibleRange] = useState({ start: 0, end: 2 });
+    const [zoom, setZoom] = useState<number>(1);
 
-  /**
-   * Basic drawing tool configuration.
-   * These settings are applied when a completed stroke is committed.
-   */
-  const [currentColor, setCurrentColor] = useState<string>("#111827");
-  const [currentSize, setCurrentSize] = useState<number>(4);
+    const [currentColor, setCurrentColor] = useState<string>("#111827");
+    const [currentSize, setCurrentSize] = useState<number>(4);
 
-  /**
-   * Load or reload the canvas document whenever the incoming file content changes.
-   *
-   * parseCanvasDoc handles:
-   * - empty content
-   * - valid V1 multi-page content
-   * - migration from old single-page canvas JSON
-   */
-  useEffect(() => {
-    setDoc(parseCanvasDoc(value));
-  }, [value]);
+    const notebookHeight = useMemo(() => {
+        const pageCount = doc.pages.length;
+        if (pageCount === 0) return doc.page.height;
 
-  /**
-   * Temporary debug hook exposed on window for manual DevTools inspection.
-   *
-   * This was useful during development to verify:
-   * - page counts
-   * - active stroke points
-   * - visible page ranges
-   * - scroll container dimensions
-   *
-   * This can be removed later if no longer needed.
-   */
-  useEffect(() => {
-    (window as any).__canvasDebug = {
-      getDoc: () => doc,
-      getActiveStroke: () => activeStroke,
-      getVisibleRange: () => visibleRange,
-      getScrollInfo: () => {
-        const el = containerRef.current;
-        if (!el) return null;
-        return {
-          scrollTop: el.scrollTop,
-          clientHeight: el.clientHeight,
-          scrollHeight: el.scrollHeight,
+        return (
+            pageCount * doc.page.height +
+            Math.max(0, pageCount - 1) * doc.page.gap
+        );
+    }, [doc]);
+
+    const clampZoom = useCallback((value: number) => {
+        return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, value));
+    }, []);
+
+    useEffect(() => {
+        setDoc(parseCanvasDoc(value));
+    }, [value]);
+
+    useEffect(() => {
+        (window as any).__canvasDebug = {
+            getDoc: () => doc,
+            getActiveStroke: () => activeStroke,
+            getVisibleRange: () => visibleRange,
+            getZoom: () => zoom,
+            getScrollInfo: () => {
+                const el = containerRef.current;
+                if (!el) return null;
+                return {
+                    scrollLeft: el.scrollLeft,
+                    scrollTop: el.scrollTop,
+                    clientWidth: el.clientWidth,
+                    clientHeight: el.clientHeight,
+                    scrollWidth: el.scrollWidth,
+                    scrollHeight: el.scrollHeight,
+                };
+            },
         };
-      },
-    };
-  }, [doc, activeStroke, visibleRange]);
+    }, [doc, activeStroke, visibleRange, zoom]);
 
-  /**
-   * Commits a fully updated canvas document into local state and immediately
-   * serializes it back to the parent editor.
-   *
-   * This centralizes document persistence behavior so save-worthy updates do not
-   * have to manually repeat setDoc + JSON serialization logic everywhere.
-   */
-  const commitDoc = useCallback(
-    (nextDoc: CanvasDocV1) => {
-      setDoc(nextDoc);
-      onChange(serializeCanvasDoc(nextDoc));
-    },
-    [onChange]
-  );
-
-  /**
-   * Converts browser client coordinates into notebook/global coordinates.
-   *
-   * Why this matters:
-   * In the old single-page editor, pointer coordinates could be stored directly
-   * relative to one canvas. In the new notebook model, drawing happens inside
-   * a scrollable document, so the current scrollTop must be included.
-   */
-  const getNotebookPos = useCallback((clientX: number, clientY: number) => {
-    const container = containerRef.current;
-    if (!container) return null;
-
-    const rect = container.getBoundingClientRect();
-
-    return {
-      x: clientX - rect.left,
-      y: clientY - rect.top + container.scrollTop,
-      t: performance.now(),
-    };
-  }, []);
-
-  /**
-   * Recomputes which pages are near the current viewport.
-   *
-   * This supports nearby-page awareness and can also help with future rendering
-   * optimizations or virtualization if desired.
-   */
-  const updateVisibleRange = useCallback(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    setVisibleRange(
-      getVisiblePageRange(doc, container.scrollTop, container.clientHeight, 1)
-    );
-  }, [doc]);
-
-  /**
-   * Refresh the visible range whenever the document changes.
-   * This keeps page visibility metadata aligned with content growth and reloads.
-   */
-  useEffect(() => {
-    updateVisibleRange();
-  }, [doc, updateVisibleRange]);
-
-  /**
-   * Begins a new drawing stroke.
-   *
-   * Workflow:
-   * - capture the pointer
-   * - convert the first point into notebook/global coordinates
-   * - initialize activeStroke with that first point
-   */
-  const handlePointerDown = useCallback(
-    (e: React.PointerEvent<HTMLCanvasElement>) => {
-      const target = e.currentTarget;
-      target.setPointerCapture(e.pointerId);
-
-      const pos = getNotebookPos(e.clientX, e.clientY);
-      if (!pos) return;
-
-      setIsDrawing(true);
-      setActiveStroke([pos]);
-    },
-    [getNotebookPos]
-  );
-
-  /**
-   * Continues an in-progress stroke while the pointer moves.
-   *
-   * Responsibilities:
-   * - auto-scroll the notebook if the pointer nears the top/bottom edge
-   * - convert the live pointer position into notebook/global coordinates
-   * - append the point to the active stroke
-   * - ensure enough pages exist for the current drawing position
-   * - refresh visibility information as scrolling changes
-   *
-   * This is the key handler that gives the notebook its "keep drawing downward"
-   * behavior rather than forcing the user to stop at page boundaries.
-   */
-  const handlePointerMove = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!isDrawing) return;
-
-      const container = containerRef.current;
-      if (!container) return;
-
-      const rect = container.getBoundingClientRect();
-
-      // Auto-pan downward or upward while the pointer stays near the viewport edge.
-      if (e.clientY > rect.bottom - AUTO_SCROLL_EDGE_THRESHOLD) {
-        container.scrollTop += AUTO_SCROLL_STEP;
-      } else if (e.clientY < rect.top + AUTO_SCROLL_EDGE_THRESHOLD) {
-        container.scrollTop -= AUTO_SCROLL_STEP;
-      }
-
-      const pos = getNotebookPos(e.clientX, e.clientY);
-      if (!pos) return;
-
-      setActiveStroke((prev) => [...prev, pos]);
-
-      // Grow the page list on demand so the notebook can extend downward naturally.
-      setDoc((prevDoc) => ensurePagesThroughY(prevDoc, pos.y));
-
-      setVisibleRange(
-        getVisiblePageRange(doc, container.scrollTop, container.clientHeight, 1)
-      );
-    },
-    [doc, getNotebookPos, isDrawing]
-  );
-
-  /**
-   * Finalizes the current active stroke.
-   *
-   * Workflow:
-   * 1. If no valid stroke exists, just reset drawing state.
-   * 2. Split the temporary notebook/global stroke into page-local fragments.
-   * 3. Append each fragment to the correct page.
-   * 4. Commit the updated multi-page document.
-   *
-   * This function is the main bridge from "live pointer input" to
-   * "structured persisted page-based strokes."
-   */
-  const handlePointerUp = useCallback(() => {
-    if (!isDrawing || !activeStroke.length) {
-      setIsDrawing(false);
-      setActiveStroke([]);
-      return;
-    }
-
-    let nextDoc = doc;
-
-    const fragments = splitStrokeAcrossPages(
-      nextDoc,
-      activeStroke,
-      currentColor,
-      currentSize
+    const commitDoc = useCallback(
+        (nextDoc: CanvasDocV1) => {
+            setDoc(nextDoc);
+            onChange(serializeCanvasDoc(nextDoc));
+        },
+        [onChange]
     );
 
-    for (const fragment of fragments) {
-      nextDoc = ensurePageExists(nextDoc, fragment.pageIndex);
-      const pages = [...nextDoc.pages];
-      const page = pages[fragment.pageIndex];
+    const getNotebookPos = useCallback(
+        (clientX: number, clientY: number) => {
+            const scaledNotebook = scaledNotebookRef.current;
+            if (!scaledNotebook) return null;
 
-      pages[fragment.pageIndex] = {
-        ...page,
-        strokes: [...page.strokes, fragment.stroke],
-      };
+            const rect = scaledNotebook.getBoundingClientRect();
 
-      nextDoc = {
-        ...nextDoc,
-        pages,
-      };
-    }
+            return {
+                x: (clientX - rect.left) / zoom,
+                y: (clientY - rect.top) / zoom,
+                t: performance.now(),
+            };
+        },
+        [zoom]
+    );
 
-    commitDoc(nextDoc);
-    setIsDrawing(false);
-    setActiveStroke([]);
-  }, [isDrawing, activeStroke, doc, currentColor, currentSize, commitDoc]);
+    const updateVisibleRange = useCallback(() => {
+        const container = containerRef.current;
+        if (!container) return;
 
-  /**
-   * Removes the most recently committed stroke from the last page that still
-   * contains strokes.
-   *
-   * This is the multi-page equivalent of undoing the last action in the old
-   * flat stroke list model.
-   */
-  const handleUndo = useCallback(() => {
-    let lastPageIndex = -1;
+        setVisibleRange(
+            getVisiblePageRange(
+                doc,
+                container.scrollTop / zoom,
+                container.clientHeight / zoom,
+                2
+            )
+        );
+    }, [doc, zoom]);
 
-    for (let i = doc.pages.length - 1; i >= 0; i--) {
-      if (doc.pages[i].strokes.length > 0) {
-        lastPageIndex = i;
-        break;
-      }
-    }
+    useEffect(() => {
+        updateVisibleRange();
+    }, [doc, zoom, updateVisibleRange]);
 
-    if (lastPageIndex === -1) return;
+    const applyZoomAtClientPoint = useCallback(
+        (nextZoom: number, clientX: number, clientY: number) => {
+            const container = containerRef.current;
+            const scaledNotebook = scaledNotebookRef.current;
+            if (!container || !scaledNotebook) return;
 
-    const pages = [...doc.pages];
-    const page = pages[lastPageIndex];
+            const clampedZoom = clampZoom(nextZoom);
+            const previousZoom = zoom;
 
-    pages[lastPageIndex] = {
-      ...page,
-      strokes: page.strokes.slice(0, -1),
-    };
+            if (Math.abs(clampedZoom - previousZoom) < 0.0001) {
+                return;
+            }
 
-    commitDoc({
-      ...doc,
-      pages,
-    });
-  }, [doc, commitDoc]);
+            const rect = scaledNotebook.getBoundingClientRect();
+            const offsetXBefore = clientX - rect.left;
+            const offsetYBefore = clientY - rect.top;
 
-  /**
-   * Resets the canvas editor to a fresh blank document.
-   *
-   * In the current implementation, clear returns the notebook to a new
-   * single empty page with default layout settings.
-   */
-  const handleClear = useCallback(() => {
-    commitDoc(createEmptyCanvasDoc());
-  }, [commitDoc]);
+            const anchorNotebookX = offsetXBefore / previousZoom;
+            const anchorNotebookY = offsetYBefore / previousZoom;
 
-  return (
-    /**
-     * Root canvas editor layout.
-     *
-     * Important layout detail:
-     * min-h-0 and overflow-hidden are necessary so the notebook container below
-     * becomes a real bounded scroll viewport instead of expanding to full content height.
-     */
-    <div className="flex flex-col h-full min-h-0 w-full bg-background rounded-lg border border-border overflow-hidden">
-      {/* Toolbar / controls section */}
-      <div className="flex items-center gap-2 p-2 border-b border-border bg-muted">
-        <label className="text-xs text-muted-foreground">Color</label>
-        <input
-          type="color"
-          value={currentColor}
-          onChange={(e) => setCurrentColor(e.target.value)}
-          className="h-6 w-6 p-0 border border-border rounded"
-        />
+            setZoom(clampedZoom);
 
-        <label className="text-xs text-muted-foreground ml-2">Size</label>
-        <input
-          type="range"
-          min={1}
-          max={24}
-          value={currentSize}
-          onChange={(e) => setCurrentSize(Number(e.target.value))}
-          className="w-24"
-        />
+            requestAnimationFrame(() => {
+                const currentContainer = containerRef.current;
+                if (!currentContainer) return;
 
-        <button
-          className="px-2 py-1 text-sm rounded-md bg-background border border-border hover:bg-accent"
-          onClick={handleUndo}
-          title="Undo last stroke"
-        >
-          Undo
-        </button>
+                currentContainer.scrollLeft +=
+                    anchorNotebookX * (clampedZoom - previousZoom);
+                currentContainer.scrollTop +=
+                    anchorNotebookY * (clampedZoom - previousZoom);
 
-        <button
-          className="px-2 py-1 text-sm rounded-md bg-background border border-border hover:bg-accent"
-          onClick={handleClear}
-          title="Clear canvas"
-        >
-          Clear
-        </button>
+                updateVisibleRange();
+            });
+        },
+        [clampZoom, zoom, updateVisibleRange]
+    );
 
-        {onSave && (
-          <button
-            className="px-2 py-1 text-sm rounded-md bg-background border border-border hover:bg-accent ml-auto"
-            onClick={onSave}
-            disabled={isSaving}
-            title="Save canvas"
-          >
-            {isSaving ? "Saving..." : "Save"}
-          </button>
-        )}
-      </div>
+    const zoomAroundViewportCenter = useCallback(
+        (nextZoom: number) => {
+            const container = containerRef.current;
+            if (!container) return;
 
-      {/* Scrollable notebook viewport */}
-      <div
-        ref={containerRef}
-        data-canvas-scroll="true"
-        className="flex-1 min-h-0 h-0 overflow-y-auto bg-zinc-200"
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
-        onScroll={updateVisibleRange}
-      >
-        {/* Stacked page shells */}
-        <div className="py-6">
-          {doc.pages.map((page, index) => (
-            <div
-              key={page.id}
-              data-canvas-page={index}
-              className="mx-auto mb-6 bg-white shadow border border-zinc-400 relative"
-              style={{
-                width: doc.page.width,
-                height: doc.page.height,
-              }}
-            >
-              {/* Temporary page label added during development/debugging */}
-              <div className="absolute top-2 left-2 z-10 text-xs px-2 py-1 rounded bg-black/70 text-white">
-                Page {index}
-              </div>
+            const rect = container.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
 
-              {/* Render a single page using the dedicated per-page canvas component */}
-              <PageCanvas
-                page={page}
-                width={doc.page.width}
-                height={doc.page.height}
-                background={doc.page.background}
-                onPointerDown={handlePointerDown}
-              />
+            applyZoomAtClientPoint(nextZoom, centerX, centerY);
+        },
+        [applyZoomAtClientPoint]
+    );
+
+    const handlePointerDown = useCallback(
+        (e: React.PointerEvent<HTMLCanvasElement>) => {
+            const container = containerRef.current;
+            if (!container) return;
+
+            if (e.pointerType === "touch") {
+                return;
+            }
+
+            const isMiddleMousePan = e.pointerType === "mouse" && e.button === 1;
+            const isAltLeftMousePan =
+                e.pointerType === "mouse" && e.button === 0 && e.altKey;
+
+            if (isMiddleMousePan || isAltLeftMousePan) {
+                e.preventDefault();
+
+                e.currentTarget.setPointerCapture(e.pointerId);
+
+                mousePanRef.current = {
+                    pointerId: e.pointerId,
+                    startClientX: e.clientX,
+                    startClientY: e.clientY,
+                    startScrollLeft: container.scrollLeft,
+                    startScrollTop: container.scrollTop,
+                };
+
+                setIsDrawing(false);
+                setActiveStroke([]);
+                return;
+            }
+
+            const pos = getNotebookPos(e.clientX, e.clientY);
+            if (!pos) return;
+
+            e.currentTarget.setPointerCapture(e.pointerId);
+
+            setIsDrawing(true);
+            setActiveStroke([pos]);
+        },
+        [getNotebookPos]
+    );
+
+    const handlePointerMove = useCallback(
+        (e: React.PointerEvent<HTMLDivElement>) => {
+            const container = containerRef.current;
+            if (!container) return;
+
+            const panState = mousePanRef.current;
+            if (panState && panState.pointerId === e.pointerId) {
+                const dx = e.clientX - panState.startClientX;
+                const dy = e.clientY - panState.startClientY;
+
+                container.scrollLeft = panState.startScrollLeft - dx;
+                container.scrollTop = panState.startScrollTop - dy;
+
+                updateVisibleRange();
+                return;
+            }
+
+            if (!isDrawing) return;
+
+            const rect = container.getBoundingClientRect();
+
+            if (e.clientY > rect.bottom - AUTO_SCROLL_EDGE_THRESHOLD) {
+                container.scrollTop += AUTO_SCROLL_STEP;
+            } else if (e.clientY < rect.top + AUTO_SCROLL_EDGE_THRESHOLD) {
+                container.scrollTop -= AUTO_SCROLL_STEP;
+            }
+
+            const pos = getNotebookPos(e.clientX, e.clientY);
+            if (!pos) return;
+
+            setActiveStroke((prev) => [...prev, pos]);
+            setDoc((prevDoc) => ensurePagesThroughY(prevDoc, pos.y));
+
+            updateVisibleRange();
+        },
+        [getNotebookPos, isDrawing, updateVisibleRange]
+    );
+
+    const handlePointerUp = useCallback(() => {
+        if (mousePanRef.current) {
+            mousePanRef.current = null;
+            return;
+        }
+
+        if (!isDrawing || !activeStroke.length) {
+            setIsDrawing(false);
+            setActiveStroke([]);
+            return;
+        }
+
+        let nextDoc = doc;
+
+        const fragments = splitStrokeAcrossPages(
+            nextDoc,
+            activeStroke,
+            currentColor,
+            currentSize
+        );
+
+        for (const fragment of fragments) {
+            nextDoc = ensurePageExists(nextDoc, fragment.pageIndex);
+            const pages = [...nextDoc.pages];
+            const page = pages[fragment.pageIndex];
+
+            pages[fragment.pageIndex] = {
+                ...page,
+                strokes: [...page.strokes, fragment.stroke],
+            };
+
+            nextDoc = {
+                ...nextDoc,
+                pages,
+            };
+        }
+
+        commitDoc(nextDoc);
+        setIsDrawing(false);
+        setActiveStroke([]);
+    }, [isDrawing, activeStroke, doc, currentColor, currentSize, commitDoc]);
+
+    const handleWheel = useCallback(
+        (e: React.WheelEvent<HTMLDivElement>) => {
+            if (!(e.ctrlKey || e.metaKey)) {
+                return;
+            }
+
+            e.preventDefault();
+
+            const nextZoom =
+                e.deltaY < 0 ? zoom * ZOOM_STEP_IN : zoom * ZOOM_STEP_OUT;
+
+            applyZoomAtClientPoint(nextZoom, e.clientX, e.clientY);
+        },
+        [zoom, applyZoomAtClientPoint]
+    );
+
+    const handleTouchStart = useCallback(
+        (e: React.TouchEvent<HTMLDivElement>) => {
+            const container = containerRef.current;
+            if (!container) return;
+
+            if (e.touches.length === 1) {
+                const touch = e.touches[0];
+
+                touchGestureRef.current = {
+                    mode: "pan",
+                    startTouchX: touch.clientX,
+                    startTouchY: touch.clientY,
+                    startScrollLeft: container.scrollLeft,
+                    startScrollTop: container.scrollTop,
+                };
+
+                return;
+            }
+
+            if (e.touches.length === 2) {
+                const t1 = e.touches[0];
+                const t2 = e.touches[1];
+
+                const dx = t2.clientX - t1.clientX;
+                const dy = t2.clientY - t1.clientY;
+                const distance = Math.hypot(dx, dy);
+
+                const midX = (t1.clientX + t2.clientX) / 2;
+                const midY = (t1.clientY + t2.clientY) / 2;
+
+                const anchor = getNotebookPos(midX, midY);
+                if (!anchor) return;
+
+                touchGestureRef.current = {
+                    mode: "pinch",
+                    startDistance: distance,
+                    startMidX: midX,
+                    startMidY: midY,
+                    startZoom: zoom,
+                    anchorNotebookX: anchor.x,
+                    anchorNotebookY: anchor.y,
+                    startScrollLeft: container.scrollLeft,
+                    startScrollTop: container.scrollTop,
+                };
+            }
+        },
+        [getNotebookPos, zoom]
+    );
+
+    const handleTouchMove = useCallback(
+        (e: React.TouchEvent<HTMLDivElement>) => {
+            const container = containerRef.current;
+            const gesture = touchGestureRef.current;
+            if (!container || !gesture) return;
+
+            if (gesture.mode === "pan" && e.touches.length === 1) {
+                e.preventDefault();
+
+                const touch = e.touches[0];
+                const dx = touch.clientX - gesture.startTouchX;
+                const dy = touch.clientY - gesture.startTouchY;
+
+                container.scrollLeft = gesture.startScrollLeft - dx;
+                container.scrollTop = gesture.startScrollTop - dy;
+
+                updateVisibleRange();
+                return;
+            }
+
+            if (gesture.mode === "pinch" && e.touches.length === 2) {
+                e.preventDefault();
+
+                const t1 = e.touches[0];
+                const t2 = e.touches[1];
+
+                const dx = t2.clientX - t1.clientX;
+                const dy = t2.clientY - t1.clientY;
+                const distance = Math.hypot(dx, dy);
+
+                const midX = (t1.clientX + t2.clientX) / 2;
+                const midY = (t1.clientY + t2.clientY) / 2;
+
+                const nextZoom = clampZoom(
+                    gesture.startZoom * (distance / gesture.startDistance)
+                );
+
+                const midShiftX = midX - gesture.startMidX;
+                const midShiftY = midY - gesture.startMidY;
+
+                setZoom(nextZoom);
+
+                requestAnimationFrame(() => {
+                    const currentContainer = containerRef.current;
+                    if (!currentContainer) return;
+
+                    currentContainer.scrollLeft =
+                        gesture.startScrollLeft +
+                        gesture.anchorNotebookX * (nextZoom - gesture.startZoom) -
+                        midShiftX;
+
+                    currentContainer.scrollTop =
+                        gesture.startScrollTop +
+                        gesture.anchorNotebookY * (nextZoom - gesture.startZoom) -
+                        midShiftY;
+
+                    updateVisibleRange();
+                });
+            }
+        },
+        [clampZoom, updateVisibleRange]
+    );
+
+    const handleTouchEnd = useCallback(() => {
+        touchGestureRef.current = null;
+        updateVisibleRange();
+    }, [updateVisibleRange]);
+
+    const handleUndo = useCallback(() => {
+        let lastPageIndex = -1;
+
+        for (let i = doc.pages.length - 1; i >= 0; i--) {
+            if (doc.pages[i].strokes.length > 0) {
+                lastPageIndex = i;
+                break;
+            }
+        }
+
+        if (lastPageIndex === -1) return;
+
+        const pages = [...doc.pages];
+        const page = pages[lastPageIndex];
+
+        pages[lastPageIndex] = {
+            ...page,
+            strokes: page.strokes.slice(0, -1),
+        };
+
+        commitDoc({
+            ...doc,
+            pages,
+        });
+    }, [doc, commitDoc]);
+
+    const handleClear = useCallback(() => {
+        commitDoc(createEmptyCanvasDoc());
+    }, [commitDoc]);
+
+    const isPageInVisibleRange = useCallback(
+        (index: number) => index >= visibleRange.start && index <= visibleRange.end,
+        [visibleRange]
+    );
+
+    return (
+        <div className="flex flex-col h-full min-h-0 w-full bg-background rounded-lg border border-border overflow-hidden">
+            <div className="flex items-center gap-2 p-2 border-b border-border bg-muted">
+                <label className="text-xs text-muted-foreground">Color</label>
+                <input
+                    type="color"
+                    value={currentColor}
+                    onChange={(e) => setCurrentColor(e.target.value)}
+                    className="h-6 w-6 p-0 border border-border rounded"
+                />
+
+                <label className="text-xs text-muted-foreground ml-2">Size</label>
+                <input
+                    type="range"
+                    min={1}
+                    max={24}
+                    value={currentSize}
+                    onChange={(e) => setCurrentSize(Number(e.target.value))}
+                    className="w-24"
+                />
+
+                <button
+                    className="px-2 py-1 text-sm rounded-md bg-background border border-border hover:bg-accent"
+                    onClick={handleUndo}
+                    title="Undo last stroke"
+                >
+                    Undo
+                </button>
+
+                <button
+                    className="px-2 py-1 text-sm rounded-md bg-background border border-border hover:bg-accent"
+                    onClick={handleClear}
+                    title="Clear canvas"
+                >
+                    Clear
+                </button>
+
+                <div className="ml-2 flex items-center gap-1">
+                    <button
+                        className="px-2 py-1 text-sm rounded-md bg-background border border-border hover:bg-accent"
+                        onClick={() => zoomAroundViewportCenter(zoom * ZOOM_STEP_OUT)}
+                        title="Zoom out"
+                    >
+                        -
+                    </button>
+
+                    <button
+                        className="px-2 py-1 text-sm rounded-md bg-background border border-border hover:bg-accent min-w-[72px]"
+                        onClick={() => setZoom(1)}
+                        title="Reset zoom"
+                    >
+                        {Math.round(zoom * 100)}%
+                    </button>
+
+                    <button
+                        className="px-2 py-1 text-sm rounded-md bg-background border border-border hover:bg-accent"
+                        onClick={() => zoomAroundViewportCenter(zoom * ZOOM_STEP_IN)}
+                        title="Zoom in"
+                    >
+                        +
+                    </button>
+                </div>
+
+                <div className="ml-2 text-[11px] text-muted-foreground">
+                    Ctrl/Cmd + wheel: zoom | Middle mouse or Alt+drag: pan | Touch: pan/pinch
+                </div>
+
+                {onSave && (
+                    <button
+                        className="px-2 py-1 text-sm rounded-md bg-background border border-border hover:bg-accent ml-auto"
+                        onClick={onSave}
+                        disabled={isSaving}
+                        title="Save canvas"
+                    >
+                        {isSaving ? "Saving..." : "Save"}
+                    </button>
+                )}
             </div>
-          ))}
+
+            <div
+                ref={containerRef}
+                data-canvas-scroll="true"
+                className="flex-1 min-h-0 h-0 overflow-auto bg-zinc-200"
+                style={{
+                    touchAction: "none",
+                    cursor: mousePanRef.current ? "grabbing" : isDrawing ? "crosshair" : "default",
+                }}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerLeave={handlePointerUp}
+                onScroll={updateVisibleRange}
+                onWheel={handleWheel}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onTouchCancel={handleTouchEnd}
+            >
+                <div
+                    className="relative"
+                    style={{
+                        width: doc.page.width * zoom + VIEWPORT_PADDING * 2,
+                        height: notebookHeight * zoom + VIEWPORT_PADDING * 2,
+                        padding: VIEWPORT_PADDING,
+                    }}
+                >
+                    <div
+                        ref={scaledNotebookRef}
+                        style={{
+                            width: doc.page.width * zoom,
+                            height: notebookHeight * zoom,
+                        }}
+                    >
+                        <div
+                            style={{
+                                width: doc.page.width,
+                                height: notebookHeight,
+                                transform: `scale(${zoom})`,
+                                transformOrigin: "top left",
+                            }}
+                        >
+                            <div>
+                                {doc.pages.map((page, index) => {
+                                    const showRealCanvas = isPageInVisibleRange(index);
+
+                                    return (
+                                        <div
+                                            key={page.id}
+                                            data-canvas-page={index}
+                                            className="bg-white shadow border border-zinc-400 relative"
+                                            style={{
+                                                width: doc.page.width,
+                                                height: doc.page.height,
+                                                marginBottom:
+                                                    index === doc.pages.length - 1 ? 0 : doc.page.gap,
+                                            }}
+                                        >
+                                            <div className="absolute top-2 left-2 z-10 text-xs px-2 py-1 rounded bg-black/70 text-white">
+                                                Page {index}
+                                            </div>
+
+                                            {showRealCanvas ? (
+                                                <PageCanvas
+                                                    page={page}
+                                                    width={doc.page.width}
+                                                    height={doc.page.height}
+                                                    background={doc.page.background}
+                                                    onPointerDown={handlePointerDown}
+                                                />
+                                            ) : (
+                                                <div
+                                                    className="w-full h-full"
+                                                    style={{ background: doc.page.background }}
+                                                />
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 export default CanvasEditor;
