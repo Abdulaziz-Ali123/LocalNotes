@@ -9,10 +9,14 @@ import React, { useState, useEffect, useCallback } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { useTheme, type ThemeType } from "@/renderer/lib/theme";
-import { X } from "lucide-react";
+import { X, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/renderer/components/ui/button";
 import { Checkbox } from "@/renderer/components/ui/checkbox";
 import { Label } from "@/renderer/components/ui/label";
+import {
+  DEFAULT_MODEL_CAPABILITIES,
+  type ModelCapabilities,
+} from "@/renderer/store/settings-slice";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -22,7 +26,7 @@ interface SettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
   /** Which tab to show when the dialog opens (defaults to "appearance"). */
-  defaultTab?: "appearance" | "editor" | "keybindings";
+  defaultTab?: "appearance" | "editor" | "keybindings" | "ai";
 }
 
 // ---------------------------------------------------------------------------
@@ -58,6 +62,7 @@ export default function SettingsDialog({ isOpen, onClose, defaultTab = "appearan
             <TabTrigger value="appearance">Appearance</TabTrigger>
             <TabTrigger value="editor">Editor</TabTrigger>
             <TabTrigger value="keybindings">Keybindings</TabTrigger>
+            <TabTrigger value="ai">AI</TabTrigger>
           </Tabs.List>
 
           <div className="flex-1 overflow-y-auto p-6">
@@ -69,6 +74,9 @@ export default function SettingsDialog({ isOpen, onClose, defaultTab = "appearan
             </Tabs.Content>
             <Tabs.Content value="keybindings" className="outline-none">
               <KeybindingsTab />
+            </Tabs.Content>
+            <Tabs.Content value="ai" className="outline-none">
+              <AiTab />
             </Tabs.Content>
           </div>
         </Tabs.Root>
@@ -438,6 +446,119 @@ function KeybindingsTab() {
         >
           Restore All Defaults
         </Button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AI tab
+// ---------------------------------------------------------------------------
+
+const MODEL_LABELS: Record<string, string> = {
+  "llama3.2":    "Llama 3.2",
+  "mistral":     "Mistral",
+  "gemma2":      "Gemma 2",
+  "phi3":        "Phi-3",
+  "codellama":   "Code Llama",
+  "deepseek-r1": "DeepSeek R1",
+  "qwen2.5":     "Qwen 2.5",
+  "llava":       "LLaVA (Vision)",
+};
+
+function AiTab() {
+  const aiSettings = useBoundStore((s) => s.settings.global.ai);
+  const setGlobal   = useBoundStore((s) => s.settings.setGlobal);
+  const [showKey, setShowKey] = useState(false);
+
+  const modelIds = Object.keys(DEFAULT_MODEL_CAPABILITIES);
+
+  const getCaps = (modelId: string): ModelCapabilities => {
+    return (
+      aiSettings?.modelConfigs?.[modelId]?.capabilities ??
+      DEFAULT_MODEL_CAPABILITIES[modelId] ?? { fileUpload: false, voice: true, thinking: false }
+    );
+  };
+
+  const toggleCap = (modelId: string, cap: keyof ModelCapabilities, val: boolean) => {
+    const currentCaps = getCaps(modelId);
+    const updatedConfigs = {
+      ...(aiSettings?.modelConfigs ?? {}),
+      [modelId]: { capabilities: { ...currentCaps, [cap]: val } },
+    };
+    setGlobal("ai.modelConfigs", updatedConfigs);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Endpoint */}
+      <SettingRow label="Endpoint URL" description="Base URL for your LLM server (e.g. Ollama)">
+        <input
+          type="text"
+          value={aiSettings?.endpointUrl ?? "http://localhost:11434"}
+          onChange={(e) => setGlobal("ai.endpointUrl", e.target.value)}
+          className="w-64 p-2 rounded-md bg-secondary text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-ring text-sm font-mono"
+          placeholder="http://localhost:11434"
+        />
+      </SettingRow>
+
+      {/* API Key */}
+      <SettingRow label="API Key" description="Leave blank for local / unauthenticated servers">
+        <div className="flex items-center gap-1.5">
+          <input
+            type={showKey ? "text" : "password"}
+            value={aiSettings?.apiKey ?? ""}
+            onChange={(e) => setGlobal("ai.apiKey", e.target.value)}
+            className="w-56 p-2 rounded-md bg-secondary text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-ring text-sm font-mono"
+            placeholder="sk-..."
+          />
+          <button
+            type="button"
+            onClick={() => setShowKey((v) => !v)}
+            className="p-2 rounded-md hover:bg-muted transition-colors text-muted-foreground"
+            title={showKey ? "Hide key" : "Show key"}
+          >
+            {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+      </SettingRow>
+
+      {/* Per-model capabilities */}
+      <div>
+        <div className="text-sm font-medium mb-1">Model Capabilities</div>
+        <div className="text-xs text-muted-foreground mb-3">
+          Enable or disable UI features for each model.
+        </div>
+        <div className="border border-border rounded-md overflow-hidden">
+          {/* Header row */}
+          <div className="flex items-center px-4 py-2 bg-muted/40 text-xs font-semibold text-muted-foreground border-b border-border">
+            <span className="flex-1">Model</span>
+            <span className="w-24 text-center">File Upload</span>
+            <span className="w-24 text-center">Voice</span>
+            <span className="w-24 text-center">Thinking</span>
+          </div>
+          {modelIds.map((id, idx) => {
+            const caps = getCaps(id);
+            return (
+              <div
+                key={id}
+                className={`flex items-center px-4 py-2.5 text-sm ${
+                  idx > 0 ? "border-t border-border" : ""
+                }`}
+              >
+                <span className="flex-1 font-medium truncate">{MODEL_LABELS[id] ?? id}</span>
+                {(["fileUpload", "voice", "thinking"] as const).map((cap) => (
+                  <div key={cap} className="w-24 flex justify-center">
+                    <Checkbox
+                      checked={caps[cap]}
+                      onCheckedChange={(checked) => toggleCap(id, cap, !!checked)}
+                    />
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

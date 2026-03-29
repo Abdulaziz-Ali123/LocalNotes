@@ -50,6 +50,21 @@ export const DEFAULT_LLM = {
     models: {},
 };
 
+export const DEFAULT_AI = {
+  endpointUrl: "http://localhost:11434",
+  apiKey: "",
+  modelConfigs: {
+    "llama3.2":    { capabilities: { fileUpload: false, voice: true,  thinking: false } },
+    "mistral":     { capabilities: { fileUpload: false, voice: true,  thinking: false } },
+    "gemma2":      { capabilities: { fileUpload: false, voice: true,  thinking: false } },
+    "phi3":        { capabilities: { fileUpload: false, voice: true,  thinking: false } },
+    "codellama":   { capabilities: { fileUpload: false, voice: true,  thinking: false } },
+    "deepseek-r1": { capabilities: { fileUpload: false, voice: true,  thinking: true  } },
+    "qwen2.5":     { capabilities: { fileUpload: false, voice: true,  thinking: true  } },
+    "llava":       { capabilities: { fileUpload: true,  voice: true,  thinking: false } },
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Composite defaults
 // ---------------------------------------------------------------------------
@@ -62,6 +77,7 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
     defaultModelId: DEFAULT_LLM.defaultModelId,
     models: { ...DEFAULT_LLM.models },
   },
+  ai: { ...DEFAULT_AI },
 };
 
 export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {

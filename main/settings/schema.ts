@@ -78,6 +78,26 @@ export interface LLMSettings {
 }
 
 // ---------------------------------------------------------------------------
+// AI (Ollama / OpenAI-compatible chat panel settings)
+// ---------------------------------------------------------------------------
+
+export interface ModelCapabilities {
+  fileUpload: boolean;
+  voice: boolean;
+  thinking: boolean;
+}
+
+export interface AiModelConfig {
+  capabilities: ModelCapabilities;
+}
+
+export interface AiSettings {
+  endpointUrl: string;
+  apiKey: string;
+  modelConfigs: Record<string, AiModelConfig>;
+}
+
+// ---------------------------------------------------------------------------
 // Combined settings objects
 // ---------------------------------------------------------------------------
 
@@ -85,8 +105,9 @@ export interface LLMSettings {
 export interface GlobalSettings {
   appearance: AppearanceSettings;
   editor: EditorSettings;
-    keybindings: KeybindingMap;
-    llm: LLMSettings;
+  keybindings: KeybindingMap;
+  llm: LLMSettings;
+  ai: AiSettings;
 }
 
 /** Project-level settings (stored in .Local Notes/settings.json per project). */

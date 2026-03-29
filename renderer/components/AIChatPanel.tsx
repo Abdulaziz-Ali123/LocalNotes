@@ -17,6 +17,8 @@ import {
   RiCloseLine,
 } from "react-icons/ri";
 import { LuBrain, LuBrainCircuit } from "react-icons/lu";
+import { useBoundStore } from "@/renderer/store/useBoundStore";
+import { DEFAULT_MODEL_CAPABILITIES } from "@/renderer/store/settings-slice";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -219,6 +221,8 @@ function MessageBubble({
 // ─── Main Chat Panel ─────────────────────────────────────────────────────────
 
 export default function AIChatPanel() {
+  const aiSettings = useBoundStore((s) => s.settings.global?.ai);
+
   const [conversations, setConversations] = useState<Conversation[]>([
     {
       id: generateId(),
@@ -240,6 +244,13 @@ export default function AIChatPanel() {
   const recognitionRef = useRef<any>(null);
 
   const activeConvo = conversations.find((c) => c.id === activeConvoId)!;
+
+  // Derive capabilities for the active model
+  const caps = (
+    aiSettings?.modelConfigs?.[activeConvo.model]?.capabilities ??
+    DEFAULT_MODEL_CAPABILITIES[activeConvo.model] ??
+    { fileUpload: false, voice: true, thinking: false }
+  );
 
   // Auto-scroll to bottom when messages change
   const scrollToBottom = useCallback(() => {
@@ -437,23 +448,25 @@ export default function AIChatPanel() {
         <div className="flex items-center gap-3">
           <ModelSelector selectedModel={activeConvo.model} onSelect={handleModelSelect} />
 
-          {/* Thinking Toggle */}
-          <button
-            onClick={() => setThinkingEnabled((t) => !t)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
-              thinkingEnabled
-                ? "bg-accent/15 text-accent border-accent/30"
-                : "bg-background border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-            title={thinkingEnabled ? "Thinking enabled" : "Thinking disabled"}
-          >
-            {thinkingEnabled ? (
-              <LuBrainCircuit className="w-4 h-4" />
-            ) : (
-              <LuBrain className="w-4 h-4" />
-            )}
-            <span className="hidden sm:inline">Thinking</span>
-          </button>
+          {/* Thinking Toggle — only shown if model supports it */}
+          {caps.thinking && (
+            <button
+              onClick={() => setThinkingEnabled((t) => !t)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
+                thinkingEnabled
+                  ? "bg-accent/15 text-accent border-accent/30"
+                  : "bg-background border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+              title={thinkingEnabled ? "Thinking enabled" : "Thinking disabled"}
+            >
+              {thinkingEnabled ? (
+                <LuBrainCircuit className="w-4 h-4" />
+              ) : (
+                <LuBrain className="w-4 h-4" />
+              )}
+              <span className="hidden sm:inline">Thinking</span>
+            </button>
+          )}
         </div>
 
         {/* New Chat */}
@@ -534,31 +547,35 @@ export default function AIChatPanel() {
       {/* ── Input Area ── */}
       <div className="flex-shrink-0 px-4 pb-3 pt-2">
         <div className="flex items-end gap-2 bg-background border border-border rounded-2xl px-3 py-2 focus-within:ring-1 focus-within:ring-accent/40 transition-shadow">
-          {/* File Upload */}
-          <button
-            onClick={handleFileUpload}
-            className="flex-shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            title="Attach files"
-          >
-            <RiAttachmentLine className="w-5 h-5" />
-          </button>
+          {/* File Upload — only shown if model supports it */}
+          {caps.fileUpload && (
+            <button
+              onClick={handleFileUpload}
+              className="flex-shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Attach files"
+            >
+              <RiAttachmentLine className="w-5 h-5" />
+            </button>
+          )}
 
-          {/* Voice */}
-          <button
-            onClick={toggleDictation}
-            className={`flex-shrink-0 p-1.5 rounded-lg transition-colors ${
-              isListening
-                ? "text-destructive bg-destructive/10 animate-pulse"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-            title={isListening ? "Stop dictation" : "Start dictation"}
-          >
-            {isListening ? (
-              <RiMicOffLine className="w-5 h-5" />
-            ) : (
-              <RiMicLine className="w-5 h-5" />
-            )}
-          </button>
+          {/* Voice — only shown if model supports it */}
+          {caps.voice && (
+            <button
+              onClick={toggleDictation}
+              className={`flex-shrink-0 p-1.5 rounded-lg transition-colors ${
+                isListening
+                  ? "text-destructive bg-destructive/10 animate-pulse"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+              title={isListening ? "Stop dictation" : "Start dictation"}
+            >
+              {isListening ? (
+                <RiMicOffLine className="w-5 h-5" />
+              ) : (
+                <RiMicLine className="w-5 h-5" />
+              )}
+            </button>
+          )}
 
           {/* Text Input */}
           <textarea
