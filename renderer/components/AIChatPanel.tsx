@@ -72,6 +72,7 @@ function ModelSelector({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const aiSettings = useBoundStore((s) => s.settings.global?.ai);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -81,7 +82,9 @@ function ModelSelector({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const current = MODEL_OPTIONS.find((m) => m.id === selectedModel) ?? MODEL_OPTIONS[0];
+  const customModels = aiSettings?.customModels || [];
+  const allModels = [...MODEL_OPTIONS, ...customModels];
+  const current = allModels.find((m) => m.id === selectedModel) ?? allModels[0];
 
   return (
     <div ref={ref} className="relative">
@@ -96,7 +99,7 @@ function ModelSelector({
       </button>
       {open && (
         <div className="absolute top-full left-0 mt-1 w-56 bg-background border border-border rounded-lg shadow-lg z-50 py-1 max-h-64 overflow-y-auto">
-          {MODEL_OPTIONS.map((model) => (
+          {allModels.map((model) => (
             <button
               key={model.id}
               onClick={() => {

@@ -63,6 +63,7 @@ export const DEFAULT_AI = {
     "qwen2.5":     { capabilities: { fileUpload: false, voice: true,  thinking: true  } },
     "llava":       { capabilities: { fileUpload: true,  voice: true,  thinking: false } },
   },
+  customModels: [],
 };
 
 // ---------------------------------------------------------------------------

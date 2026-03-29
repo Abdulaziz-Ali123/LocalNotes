@@ -5,14 +5,16 @@
  * Contains three tabs: Appearance, Editor, and Keybindings.
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { useTheme, type ThemeType } from "@/renderer/lib/theme";
 import { X, Eye, EyeOff } from "lucide-react";
+import { RiAddLine } from "react-icons/ri";
 import { Button } from "@/renderer/components/ui/button";
 import { Checkbox } from "@/renderer/components/ui/checkbox";
 import { Label } from "@/renderer/components/ui/label";
+import AddModelsModal from "@/renderer/components/AddModelsModal";
 import {
   DEFAULT_MODEL_CAPABILITIES,
   type ModelCapabilities,
@@ -471,7 +473,13 @@ function AiTab() {
   const setGlobal   = useBoundStore((s) => s.settings.setGlobal);
   const [showKey, setShowKey] = useState(false);
 
-  const modelIds = Object.keys(DEFAULT_MODEL_CAPABILITIES);
+  // Add Models UI state
+  const [isAddModelsOpen, setIsAddModelsOpen] = useState(false);
+
+  const modelIds = [
+    ...Object.keys(DEFAULT_MODEL_CAPABILITIES),
+    ...(aiSettings?.customModels?.map(m => m.id) || []),
+  ];
 
   const getCaps = (modelId: string): ModelCapabilities => {
     return (
@@ -525,10 +533,24 @@ function AiTab() {
 
       {/* Per-model capabilities */}
       <div>
-        <div className="text-sm font-medium mb-1">Model Capabilities</div>
-        <div className="text-xs text-muted-foreground mb-3">
-          Enable or disable UI features for each model.
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <div className="text-sm font-medium mb-1">Model Capabilities</div>
+            <div className="text-xs text-muted-foreground">
+              Enable or disable UI features for each model.
+            </div>
+          </div>
+          
+          {/* Add Models Button */}
+          <button
+            onClick={() => setIsAddModelsOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-accent text-accent-foreground hover:bg-accent/90"
+          >
+            <RiAddLine className="w-4 h-4" />
+            <span className="hidden sm:inline">Add Models...</span>
+          </button>
         </div>
+
         <div className="border border-border rounded-md overflow-hidden">
           {/* Header row */}
           <div className="flex items-center px-4 py-2 bg-muted/40 text-xs font-semibold text-muted-foreground border-b border-border">
@@ -546,7 +568,9 @@ function AiTab() {
                   idx > 0 ? "border-t border-border" : ""
                 }`}
               >
-                <span className="flex-1 font-medium truncate">{MODEL_LABELS[id] ?? id}</span>
+                <span className="flex-1 font-medium truncate">
+                  {MODEL_LABELS[id] ?? aiSettings?.customModels?.find(m => m.id === id)?.name ?? id}
+                </span>
                 {(["fileUpload", "voice", "thinking"] as const).map((cap) => (
                   <div key={cap} className="w-24 flex justify-center">
                     <Checkbox
@@ -560,6 +584,12 @@ function AiTab() {
           })}
         </div>
       </div>
+
+      <AddModelsModal 
+        isOpen={isAddModelsOpen} 
+        onClose={() => setIsAddModelsOpen(false)} 
+        defaultProvider="OpenAI" 
+      />
     </div>
   );
 }

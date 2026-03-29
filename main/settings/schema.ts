@@ -91,10 +91,20 @@ export interface AiModelConfig {
   capabilities: ModelCapabilities;
 }
 
+export interface CustomModel {
+  id: string;
+  name: string;
+  provider: string;
+  apiKey?: string;
+  baseUrl?: string;
+  capabilities: ModelCapabilities;
+}
+
 export interface AiSettings {
   endpointUrl: string;
   apiKey: string;
   modelConfigs: Record<string, AiModelConfig>;
+  customModels: CustomModel[];
 }
 
 // ---------------------------------------------------------------------------
