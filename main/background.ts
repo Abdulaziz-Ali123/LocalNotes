@@ -31,6 +31,7 @@
  */
 import path from "path";
 import { app, ipcMain, BrowserWindow, Menu, dialog, shell } from "electron";
+app.disableHardwareAcceleration();
 import serve from "electron-serve";
 import { createWindow, ensureConfigDirectory, getConfigDirectoryPath } from "./helpers";
 import fs from "fs/promises";
