@@ -9,6 +9,26 @@
  * Last Updated: 2026-03-28
  */
 
+/**
+ * Main Electron Process (background.ts)
+ *
+ * Serves as the primary entry point for the application's main process. Responsibilities include:
+ * - App lifecycle management (ready, quit, navigation)
+ * - Creating and managing the main BrowserWindow with persistent window state
+ * - Initializing the settings system (SettingsManager) and loading global config
+ * - Building and managing the native application menu (File, Edit, View, Window, Help)
+ * - Enforcing Windows menu visibility behavior and auto-hide toggle support
+ * - Registering IPC handlers for renderer ↔ main communication
+ * - Initializing and managing the SQLite database
+ * - Managing tab state across renderer lifecycle
+ * - Handling file system operations (create, read, write, delete, rename, watch)
+ * - Managing file chunking, indexing, and embedding operations
+ * - Coordinating autosave and file persist operations
+ * - Providing context menu and native dialogues
+ *
+ * Revision History:
+ *  • Wesley McDougal - 29MAR2026 - Windows menu visibility enforcement and title bar adjustments
+ */
 import path from "path";
 import { app, ipcMain, BrowserWindow, Menu, dialog, shell } from "electron";
 import serve from "electron-serve";
@@ -216,20 +236,20 @@ let mainWindowRef: Electron.BrowserWindow | null = null;
          */
         const globalSettings = await settingsManager.loadGlobal();
 
-        const mainWindow = createWindow("main", {
-            width: 1000,
-            height: 600,
-            webPreferences: {
-                preload: path.join(app.getAppPath(), "app", "preload.js"),
-                contextIsolation: true,
-                nodeIntegration: false,
-                sandbox: false,
-            },
-            // Remove the default title bar.
-            titleBarStyle: "hidden",
-            // Expose window controls in Windows/Linux.
-            ...(process.platform !== "darwin" ? { titleBarOverlay: true } : {}),
-        });
+  const mainWindow = createWindow("main", {
+    width: 1000,
+    height: 600,
+    autoHideMenuBar: false,
+    webPreferences: {
+      preload: path.join(app.getAppPath(), "app", "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+    // Keep custom titlebar behavior only on macOS. On Windows, use native frame/titlebar
+    // so the menu bar is visible and follows platform conventions.
+    ...(process.platform === "darwin" ? { titleBarStyle: "hidden" as const } : {}),
+  });
 
         mainWindowRef = mainWindow;
 
@@ -249,13 +269,25 @@ let mainWindowRef: Electron.BrowserWindow | null = null;
             { role: "selectall" },
         ];
 
-        /**
-         * Build the application menu from persisted settings so keyboard shortcuts
-         * and related behavior stay driven by settings instead of hardcoded values.
-         */
-        const menuTemplate = buildMenuTemplate(globalSettings, mainWindow);
-        const menu = Menu.buildFromTemplate(menuTemplate);
-        Menu.setApplicationMenu(menu);
+  // Build menu from settings (keybindings-driven instead of hardcoded)
+  const menuTemplate = buildMenuTemplate(globalSettings, mainWindow);
+  const menu = Menu.buildFromTemplate(menuTemplate);
+  Menu.setApplicationMenu(menu);
+
+  if (process.platform === "win32") {
+    const keepMenuBarVisible = () => {
+      if (mainWindow.isDestroyed() || mainWindow.isMenuBarAutoHide()) {
+        return;
+      }
+
+      mainWindow.setMenuBarVisibility(true);
+    };
+
+    keepMenuBarVisible();
+    mainWindow.on("restore", keepMenuBarVisible);
+    mainWindow.on("maximize", keepMenuBarVisible);
+    mainWindow.on("unmaximize", keepMenuBarVisible);
+  }
 
         const contextMenu = Menu.buildFromTemplate(contextTemplate);
 

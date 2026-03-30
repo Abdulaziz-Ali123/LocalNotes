@@ -4,6 +4,9 @@
  * This file is the single source of truth for what every setting should be
  * when the user hasn't explicitly changed it. The settings manager deep-merges
  * the user's sparse overrides on top of these defaults.
+ * 
+  * Revision History:
+ *  • Wesley McDougal - 29MAR2026 - Default customThemes object and schema version bump to number 2
  */
 
 import {
@@ -22,6 +25,7 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
   theme: "nord",
   fontSize: 14,
   fontFamily: "monospace",
+  customThemes: {},
 };
 
 export const DEFAULT_EDITOR: EditorSettings = {
@@ -50,6 +54,13 @@ export const DEFAULT_LLM = {
     models: {},
 };
 
+export const DEFAULT_AI = {
+  endpointUrl: "http://localhost:11434",
+  apiKey: "",
+  modelConfigs: {},
+  customModels: [],
+};
+
 // ---------------------------------------------------------------------------
 // Composite defaults
 // ---------------------------------------------------------------------------
@@ -62,6 +73,7 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
     defaultModelId: DEFAULT_LLM.defaultModelId,
     models: { ...DEFAULT_LLM.models },
   },
+  ai: { ...DEFAULT_AI },
 };
 
 export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
@@ -72,4 +84,4 @@ export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
  * The current schema version. Bump this whenever the schema shape changes
  * and add a corresponding migration in migrations.ts.
  */
-export const LATEST_SCHEMA_VERSION = 1;
+export const LATEST_SCHEMA_VERSION = 2;

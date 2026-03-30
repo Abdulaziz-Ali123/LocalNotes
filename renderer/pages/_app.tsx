@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import type { AppProps } from "next/app";
 
+import "../styles/tw-animate.css";
 import "../styles/globals.css";
 import { ThemeProvider } from "@/renderer/lib/theme";
 import { useBoundStore } from "@/renderer/store/useBoundStore";

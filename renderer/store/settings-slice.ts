@@ -3,6 +3,9 @@
  *
  * Loads settings from the main process on init and keeps them in sync.
  * Exposes setter helpers that persist changes via IPC and update local state.
+ * 
+ * Revision History:
+ *  • Wesley McDougal - 29MAR2026 - Custom theme types and initial state
  */
 
 import { StateCreator } from "zustand";
@@ -10,12 +13,42 @@ import { StateCreator } from "zustand";
 // Re-declare the types inline so the renderer doesn't import from main/.
 // These mirror main/settings/schema.ts exactly.
 
-export type ThemeType = "light" | "dark" | "nord" | "cozy" | "darker";
+export type ThemeType = string;
+
+export interface CustomThemeTokens {
+  background: string;
+  foreground: string;
+  card: string;
+  cardForeground: string;
+  primary: string;
+  primaryForeground: string;
+  secondary: string;
+  secondaryForeground: string;
+  muted: string;
+  mutedForeground: string;
+  accent: string;
+  accentForeground: string;
+  border: string;
+  input: string;
+  ring: string;
+  sidebar: string;
+  sidebarForeground: string;
+  sidebarAccent: string;
+  sidebarAccentForeground: string;
+  sidebarBorder: string;
+}
+
+export interface CustomThemeDefinition {
+  id: string;
+  name: string;
+  tokens: CustomThemeTokens;
+}
 
 export interface AppearanceSettings {
   theme: ThemeType;
   fontSize: number;
   fontFamily: string;
+  customThemes: Record<string, CustomThemeDefinition>;
 }
 
 export interface EditorSettings {
@@ -29,10 +62,37 @@ export interface KeybindingMap {
   [key: string]: string;
 }
 
+export interface ModelCapabilities {
+  fileUpload: boolean;
+  voice: boolean;
+  thinking: boolean;
+}
+
+export interface AiModelConfig {
+  capabilities: ModelCapabilities;
+}
+
+export interface CustomModel {
+  id: string;
+  name: string;
+  provider: string;
+  apiKey?: string;
+  baseUrl?: string;
+  capabilities: ModelCapabilities;
+}
+
+export interface AiSettings {
+  endpointUrl: string;
+  apiKey: string;
+  modelConfigs: Record<string, AiModelConfig>;
+  customModels: CustomModel[];
+}
+
 export interface GlobalSettings {
   appearance: AppearanceSettings;
   editor: EditorSettings;
   keybindings: KeybindingMap;
+  ai: AiSettings;
 }
 
 export interface KeybindingAction {
@@ -99,6 +159,19 @@ const DEFAULT_KEYBINDINGS: KeybindingMap = Object.fromEntries(
 );
 
 // ---------------------------------------------------------------------------
+// Default AI model capabilities
+// ---------------------------------------------------------------------------
+
+export const DEFAULT_MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {};
+
+const INITIAL_AI: AiSettings = {
+  endpointUrl: "http://localhost:11434",
+  apiKey: "",
+  modelConfigs: {},
+  customModels: [],
+};
+
+// ---------------------------------------------------------------------------
 // Default state (before loading)
 // ---------------------------------------------------------------------------
 
@@ -107,6 +180,7 @@ const INITIAL_GLOBAL: GlobalSettings = {
     theme: "nord",
     fontSize: 14,
     fontFamily: "monospace",
+    customThemes: {},
   },
   editor: {
     autosaveEnabled: true,
@@ -115,6 +189,7 @@ const INITIAL_GLOBAL: GlobalSettings = {
     showLineNumbers: false,
   },
   keybindings: DEFAULT_KEYBINDINGS,
+  ai: INITIAL_AI,
 };
 
 // ---------------------------------------------------------------------------

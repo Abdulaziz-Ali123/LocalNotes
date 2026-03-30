@@ -4,18 +4,51 @@
  * TypeScript interfaces defining the shape of all settings.
  * These interfaces are the single source of truth for the settings structure
  * and are shared between the main process SettingsManager and the renderer.
+ * 
+ * Revision History:
+ *  • Wesley McDougal - 29MAR2026 - Added CustomThemeTokens and customThemes to AppearanceSettings
  */
 
 // ---------------------------------------------------------------------------
 // Appearance
 // ---------------------------------------------------------------------------
 
-export type ThemeType = "light" | "dark" | "nord" | "cozy" | "darker";
+export type ThemeType = string;
+
+export interface CustomThemeTokens {
+  background: string;
+  foreground: string;
+  card: string;
+  cardForeground: string;
+  primary: string;
+  primaryForeground: string;
+  secondary: string;
+  secondaryForeground: string;
+  muted: string;
+  mutedForeground: string;
+  accent: string;
+  accentForeground: string;
+  border: string;
+  input: string;
+  ring: string;
+  sidebar: string;
+  sidebarForeground: string;
+  sidebarAccent: string;
+  sidebarAccentForeground: string;
+  sidebarBorder: string;
+}
+
+export interface CustomThemeDefinition {
+  id: string;
+  name: string;
+  tokens: CustomThemeTokens;
+}
 
 export interface AppearanceSettings {
   theme: ThemeType;
   fontSize: number;
   fontFamily: string;
+  customThemes: Record<string, CustomThemeDefinition>;
 }
 
 // ---------------------------------------------------------------------------
@@ -78,6 +111,36 @@ export interface LLMSettings {
 }
 
 // ---------------------------------------------------------------------------
+// AI (Ollama / OpenAI-compatible chat panel settings)
+// ---------------------------------------------------------------------------
+
+export interface ModelCapabilities {
+  fileUpload: boolean;
+  voice: boolean;
+  thinking: boolean;
+}
+
+export interface AiModelConfig {
+  capabilities: ModelCapabilities;
+}
+
+export interface CustomModel {
+  id: string;
+  name: string;
+  provider: string;
+  apiKey?: string;
+  baseUrl?: string;
+  capabilities: ModelCapabilities;
+}
+
+export interface AiSettings {
+  endpointUrl: string;
+  apiKey: string;
+  modelConfigs: Record<string, AiModelConfig>;
+  customModels: CustomModel[];
+}
+
+// ---------------------------------------------------------------------------
 // Combined settings objects
 // ---------------------------------------------------------------------------
 
@@ -85,8 +148,9 @@ export interface LLMSettings {
 export interface GlobalSettings {
   appearance: AppearanceSettings;
   editor: EditorSettings;
-    keybindings: KeybindingMap;
-    llm: LLMSettings;
+  keybindings: KeybindingMap;
+  llm: LLMSettings;
+  ai: AiSettings;
 }
 
 /** Project-level settings (stored in .Local Notes/settings.json per project). */

@@ -1,3 +1,26 @@
+/**
+ * Main Editor Page (editor.tsx)
+ *
+ * The primary UI component for the application. Responsibilities include:
+ * - Managing tab state (create, select, close, reorder)
+ * - File selection and content editing with live preview
+ * - Handling autosave with configurable intervals
+ * - Sidebar management with file tree, search, theme customization, and tag filtering
+ * - Built-in and custom theme selection with live preview
+ * - Settings dialog (Appearance, Editor, Keybindings tabs)
+ * - Keyboard shortcut binding and menu command dispatch
+ * - File operations: new file/folder, save, open folder
+ * - Import/export workflows for files and folders
+ * - Markdown preview and live preview modes
+ * - AI chat panel for assistant interactions
+ * - Status bar showing file info and autosave status
+ * - Responsive sidebar collapse/expand with active panel tracking
+ * - Persistence of sidebar and editor state during session
+ * 
+ * Revision History:
+ *  • Wesley McDougal - 29MAR2026 - Menu command handler and sidebar toggle fixes
+ */
+
 import { SidebarProvider, Sidebar, SidebarContent } from "../components/ui/sidebar";
 import ThemeSelector from "@/renderer/components/ui/ThemeSelector";
 import TagFilterPanel from "@/renderer/components/TagFilterPanel";
@@ -14,7 +37,7 @@ import SearchComponent from "@/renderer/components/SearchComponent";
 import { produce } from "immer";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { TabsSlice } from "@/renderer/types/tab-slice";
-import { useKeybindings } from "@/renderer/hooks/useKeybindings";
+import { useKeybindings, KeybindingHandlers } from "@/renderer/hooks/useKeybindings";
 import SettingsDialog from "@/renderer/components/SettingsDialog";
 import { CiFileOn, CiSearch, CiExport, CiShare2, CiSettings } from "react-icons/ci";
 import {
@@ -45,6 +68,7 @@ export default function Editor() {
   const [livePreview, setLivePreview] = useState<boolean>(false);
   // (removed fileTreeRef used for selectPath)
   const sidebarPanelRef = useRef<ImperativePanelHandle>(null);
+  const fileTreeRef = useRef<any>(null);
   const initializeTabs = useBoundStore((state) => state.tabs.initialize);
   // Which tab the settings dialog should open to
   const [settingsDefaultTab, setSettingsDefaultTab] = useState<"appearance" | "editor" | "keybindings">("appearance");
@@ -89,7 +113,11 @@ export default function Editor() {
     initializeTabs();
   }, [initializeTabs]);
 
-  // Handle file selction from tree
+  /**
+   * Reads file content from disk and loads into currently selected tab.
+   * Updates Zustand store with new filePath, content, and filename.
+   * Called when user clicks file in FileSystemTree.
+   */
   const handleFileSelect = async (filePath: string) => {
     const result = await window.fs.readFile(filePath);
     if (!result.success) {
@@ -129,7 +157,11 @@ export default function Editor() {
     }
   }, [selectedTabId, selectedTab]);
 
-  // Handle save action
+  /**
+   * Writes fileContent to disk, updates tab store, resets autosave flags.
+   * Shows save confirmation message and updates lastAutosaveTime.
+   * Called by Ctrl+S keybinding and File > Save menu.
+   */
   const handleSave = async () => {
     const selectedTabId = useBoundStore.getState().tabs.selectedTabId;
     const tabState = useBoundStore.getState().tabs;
@@ -174,6 +206,11 @@ export default function Editor() {
   >("file");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  /**
+   * Toggles sidebar open/close and switches active panel (file/search/theme/tags).
+   * If sidebar is collapsed: opens sidebar and shows requested panel.
+   * If same panel is active: closes sidebar. If different panel: switches to it.
+   */
   const handleSidebarButtonClick = (panel: "file" | "search" | "theme" | "tags") => {
     if (sidebarCollapsed) {
       // If sidebar is collapsed, open and show the panel
@@ -191,7 +228,19 @@ export default function Editor() {
     }
   };
 
-  const toggleSidebar = () => setSidebarCollapsed((s) => !s);
+  /**
+   * Toggles sidebar collapsed/expanded state.
+   * When opening: defaults to 'file' panel if no active panel was set.
+   * Connected to ResizablePanel callbacks for visual sync.
+   */
+  const toggleSidebar = () => {
+    setSidebarCollapsed((isCollapsed) => {
+      if (isCollapsed && activeSidebarPanel === null) {
+        setActiveSidebarPanel("file");
+      }
+      return !isCollapsed;
+    });
+  };
 
   // Sync sidebar state with panel
   useEffect(() => {
@@ -235,69 +284,130 @@ export default function Editor() {
     return () => clearInterval(interval);
   }, [selectedFile, hasUnsavedChanges]);
 
+  /**
+   * Dispatcher for menu commands and keybindings.
+   * Routes command string (e.g., 'file.save', 'view.toggleSidebar') to appropriate handler.
+   * Opened file sidebar automatically before file operations if collapsed.
+   * Called by both keybindings and native menu via IPC.
+   */
+  const executeCommand = React.useCallback(
+    async (command: string) => {
+      switch (command) {
+        case "file.save":
+          await handleSave();
+          break;
+        case "file.open": {
+          if (sidebarCollapsed) {
+            setSidebarCollapsed(false);
+            setActiveSidebarPanel("file");
+          }
+          const result = await window.fs.openFolderDialog();
+          if (result.success && result.data) {
+            localStorage.setItem("currentFolderPath", result.data);
+            window.location.reload();
+          }
+          break;
+        }
+        case "file.newFile": {
+          if (sidebarCollapsed) {
+            setSidebarCollapsed(false);
+            setActiveSidebarPanel("file");
+          }
+          if (fileTreeRef.current) {
+            const targetPath = selectedFile ? window.fs.dirname(selectedFile) : "";
+            if (targetPath) {
+              fileTreeRef.current.createNewFile(targetPath);
+            }
+          }
+          break;
+        }
+        case "file.newFolder": {
+          if (sidebarCollapsed) {
+            setSidebarCollapsed(false);
+            setActiveSidebarPanel("file");
+          }
+          if (fileTreeRef.current) {
+            const targetPath = selectedFile ? window.fs.dirname(selectedFile) : "";
+            if (targetPath) {
+              fileTreeRef.current.createNewFolder(targetPath);
+            }
+          }
+          break;
+        }
+        case "view.togglePreview":
+          if (selectedFile?.toLowerCase().endsWith(".md")) {
+            setPreviewMode((prev) => !prev);
+            setLivePreview(false);
+          }
+          break;
+        case "view.toggleLivePreview":
+          if (selectedFile?.toLowerCase().endsWith(".md")) {
+            setLivePreview((prev) => !prev);
+            setPreviewMode(true);
+          }
+          break;
+        case "view.toggleSidebar":
+          toggleSidebar();
+          break;
+        case "view.search":
+          setSidebarCollapsed(false);
+          setActiveSidebarPanel("search");
+          break;
+        default:
+          break;
+      }
+    },
+    [handleSave, selectedFile, sidebarCollapsed]
+  );
+
+  const keybindingHandlers: KeybindingHandlers = {
+    "file.save": () => {
+      void executeCommand("file.save");
+    },
+    "file.open": () => {
+      void executeCommand("file.open");
+    },
+    "file.newFile": () => {
+      void executeCommand("file.newFile");
+    },
+    "file.newFolder": () => {
+      void executeCommand("file.newFolder");
+    },
+    "view.togglePreview": () => {
+      void executeCommand("view.togglePreview");
+    },
+    "view.toggleLivePreview": () => {
+      void executeCommand("view.toggleLivePreview");
+    },
+    "view.toggleSidebar": () => {
+      void executeCommand("view.toggleSidebar");
+    },
+    "view.search": () => {
+      void executeCommand("view.search");
+    },
+  };
+
   // Settings-driven keybindings (reads shortcuts from the settings store)
   useKeybindings({
-    handlers: {
-      "file.save": handleSave,
-      "file.open": async () => {
-        if (sidebarCollapsed) {
-          setSidebarCollapsed(false);
-          setActiveSidebarPanel("file");
-        }
-        const result = await window.fs.openFolderDialog();
-        if (result.success && result.data) {
-          localStorage.setItem("currentFolderPath", result.data);
-          window.location.reload();
-        }
-      },
-      "file.newFile": () => {
-        if (sidebarCollapsed) {
-          setSidebarCollapsed(false);
-          setActiveSidebarPanel("file");
-        }
-        if (fileTreeRef.current) {
-          const targetPath = selectedFile ? window.fs.dirname(selectedFile) : "";
-          if (targetPath) {
-            fileTreeRef.current.createNewFile(targetPath);
-          }
-        }
-      },
-      "file.newFolder": () => {
-        if (sidebarCollapsed) {
-          setSidebarCollapsed(false);
-          setActiveSidebarPanel("file");
-        }
-        if (fileTreeRef.current) {
-          const targetPath = selectedFile ? window.fs.dirname(selectedFile) : "";
-          if (targetPath) {
-            fileTreeRef.current.createNewFolder(targetPath);
-          }
-        }
-      },
-      "view.togglePreview": () => {
-        if (selectedFile?.toLowerCase().endsWith(".md")) {
-          setPreviewMode((prev) => !prev);
-          setLivePreview(false);
-        }
-      },
-      "view.toggleLivePreview": () => {
-        if (selectedFile?.toLowerCase().endsWith(".md")) {
-          setLivePreview((prev) => !prev);
-          setPreviewMode(true);
-        }
-      },
-      "view.toggleSidebar": () => {
-        toggleSidebar();
-      },
-      "view.search": () => {
-        setSidebarCollapsed(false);
-        setActiveSidebarPanel("search");
-      },
-    },
+    handlers: keybindingHandlers,
     enabled: true,
   });
 
-  // Import Handlers
+  // Native menu actions arrive from the main process and execute the same commands as keybindings.
+  useEffect(() => {
+    const dispose = window.ipc.on("menu:command", (command: string) => {
+      void executeCommand(command);
+    });
+
+    return () => {
+      dispose();
+    };
+  }, [executeCommand]);
+
+  /**
+   * Shows file picker, copies selected files to current folder, reloads folder view.
+   * Called by Import > Import File(s) button.
+   */
   const handleImportFiles = async () => {
     const currentFolder = localStorage.getItem("currentFolderPath");
     if (!currentFolder) {
@@ -322,6 +432,10 @@ export default function Editor() {
     }
   };
 
+  /**
+   * Shows folder picker, recursively imports entire folder to current location, reloads view.
+   * Called by Import > Import Folder button.
+   */
   const handleImportFolder = async () => {
     const currentFolder = localStorage.getItem("currentFolderPath");
     if (!currentFolder) {
@@ -343,6 +457,11 @@ export default function Editor() {
     }
   };
 
+  /**
+   * Shows file picker, merges content of selected files into currently open note.
+   * Refreshes editor with merged content.
+   * Called by Import > Import into Note button (disabled if no file selected).
+   */
   const handleImportIntoNote = async () => {
     if (!selectedFile) {
       alert("Please select a note first.");
@@ -376,6 +495,10 @@ export default function Editor() {
     }
   };
 
+  /**
+   * Shows destination picker, exports currently selected file, shows confirmation.
+   * Called by Share > Export Current File button.
+   */
   const handleExportCurrentFile = async () => {
     if (!selectedFile) {
       alert("No file selected to export.");
@@ -395,6 +518,10 @@ export default function Editor() {
     }
   };
 
+  /**
+   * Shows destination picker, exports entire workspace folder, shows confirmation.
+   * Called by Share > Export Workspace button.
+   */
   const handleExportFolder = async () => {
     const root = localStorage.getItem("currentFolderPath");
     if (!root) return;
@@ -412,8 +539,10 @@ export default function Editor() {
     }
   };
 
-  const fileTreeRef = useRef(null);
-
+  /**
+   * Refreshes FileSystemTree display by calling reloadRoot on ref.
+   * Called after import/export operations to show new files.
+   */
   const refreshTree = () => {
     if (fileTreeRef.current && fileTreeRef.current.reloadRoot) {
       fileTreeRef.current.reloadRoot();
@@ -605,7 +734,7 @@ export default function Editor() {
                       <>
                         {activeSidebarPanel === "file" && (
                           <FileSystemTree
-                            ref={refreshTree}
+                            ref={fileTreeRef}
                             onFileSelect={handleFileSelect}
                             isVisible={!sidebarCollapsed}
                             autoOpen={true}
