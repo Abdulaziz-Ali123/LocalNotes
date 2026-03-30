@@ -3,6 +3,9 @@
  *
  * Full-screen modal dialog for managing global settings.
  * Contains three tabs: Appearance, Editor, and Keybindings.
+ * 
+ * Revision History:
+ * - 29 MAR 2026: Wesley McDougal - Updated Appearance tab to include custom themes in dropdown
  */
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -107,6 +110,10 @@ function AppearanceTab() {
   const { theme, setTheme } = useTheme();
   const globalSettings = useBoundStore((s) => s.settings.global);
   const setGlobal = useBoundStore((s) => s.settings.setGlobal);
+  const customThemes = globalSettings.appearance.customThemes ?? {};
+  const customThemeList = Object.values(customThemes).sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+  );
 
   const fontSize = globalSettings.appearance.fontSize;
   const fontFamily = globalSettings.appearance.fontFamily;
@@ -117,14 +124,25 @@ function AppearanceTab() {
       <SettingRow label="Theme" description="Choose the color theme for the app">
         <select
           value={theme}
-          onChange={(e) => setTheme(e.target.value as ThemeType)}
+          onChange={(e) => setTheme(e.target.value)}
           className="w-48 p-2 rounded-md bg-secondary text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-ring text-sm"
         >
-          <option value="nord">Nord (Default)</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-          <option value="cozy">Cozy</option>
-          <option value="darker">Darker</option>
+          <optgroup label="Built-in">
+            <option value="nord">Nord (Default)</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+            <option value="cozy">Cozy</option>
+            <option value="darker">Darker</option>
+          </optgroup>
+          {customThemeList.length > 0 && (
+            <optgroup label="Custom">
+              {customThemeList.map((custom) => (
+                <option key={custom.id} value={custom.id}>
+                  {custom.name}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
       </SettingRow>
 
@@ -384,9 +402,8 @@ function KeybindingsTab() {
                 return (
                   <div
                     key={action.id}
-                    className={`flex items-center justify-between px-4 py-2.5 text-sm ${
-                      idx > 0 ? "border-t border-border" : ""
-                    } ${conflict ? "bg-destructive/5" : ""}`}
+                    className={`flex items-center justify-between px-4 py-2.5 text-sm ${idx > 0 ? "border-t border-border" : ""
+                      } ${conflict ? "bg-destructive/5" : ""}`}
                   >
                     <div className="flex flex-col">
                       <span>{action.label}</span>
@@ -401,13 +418,12 @@ function KeybindingsTab() {
                         onClick={() =>
                           setRebindingId(isRebinding ? null : action.id)
                         }
-                        className={`px-3 py-1 rounded-md text-xs font-mono min-w-[120px] text-center transition-colors ${
-                          isRebinding
-                            ? "bg-accent text-accent-foreground ring-2 ring-ring animate-pulse"
-                            : conflict
-                              ? "bg-destructive/10 hover:bg-accent"
-                              : "bg-muted hover:bg-accent"
-                        }`}
+                        className={`px-3 py-1 rounded-md text-xs font-mono min-w-[120px] text-center transition-colors ${isRebinding
+                          ? "bg-accent text-accent-foreground ring-2 ring-ring animate-pulse"
+                          : conflict
+                            ? "bg-destructive/10 hover:bg-accent"
+                            : "bg-muted hover:bg-accent"
+                          }`}
                       >
                         {isRebinding
                           ? "Press keys..."
@@ -456,7 +472,7 @@ function KeybindingsTab() {
 
 function AiTab() {
   const aiSettings = useBoundStore((s) => s.settings.global.ai);
-  const setGlobal   = useBoundStore((s) => s.settings.setGlobal);
+  const setGlobal = useBoundStore((s) => s.settings.setGlobal);
   const [showKey, setShowKey] = useState(false);
 
   // Add Models UI state
@@ -492,7 +508,7 @@ function AiTab() {
               Enable or disable UI features for each model.
             </div>
           </div>
-          
+
           {/* Add Models Button */}
           <button
             onClick={() => setIsAddModelsOpen(true)}
@@ -522,9 +538,8 @@ function AiTab() {
               return (
                 <div
                   key={id}
-                  className={`flex items-center px-4 py-2.5 text-sm ${
-                    idx > 0 ? "border-t border-border" : ""
-                  }`}
+                  className={`flex items-center px-4 py-2.5 text-sm ${idx > 0 ? "border-t border-border" : ""
+                    }`}
                 >
                   <span className="flex-1 font-medium truncate">
                     {aiSettings?.customModels?.find(m => m.id === id)?.name ?? id}
@@ -544,10 +559,10 @@ function AiTab() {
         </div>
       </div>
 
-      <AddModelsModal 
-        isOpen={isAddModelsOpen} 
-        onClose={() => setIsAddModelsOpen(false)} 
-        defaultProvider="OpenAI" 
+      <AddModelsModal
+        isOpen={isAddModelsOpen}
+        onClose={() => setIsAddModelsOpen(false)}
+        defaultProvider="OpenAI"
       />
     </div>
   );

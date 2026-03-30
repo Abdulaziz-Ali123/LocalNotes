@@ -1,8 +1,7 @@
+@import "@mdxeditor/editor/style.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-@import "tw-animate-css";
-@import "@mdxeditor/editor/style.css";
 
 @custom-variant dark (&:is(.dark *));
 

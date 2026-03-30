@@ -4,6 +4,9 @@
  * Builds the application menu template using the resolved keybinding settings
  * instead of hardcoded accelerators. Called on startup and whenever keybindings
  * change.
+ * 
+ • Brief description of each revision & author:
+      Wesley McDougal - 29MAR2026 - Added menu command dispatch and auto-hide toggle
  */
 
 import { app, dialog, shell, BrowserWindow, MenuItemConstructorOptions } from "electron";
@@ -11,6 +14,25 @@ import { GlobalSettings } from "./schema";
 
 const isMac = process.platform === "darwin";
 
+/**
+ * Sends menu command to renderer via IPC channel 'menu:command'.
+ * Validates mainWindow exists and is not destroyed before sending.
+ * Called by menu item click handlers to dispatch commands (e.g., 'file.save', 'view.toggleSidebar').
+ */
+function sendMenuCommand(mainWindow: BrowserWindow | null, command: string): void {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.webContents.send("menu:command", command);
+}
+
+/**
+ * Builds complete application menu template (File, Edit, View, Window, Help) from settings.
+ * Reads keybindings from settings.keybindings to set menu item accelerators.
+ * File, View menu items dispatch commands via sendMenuCommand IPC.
+ * View menu includes Windows-only auto-hide checkbox bound to mainWindow.setAutoHideMenuBar().
+ */
 export function buildMenuTemplate(
   settings: GlobalSettings,
   mainWindow: BrowserWindow | null
@@ -42,19 +64,35 @@ export function buildMenuTemplate(
     {
       label: "File",
       submenu: [
-        isMac
-          ? { role: "close" as const }
-          : { role: "quit" as const },
+        {
+          label: "New File",
+          accelerator: kb["file.newFile"] || undefined,
+          click: () => sendMenuCommand(mainWindow, "file.newFile"),
+        },
+        {
+          label: "New Folder",
+          accelerator: kb["file.newFolder"] || undefined,
+          click: () => sendMenuCommand(mainWindow, "file.newFolder"),
+        },
+        { type: "separator" as const },
+        {
+          label: "Save",
+          accelerator: kb["file.save"] || undefined,
+          click: () => sendMenuCommand(mainWindow, "file.save"),
+        },
+        {
+          label: "Open Folder...",
+          accelerator: kb["file.open"] || undefined,
+          click: () => sendMenuCommand(mainWindow, "file.open"),
+        },
         {
           label: "Open File...",
           accelerator: kb["file.open"] || undefined,
           click: () =>
             dialog.showMessageBox({ message: "Opening file..." }),
         },
-        {
-          label: "Open Folder...",
-          accelerator: kb["file.open"] || undefined,
-        },
+        { type: "separator" as const },
+        isMac ? { role: "close" as const } : { role: "quit" as const },
       ],
     },
 
@@ -94,6 +132,17 @@ export function buildMenuTemplate(
     {
       label: "View",
       submenu: [
+        {
+          label: "Toggle Sidebar",
+          accelerator: kb["view.toggleSidebar"] || undefined,
+          click: () => sendMenuCommand(mainWindow, "view.toggleSidebar"),
+        },
+        {
+          label: "Search",
+          accelerator: kb["view.search"] || undefined,
+          click: () => sendMenuCommand(mainWindow, "view.search"),
+        },
+        { type: "separator" as const },
         { role: "reload" as const },
         { role: "forceReload" as const },
         {
@@ -101,6 +150,30 @@ export function buildMenuTemplate(
           accelerator: kb["view.toggleDevTools"] || undefined,
           click: () => mainWindow?.webContents.toggleDevTools(),
         },
+        ...(!isMac
+          ? [
+              {
+                type: "separator" as const,
+              },
+              {
+                label: "Auto-hide Menu Bar",
+                type: "checkbox" as const,
+                checked: mainWindow ? mainWindow.isMenuBarAutoHide() : false,
+                click: (menuItem) => {
+                  if (!mainWindow || mainWindow.isDestroyed()) {
+                    return;
+                  }
+
+                  const autoHideEnabled = Boolean(menuItem.checked);
+                  mainWindow.setAutoHideMenuBar(autoHideEnabled);
+
+                  if (!autoHideEnabled) {
+                    mainWindow.setMenuBarVisibility(true);
+                  }
+                },
+              },
+            ]
+          : []),
         { type: "separator" as const },
         { role: "resetZoom" as const },
         { role: "zoomIn" as const },
