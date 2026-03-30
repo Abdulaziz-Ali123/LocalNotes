@@ -17,6 +17,8 @@ import {
   RiCloseLine,
 } from "react-icons/ri";
 import { LuBrain, LuBrainCircuit } from "react-icons/lu";
+import { useBoundStore } from "@/renderer/store/useBoundStore";
+import { DEFAULT_MODEL_CAPABILITIES } from "@/renderer/store/settings-slice";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -44,17 +46,6 @@ interface Conversation {
   createdAt: Date;
 }
 
-const MODEL_OPTIONS = [
-  { id: "llama3.2", name: "Llama 3.2", provider: "Ollama" },
-  { id: "mistral", name: "Mistral", provider: "Ollama" },
-  { id: "gemma2", name: "Gemma 2", provider: "Ollama" },
-  { id: "phi3", name: "Phi-3", provider: "Ollama" },
-  { id: "codellama", name: "Code Llama", provider: "Ollama" },
-  { id: "deepseek-r1", name: "DeepSeek R1", provider: "Ollama" },
-  { id: "qwen2.5", name: "Qwen 2.5", provider: "Ollama" },
-  { id: "llava", name: "LLaVA (Vision)", provider: "Ollama" },
-];
-
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
@@ -70,6 +61,7 @@ function ModelSelector({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const aiSettings = useBoundStore((s) => s.settings.global?.ai);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -79,22 +71,26 @@ function ModelSelector({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const current = MODEL_OPTIONS.find((m) => m.id === selectedModel) ?? MODEL_OPTIONS[0];
+  const customModels = aiSettings?.customModels || [];
+  const current = customModels.find((m) => m.id === selectedModel) ?? customModels[0];
 
   return (
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background border border-border text-sm font-medium hover:bg-muted transition-colors"
+        disabled={customModels.length === 0}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background border border-border text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <span className="truncate max-w-[140px]">{current.name}</span>
+        <span className="truncate max-w-[140px]">
+          {current ? current.name : "No Models Added"}
+        </span>
         <RiArrowDownSLine
           className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
-      {open && (
+      {open && customModels.length > 0 && (
         <div className="absolute top-full left-0 mt-1 w-56 bg-background border border-border rounded-lg shadow-lg z-50 py-1 max-h-64 overflow-y-auto">
-          {MODEL_OPTIONS.map((model) => (
+          {customModels.map((model) => (
             <button
               key={model.id}
               onClick={() => {
@@ -219,12 +215,14 @@ function MessageBubble({
 // ─── Main Chat Panel ─────────────────────────────────────────────────────────
 
 export default function AIChatPanel() {
+  const aiSettings = useBoundStore((s) => s.settings.global?.ai);
+
   const [conversations, setConversations] = useState<Conversation[]>([
     {
       id: generateId(),
       title: "New Chat",
       messages: [],
-      model: "llama3.2",
+      model: aiSettings?.customModels?.[0]?.id ?? "",
       createdAt: new Date(),
     },
   ]);
@@ -240,6 +238,13 @@ export default function AIChatPanel() {
   const recognitionRef = useRef<any>(null);
 
   const activeConvo = conversations.find((c) => c.id === activeConvoId)!;
+
+  // Derive capabilities for the active model
+  const caps = (
+    aiSettings?.modelConfigs?.[activeConvo.model]?.capabilities ??
+    aiSettings?.customModels?.find(m => m.id === activeConvo.model)?.capabilities ??
+    { fileUpload: false, voice: false, thinking: false }
+  );
 
   // Auto-scroll to bottom when messages change
   const scrollToBottom = useCallback(() => {
@@ -437,23 +442,25 @@ export default function AIChatPanel() {
         <div className="flex items-center gap-3">
           <ModelSelector selectedModel={activeConvo.model} onSelect={handleModelSelect} />
 
-          {/* Thinking Toggle */}
-          <button
-            onClick={() => setThinkingEnabled((t) => !t)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
-              thinkingEnabled
-                ? "bg-accent/15 text-accent border-accent/30"
-                : "bg-background border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-            title={thinkingEnabled ? "Thinking enabled" : "Thinking disabled"}
-          >
-            {thinkingEnabled ? (
-              <LuBrainCircuit className="w-4 h-4" />
-            ) : (
-              <LuBrain className="w-4 h-4" />
-            )}
-            <span className="hidden sm:inline">Thinking</span>
-          </button>
+          {/* Thinking Toggle — only shown if model supports it */}
+          {caps.thinking && (
+            <button
+              onClick={() => setThinkingEnabled((t) => !t)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
+                thinkingEnabled
+                  ? "bg-accent/15 text-accent border-accent/30"
+                  : "bg-background border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+              title={thinkingEnabled ? "Thinking enabled" : "Thinking disabled"}
+            >
+              {thinkingEnabled ? (
+                <LuBrainCircuit className="w-4 h-4" />
+              ) : (
+                <LuBrain className="w-4 h-4" />
+              )}
+              <span className="hidden sm:inline">Thinking</span>
+            </button>
+          )}
         </div>
 
         {/* New Chat */}
@@ -534,31 +541,35 @@ export default function AIChatPanel() {
       {/* ── Input Area ── */}
       <div className="flex-shrink-0 px-4 pb-3 pt-2">
         <div className="flex items-end gap-2 bg-background border border-border rounded-2xl px-3 py-2 focus-within:ring-1 focus-within:ring-accent/40 transition-shadow">
-          {/* File Upload */}
-          <button
-            onClick={handleFileUpload}
-            className="flex-shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            title="Attach files"
-          >
-            <RiAttachmentLine className="w-5 h-5" />
-          </button>
+          {/* File Upload — only shown if model supports it */}
+          {caps.fileUpload && (
+            <button
+              onClick={handleFileUpload}
+              className="flex-shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Attach files"
+            >
+              <RiAttachmentLine className="w-5 h-5" />
+            </button>
+          )}
 
-          {/* Voice */}
-          <button
-            onClick={toggleDictation}
-            className={`flex-shrink-0 p-1.5 rounded-lg transition-colors ${
-              isListening
-                ? "text-destructive bg-destructive/10 animate-pulse"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-            title={isListening ? "Stop dictation" : "Start dictation"}
-          >
-            {isListening ? (
-              <RiMicOffLine className="w-5 h-5" />
-            ) : (
-              <RiMicLine className="w-5 h-5" />
-            )}
-          </button>
+          {/* Voice — only shown if model supports it */}
+          {caps.voice && (
+            <button
+              onClick={toggleDictation}
+              className={`flex-shrink-0 p-1.5 rounded-lg transition-colors ${
+                isListening
+                  ? "text-destructive bg-destructive/10 animate-pulse"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+              title={isListening ? "Stop dictation" : "Start dictation"}
+            >
+              {isListening ? (
+                <RiMicOffLine className="w-5 h-5" />
+              ) : (
+                <RiMicLine className="w-5 h-5" />
+              )}
+            </button>
+          )}
 
           {/* Text Input */}
           <textarea

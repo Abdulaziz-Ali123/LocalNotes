@@ -3,16 +3,22 @@
  *
  * Full-screen modal dialog for managing global settings.
  * Contains three tabs: Appearance, Editor, and Keybindings.
+ * 
+ * Revision History:
+ * - 29 MAR 2026: Wesley McDougal - Updated Appearance tab to include custom themes in dropdown
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { useTheme, type ThemeType } from "@/renderer/lib/theme";
-import { X } from "lucide-react";
+import { X, Eye, EyeOff } from "lucide-react";
+import { RiAddLine } from "react-icons/ri";
 import { Button } from "@/renderer/components/ui/button";
 import { Checkbox } from "@/renderer/components/ui/checkbox";
 import { Label } from "@/renderer/components/ui/label";
+import AddModelsModal from "@/renderer/components/AddModelsModal";
+import { type ModelCapabilities } from "@/renderer/store/settings-slice";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -22,7 +28,7 @@ interface SettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
   /** Which tab to show when the dialog opens (defaults to "appearance"). */
-  defaultTab?: "appearance" | "editor" | "keybindings";
+  defaultTab?: "appearance" | "editor" | "keybindings" | "ai";
 }
 
 // ---------------------------------------------------------------------------
@@ -58,6 +64,7 @@ export default function SettingsDialog({ isOpen, onClose, defaultTab = "appearan
             <TabTrigger value="appearance">Appearance</TabTrigger>
             <TabTrigger value="editor">Editor</TabTrigger>
             <TabTrigger value="keybindings">Keybindings</TabTrigger>
+            <TabTrigger value="ai">AI</TabTrigger>
           </Tabs.List>
 
           <div className="flex-1 overflow-y-auto p-6">
@@ -69,6 +76,9 @@ export default function SettingsDialog({ isOpen, onClose, defaultTab = "appearan
             </Tabs.Content>
             <Tabs.Content value="keybindings" className="outline-none">
               <KeybindingsTab />
+            </Tabs.Content>
+            <Tabs.Content value="ai" className="outline-none">
+              <AiTab />
             </Tabs.Content>
           </div>
         </Tabs.Root>
@@ -100,6 +110,10 @@ function AppearanceTab() {
   const { theme, setTheme } = useTheme();
   const globalSettings = useBoundStore((s) => s.settings.global);
   const setGlobal = useBoundStore((s) => s.settings.setGlobal);
+  const customThemes = globalSettings.appearance.customThemes ?? {};
+  const customThemeList = Object.values(customThemes).sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+  );
 
   const fontSize = globalSettings.appearance.fontSize;
   const fontFamily = globalSettings.appearance.fontFamily;
@@ -110,14 +124,25 @@ function AppearanceTab() {
       <SettingRow label="Theme" description="Choose the color theme for the app">
         <select
           value={theme}
-          onChange={(e) => setTheme(e.target.value as ThemeType)}
+          onChange={(e) => setTheme(e.target.value)}
           className="w-48 p-2 rounded-md bg-secondary text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-ring text-sm"
         >
-          <option value="nord">Nord (Default)</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-          <option value="cozy">Cozy</option>
-          <option value="darker">Darker</option>
+          <optgroup label="Built-in">
+            <option value="nord">Nord (Default)</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+            <option value="cozy">Cozy</option>
+            <option value="darker">Darker</option>
+          </optgroup>
+          {customThemeList.length > 0 && (
+            <optgroup label="Custom">
+              {customThemeList.map((custom) => (
+                <option key={custom.id} value={custom.id}>
+                  {custom.name}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
       </SettingRow>
 
@@ -377,9 +402,8 @@ function KeybindingsTab() {
                 return (
                   <div
                     key={action.id}
-                    className={`flex items-center justify-between px-4 py-2.5 text-sm ${
-                      idx > 0 ? "border-t border-border" : ""
-                    } ${conflict ? "bg-destructive/5" : ""}`}
+                    className={`flex items-center justify-between px-4 py-2.5 text-sm ${idx > 0 ? "border-t border-border" : ""
+                      } ${conflict ? "bg-destructive/5" : ""}`}
                   >
                     <div className="flex flex-col">
                       <span>{action.label}</span>
@@ -394,13 +418,12 @@ function KeybindingsTab() {
                         onClick={() =>
                           setRebindingId(isRebinding ? null : action.id)
                         }
-                        className={`px-3 py-1 rounded-md text-xs font-mono min-w-[120px] text-center transition-colors ${
-                          isRebinding
-                            ? "bg-accent text-accent-foreground ring-2 ring-ring animate-pulse"
-                            : conflict
-                              ? "bg-destructive/10 hover:bg-accent"
-                              : "bg-muted hover:bg-accent"
-                        }`}
+                        className={`px-3 py-1 rounded-md text-xs font-mono min-w-[120px] text-center transition-colors ${isRebinding
+                          ? "bg-accent text-accent-foreground ring-2 ring-ring animate-pulse"
+                          : conflict
+                            ? "bg-destructive/10 hover:bg-accent"
+                            : "bg-muted hover:bg-accent"
+                          }`}
                       >
                         {isRebinding
                           ? "Press keys..."
@@ -439,6 +462,108 @@ function KeybindingsTab() {
           Restore All Defaults
         </Button>
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AI tab
+// ---------------------------------------------------------------------------
+
+function AiTab() {
+  const aiSettings = useBoundStore((s) => s.settings.global.ai);
+  const setGlobal = useBoundStore((s) => s.settings.setGlobal);
+  const [showKey, setShowKey] = useState(false);
+
+  // Add Models UI state
+  const [isAddModelsOpen, setIsAddModelsOpen] = useState(false);
+
+  const modelIds = aiSettings?.customModels?.map(m => m.id) || [];
+
+  const getCaps = (modelId: string): ModelCapabilities => {
+    return (
+      aiSettings?.modelConfigs?.[modelId]?.capabilities ??
+      aiSettings?.customModels?.find(m => m.id === modelId)?.capabilities ??
+      { fileUpload: false, voice: true, thinking: false }
+    );
+  };
+
+  const toggleCap = (modelId: string, cap: keyof ModelCapabilities, val: boolean) => {
+    const currentCaps = getCaps(modelId);
+    const updatedConfigs = {
+      ...(aiSettings?.modelConfigs ?? {}),
+      [modelId]: { capabilities: { ...currentCaps, [cap]: val } },
+    };
+    setGlobal("ai.modelConfigs", updatedConfigs);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Per-model capabilities */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <div className="text-sm font-medium mb-1">Model Capabilities</div>
+            <div className="text-xs text-muted-foreground">
+              Enable or disable UI features for each model.
+            </div>
+          </div>
+
+          {/* Add Models Button */}
+          <button
+            onClick={() => setIsAddModelsOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-accent text-accent-foreground hover:bg-accent/90"
+          >
+            <RiAddLine className="w-4 h-4" />
+            <span className="hidden sm:inline">Add Models...</span>
+          </button>
+        </div>
+
+        <div className="border border-border rounded-md overflow-hidden">
+          {/* Header row */}
+          <div className="flex items-center px-4 py-2 bg-muted/40 text-xs font-semibold text-muted-foreground border-b border-border">
+            <span className="flex-1">Model</span>
+            <span className="w-24 text-center">File Upload</span>
+            <span className="w-24 text-center">Voice</span>
+            <span className="w-24 text-center">Thinking</span>
+          </div>
+          {modelIds.length === 0 ? (
+            <div className="px-4 py-8 flex flex-col items-center justify-center text-center text-sm text-muted-foreground bg-muted/10">
+              <p>No models configured yet.</p>
+              <p className="mt-1 opacity-70">Click &quot;Add Models...&quot; to get started.</p>
+            </div>
+          ) : (
+            modelIds.map((id, idx) => {
+              const caps = getCaps(id);
+              return (
+                <div
+                  key={id}
+                  className={`flex items-center px-4 py-2.5 text-sm ${idx > 0 ? "border-t border-border" : ""
+                    }`}
+                >
+                  <span className="flex-1 font-medium truncate">
+                    {aiSettings?.customModels?.find(m => m.id === id)?.name ?? id}
+                  </span>
+                  {(["fileUpload", "voice", "thinking"] as const).map((cap) => (
+                    <div key={cap} className="w-24 flex justify-center">
+                      <Checkbox
+                        checked={caps[cap]}
+                        onCheckedChange={(checked) => toggleCap(id, cap, !!checked)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      <AddModelsModal
+        isOpen={isAddModelsOpen}
+        onClose={() => setIsAddModelsOpen(false)}
+        defaultProvider="OpenAI"
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ module.exports = {
   images: {
     unoptimized: true,
   },
+  turbopack: {},
   webpack: (config) => {
     return config;
   },
