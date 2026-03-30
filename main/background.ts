@@ -28,6 +28,7 @@ import {
 } from "./database/documentRepository";
 import { chunkDirectory, chunkSingleFile, getChunkStats, DirectoryChunkerConfig, chunkAndStoreDirectory, chunkAndStoreFile } from "./indexing/DirectoryChuncker";
 import { UUID } from "crypto";
+import { startWatching, stopWatching, stopAllWatchers, getActiveWatchers, isWatching } from "./watcher/fileWatcher";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -228,12 +229,14 @@ let mainWindowRef: Electron.BrowserWindow | null = null;
 
 app.on("window-all-closed", () => {
     if (process.platform !== "darwin") {
+    void stopAllWatchers();
         closeDB();
         app.quit();
     }
 });
 
 app.on("will-quit", () => {
+  void stopAllWatchers();
     closeDB();
 });
 
@@ -678,6 +681,7 @@ ipcMain.handle("fs:exportFolder", async (_, sourceFolder: string, targetFolder: 
 ipcMain.handle("db:addDirectory", async (_, uuid: string, path: string) => {
     try {
         const result = addDirectory(uuid, path);
+    startWatching(uuid, path);
         return { success: true, data: result };
     } catch (error) {
         return { success: false, error: (error as Error).message };
@@ -695,6 +699,7 @@ ipcMain.handle("db:updateDirectory", async (_, id: UUID, name?: string, path?: s
 
 ipcMain.handle("db:deleteDirectory", async (_, id: UUID) => {
     try {
+    await stopWatching(id);
         deleteDirectory(id);
         return { success: true };
     } catch (error) {
@@ -874,6 +879,10 @@ ipcMain.handle("indexer:indexDirectory", async (_, directoryId: string, director
     try {
         console.log(`Starting indexing for directory: ${directoryPath}`);
         console.log("Using placeholder embeddings (384-dimensional vectors)");
+
+    if (!isWatching(directoryId)) {
+      startWatching(directoryId, directoryPath);
+    }
         
         const stats = await chunkAndStoreDirectory(directoryId, directoryPath, config);
         return { success: true, data: stats };
@@ -898,3 +907,46 @@ ipcMain.handle("indexer:indexFile", async (_, directoryId: string, filePath: str
         return { success: false, error: (error as Error).message };
     }
 });
+
+    ipcMain.handle("watcher:start", async (_, directoryId: UUID, directoryPath: string) => {
+      try {
+        startWatching(directoryId, directoryPath);
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle("watcher:stop", async (_, directoryId: UUID) => {
+      try {
+        await stopWatching(directoryId);
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle("watcher:stopAll", async () => {
+      try {
+        await stopAllWatchers();
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle("watcher:getActive", async () => {
+      try {
+        return { success: true, data: getActiveWatchers() };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle("watcher:isWatching", async (_, directoryId: UUID) => {
+      try {
+        return { success: true, data: isWatching(directoryId) };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
+    });
