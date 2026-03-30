@@ -1,6 +1,3 @@
-import React, { useEffect, useRef } from "react";
-import type { CanvasPage } from "./canvasTypes";
-
 /**
  * File: PageCanvas.tsx
  * Project: LocalNotes
@@ -10,7 +7,7 @@ import type { CanvasPage } from "./canvasTypes";
  * - Malek Kchaou
  *
  * Date Created: 03/14/2026
- * Last Updated: 03/15/2026
+ * Last Updated: 03/29/2026
  *
  * Purpose:
  * Renders one notebook page onto its own HTML canvas element.
@@ -29,83 +26,116 @@ import type { CanvasPage } from "./canvasTypes";
  * - forward pointer-down events back to the editor for drawing orchestration
  */
 
+import React, { useEffect, useRef } from "react";
+import type { CanvasPage } from "./canvasTypes";
+
+/**
+ * Props for one page canvas.
+ *
+ * onPointerDown is forwarded back to the parent editor so the parent can decide
+ * whether the interaction should begin drawing or panning.
+ */
 interface PageCanvasProps {
-  page: CanvasPage;
-  width: number;
-  height: number;
-  background: string;
-  onPointerDown?: (e: React.PointerEvent<HTMLCanvasElement>, pageIndex: number) => void;
+    page: CanvasPage;
+    width: number;
+    height: number;
+    background: string;
+    onPointerDown?: (
+        e: React.PointerEvent<HTMLCanvasElement>,
+        pageIndex: number
+    ) => void;
 }
 
 /**
  * PageCanvas is a pure page renderer.
  * It does not know about the whole notebook or persistence.
- * It simply redraws the page whenever its inputs change.
+ * It simply redraws the page whenever its page-level drawing inputs change.
  */
-export default function PageCanvas({
-  page,
-  width,
-  height,
-  background,
-  onPointerDown,
+function PageCanvasComponent({
+    page,
+    width,
+    height,
+    background,
+    onPointerDown,
 }: PageCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  /**
-   * Redraw the full page whenever page content or layout inputs change.
-   *
-   * Key rendering steps:
-   * 1. Resize internal canvas using device pixel ratio
-   * 2. Reset transform and clear old pixels
-   * 3. Paint the page background
-   * 4. Replay each saved stroke in order
-   */
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    /**
+     * Redraw the full page whenever page content or layout inputs change.
+     *
+     * Key rendering steps:
+     * 1. Resize internal canvas using device pixel ratio
+     * 2. Reset transform and clear old pixels
+     * 3. Paint the page background
+     * 4. Replay each saved stroke in order
+     */
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
 
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.floor(width * dpr);
-    canvas.height = Math.floor(height * dpr);
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
+        const dpr = window.devicePixelRatio || 1;
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
 
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, width, height);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
 
-    // Fill the page with its configured background color.
-    ctx.fillStyle = background;
-    ctx.fillRect(0, 0, width, height);
+        // Reset to device-pixel-aware coordinates.
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, width, height);
 
-    // Replay every stroke stored on this page.
-    for (const stroke of page.strokes) {
-      if (!stroke.points.length) continue;
+        // Paint the configured page background first.
+        ctx.fillStyle = background;
+        ctx.fillRect(0, 0, width, height);
 
-      ctx.beginPath();
-      ctx.strokeStyle = stroke.color;
-      ctx.lineWidth = stroke.size;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
+        // Replay every stored stroke in draw order.
+        for (const stroke of page.strokes) {
+            if (!stroke.points.length) continue;
 
-      ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+            ctx.beginPath();
+            ctx.strokeStyle = stroke.color;
+            ctx.lineWidth = stroke.size;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
 
-      for (let i = 1; i < stroke.points.length; i++) {
-        const p = stroke.points[i];
-        ctx.lineTo(p.x, p.y);
-      }
+            ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
 
-      ctx.stroke();
-    }
-  }, [page, width, height, background]);
+            for (let i = 1; i < stroke.points.length; i++) {
+                const p = stroke.points[i];
+                ctx.lineTo(p.x, p.y);
+            }
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className="block touch-none"
-      onPointerDown={(e) => onPointerDown?.(e, page.index)}
-    />
-  );
+            ctx.stroke();
+        }
+    }, [page, width, height, background]);
+
+    return (
+        <canvas
+            ref={canvasRef}
+            className="block"
+            style={{
+                /**
+                 * touchAction none prevents the browser from hijacking touch gestures
+                 * before the editor can interpret them as pan or pinch.
+                 */
+                touchAction: "none",
+            }}
+            onPointerDown={(e) => onPointerDown?.(e, page.index)}
+        />
+    );
 }
+
+/**
+ * React.memo prevents unchanged pages from rerendering when viewport-only state
+ * changes elsewhere in the notebook.
+ *
+ * This is especially helpful once notebooks grow to many pages.
+ */
+const PageCanvas = React.memo(PageCanvasComponent);
+
+PageCanvas.displayName = "PageCanvas";
+
+export default PageCanvas;

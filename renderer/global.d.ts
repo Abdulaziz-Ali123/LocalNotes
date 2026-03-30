@@ -119,7 +119,19 @@ declare global {
             send: (channel: string, data: any) => void;
             invoke: (channel: string, data: any) => Promise<any>;
         };
+
+        localNotes: {
+            errors: {
+                report: (payload: {
+                    message: string;
+                    stack?: string;
+                    code?: string;
+                    context?: string;
+                    details?: Record<string, unknown>;
+                }) => Promise<{ ok: boolean }>;
+            };
+        };
     }
 }
 
-export {};
+export { };
