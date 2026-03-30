@@ -198,6 +198,22 @@ export function getFilesByDirectory(directoryId: UUID) {
     }
 }
 
+export function getFileByPath(directoryId: UUID, filePath: string) {
+    const db = getDB();
+
+    try {
+        return db.prepare(`
+            SELECT *
+            FROM files
+            WHERE directory_id = ? AND file_path = ?
+            LIMIT 1
+        `).get(directoryId, filePath);
+    } catch (error) {
+        console.error("Failed to get file by path:", error);
+        throw error;
+    }
+}
+
 export function addChunk(
     fileId: UUID,
     contentHash: string,
@@ -241,7 +257,7 @@ export function addEmbedding(
     `;
 
     try {
-        const stmt = db.prepare(sql);``
+        const stmt = db.prepare(sql);
         return stmt.run(
             embedding
         );
@@ -261,6 +277,20 @@ export function deleteChunksByFile(fileId: UUID) {
         `).run(fileId);
     } catch (error) {
         console.error("Failed to delete chunks:", error);
+        throw error;
+    }
+}
+
+export function deleteChunkById(chunkId: number) {
+    const db = getDB();
+
+    try {
+        return db.prepare(`
+            DELETE FROM chunks
+            WHERE id = ?
+        `).run(chunkId);
+    } catch (error) {
+        console.error("Failed to delete chunk by id:", error);
         throw error;
     }
 }
