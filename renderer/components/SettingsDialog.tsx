@@ -499,6 +499,19 @@ function AiTab() {
 
   return (
     <div className="space-y-6">
+      {/* RAG settings */}
+      <SettingRow label="Default RAG" description="Enable local indexing for Retrieval-Augmented Generation when creating or opening new note directories.">
+        <div className="flex items-center gap-3">
+          <Checkbox
+            checked={aiSettings?.defaultRagEnabled ?? false}
+            onCheckedChange={(checked) =>
+              setGlobal("ai.defaultRagEnabled", !!checked)
+            }
+          />
+          <Label className="text-sm">Enabled</Label>
+        </div>
+      </SettingRow>
+
       {/* Per-model capabilities */}
       <div>
         <div className="flex items-center justify-between mb-3">

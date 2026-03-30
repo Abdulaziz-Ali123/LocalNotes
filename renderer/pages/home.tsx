@@ -6,9 +6,77 @@ import { RiRobot2Line, RiCloseLine, RiInformationLine } from "react-icons/ri";
 import { useRouter } from "next/router";
 import { Button } from "@/renderer/components/ui/button";
 import InputDialog from "@/renderer/components/InputDialog";
+import { useBoundStore } from "@/renderer/store/useBoundStore";
 
 export default function HomePage() {
   const router = useRouter();
+  const globalAiSettings = useBoundStore((s) => s.settings.global.ai);
+  const defaultRagEnabled = globalAiSettings?.defaultRagEnabled ?? false;
+
+  const handleLocalNotesEnv = async (folderPath: string) => {
+    const localNotesDir = window.fs.join(folderPath, ".localnotes");
+    const envPath = window.fs.join(localNotesDir, ".env");
+    
+    const localNotesRes = await window.fs.exists(localNotesDir);
+    const hasLocalNotes = localNotesRes.success ? localNotesRes.data : false;
+    
+    if (!hasLocalNotes) {
+      await window.fs.createFolder(localNotesDir);
+    }
+
+    const envRes = await window.fs.exists(envPath);
+    const hasEnv = envRes.success ? envRes.data : false;
+    let uuid = crypto.randomUUID();
+    let ragEnabledStr = defaultRagEnabled ? "true" : "false";
+    let indexedStr = "false";
+    let needsWrite = false;
+
+    if (hasEnv) {
+      const envContent = await window.fs.readFile(envPath);
+      if (envContent.success) {
+        const lines = envContent.data.split("\\n");
+        let foundRag = false;
+        lines.forEach((line: string) => {
+          if (line.startsWith("DIRECTORY_ID=")) uuid = line.split("=")[1].trim();
+          if (line.startsWith("INDEXED=")) indexedStr = line.split("=")[1].trim();
+          if (line.startsWith("RAG_ENABLED=")) {
+            ragEnabledStr = line.split("=")[1].trim();
+            foundRag = true;
+          }
+        });
+
+        if (!foundRag) {
+          const userWantsRag = await new Promise<boolean>((resolve) => {
+            setRagDialog({ isOpen: true, resolve });
+          });
+          ragEnabledStr = userWantsRag ? "true" : "false";
+          needsWrite = true;
+        }
+      }
+    } else {
+      const userWantsRag = await new Promise<boolean>((resolve) => {
+        setRagDialog({ isOpen: true, resolve });
+      });
+      ragEnabledStr = userWantsRag ? "true" : "false";
+      needsWrite = true;
+    }
+
+    if (needsWrite) {
+      const newEnvContent = `DIRECTORY_ID=${uuid}\\nRAG_ENABLED=${ragEnabledStr}\\nINDEXED=${indexedStr}`;
+      await window.fs.writeFile(envPath, newEnvContent);
+    }
+    
+    return { uuid, ragEnabledStr, indexedStr };
+  };
+
+  const [ragDialog, setRagDialog] = useState<{
+    isOpen: boolean;
+    resolve: (value: boolean) => void;
+  }>({
+    isOpen: false,
+    resolve: () => {},
+  });
+
   const [inputDialog, setInputDialog] = useState({
     isOpen: false,
     title: "",
@@ -30,44 +98,49 @@ export default function HomePage() {
     const result = await window.fs.openFolderDialog();
     if (result.success && result.data) {
       try {
+        // Parse or Create .localnotes/.env
+        const { uuid, ragEnabledStr } = await handleLocalNotesEnv(result.data);
+
         setIsIndexing(true);
         setIndexingStatus("Searching for existing repository...");
         
         // Store the folder path in localStorage
         localStorage.setItem("currentFolderPath", result.data);
 
-        // Check if directory already exists in database
-        const existingDir = await window.db.getDirectoryIdByPath(result.data);
-        let uuid: string;
+        // Generate UUID and add directory to database
+        const dirResult = await window.db.addDirectory(uuid, result.data);
+        
+        if (!dirResult.success) {
+          throw new Error(dirResult.error || "Failed to add directory");
+        }
+        
+        console.log("Directory added with ID:", uuid);
+        
+        // Index the directory if RAG is enabled
+        if (ragEnabledStr === "true") {
+          setIndexingStatus("Indexing files...");
+          const storeResult = await window.indexer.indexDirectory(uuid, result.data);
 
-        if (existingDir.success && existingDir.data) {
-          uuid = existingDir.data;
-          console.log("Existing directory found with ID:", uuid);
-          
-          // Check if .Local Notes exists, if not, it might need re-indexing
-          const localNotesDir = window.fs.join(result.data, ".Local Notes");
-          const existsRes = await window.fs.exists(localNotesDir);
-          
-          if (existsRes.success && existsRes.data) {
-            // Already initialized, just go to editor
-            router.push("/editor");
-            return;
+          if (storeResult.success && storeResult.data) {
+            console.log(`✓ Indexing complete!`);
+            console.log(`Files processed: ${storeResult.data.filesProcessed}`);
+            console.log(`Chunks created: ${storeResult.data.chunksCreated}`);
+            
+            setIndexingStatus("Complete!");
+            
+            // Navigate to editor page
+            setTimeout(() => {
+              router.push("/editor");
+            }, 500);
           } else {
-            // Found in DB but no folder, prompt to re-init
-            setPendingRagInit({ uuid, path: result.data });
-            setShowRagModal(true);
-            setIsIndexing(false);
+            throw new Error(storeResult.error || "Failed to index directory");
           }
         } else {
-          // New directory, prompt to initialize RAG
-          uuid = window.crypto.randomUUID();
-          setPendingRagInit({ uuid, path: result.data });
-          setShowRagModal(true);
-          setIsIndexing(false);
+          router.push("/editor");
         }
       } catch (error) {
         console.error("Error:", error);
-        alert(`Failed to open and index folder: ${error}`);
+        alert(`Failed to open folder: ${error}`);
         setIndexingStatus("");
         setIsIndexing(false);
       }
@@ -103,13 +176,39 @@ export default function HomePage() {
             // Store the folder path in localStorage
             localStorage.setItem("currentFolderPath", newFolderPath);
 
-            // Set up pending init and show modal
-            const uuid: string = window.crypto.randomUUID();
-            setPendingRagInit({ uuid, path: newFolderPath });
-            setShowRagModal(true);
+            // Parse or Create .localnotes/.env
+            const { uuid, ragEnabledStr } = await handleLocalNotesEnv(newFolderPath);
+
+            // Add directory to database
+            const storeResult = await window.db.addDirectory(uuid, newFolderPath);
+
+            if (storeResult.success) {
+              console.log("Directory added to database with ID:", uuid);
+              
+              if (ragEnabledStr === "true") {
+                setIsIndexing(true);
+                setIndexingStatus("Initializing index...");
+                const indexResult = await window.indexer.indexDirectory(uuid, newFolderPath);
+                if (indexResult.success) {
+                  console.log("Empty directory index initialized successfully.");
+                  setIndexingStatus("Complete!");
+                } else {
+                  console.error("Failed to initialize index:", indexResult.error);
+                }
+                setTimeout(() => {
+                  router.push("/editor");
+                }, 500);
+              } else {
+                router.push("/editor");
+              }
+            } else {
+              throw new Error(storeResult.error || "Failed to add directory to database");
+            }
           } catch (error) {
             console.error("Error:", error);
             alert(`Failed to create folder: ${error}`);
+            setIsIndexing(false);
+            setIndexingStatus("");
           }
         }
       },
@@ -239,75 +338,27 @@ export default function HomePage() {
           onCancel={() => setInputDialog((prev) => ({ ...prev, isOpen: false }))}
         />
 
-        {/* RAG Initialization Modal */}
-        {showRagModal && (
-          <div 
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-            onClick={() => !isIndexing && setShowRagModal(false)}
-          >
-            <div 
-              className="bg-secondary border border-border rounded-lg shadow-xl w-[450px] overflow-hidden animate-in fade-in zoom-in duration-200"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-                <div className="flex items-center gap-2">
-                  <RiRobot2Line className="w-5 h-5 text-accent" />
-                  <h2 className="text-lg font-semibold">Initialize AI Search</h2>
-                </div>
-                {!isIndexing && (
-                  <button
-                    onClick={() => setShowRagModal(false)}
-                    className="rounded-md p-1 hover:bg-accent/20 transition-colors"
-                  >
-                    <RiCloseLine className="h-5 w-5" />
-                  </button>
-                )}
+        {ragDialog.isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-background border border-border rounded-lg shadow-lg w-[400px] p-6">
+              <h2 className="text-lg font-semibold mb-2">Index this directory?</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Do you want to map and index this directory for AI capabilities? If you select Yes, the directory will be continuously indexed so the AI can understand your notes.
+              </p>
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => {
+                  ragDialog.resolve(false);
+                  setRagDialog((prev) => ({ ...prev, isOpen: false }));
+                }}>
+                  No
+                </Button>
+                <Button onClick={() => {
+                  ragDialog.resolve(true);
+                  setRagDialog((prev) => ({ ...prev, isOpen: false }));
+                }}>
+                  Yes
+                </Button>
               </div>
-
-              {/* Content */}
-              <div className="p-6 space-y-4">
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  To enable AI features for this folder, we need to index your notes. 
-                  This creates a hidden <code className="bg-muted px-1 rounded font-mono text-xs">.Local Notes</code> folder.
-                </p>
-
-                {isIndexing ? (
-                  <div className="py-6 flex flex-col items-center justify-center gap-4 bg-muted/30 rounded-lg border border-dashed border-border">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
-                    <p className="text-sm font-medium animate-pulse">{indexingStatus}</p>
-                  </div>
-                ) : (
-                  <div className="p-3 bg-muted/50 rounded-lg flex gap-3 border border-border text-xs text-muted-foreground">
-                    <RiInformationLine className="w-5 h-5 text-accent shrink-0 mt-0.5" />
-                    <p>
-                      Your notes are broken into small chunks and stored locally as mathematical 
-                      embeddings. No data ever leaves your machine.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Footer */}
-              {!isIndexing && (
-                <div className="px-6 py-4 bg-muted/20 border-t border-border flex justify-end gap-3">
-                  <button 
-                    onClick={() => {
-                      setShowRagModal(false);
-                      router.push("/editor");
-                    }}
-                    className="h-9 px-4 text-sm font-medium rounded-md hover:bg-accent/10 transition-colors"
-                  >
-                    Skip for now
-                  </button>
-                  <button 
-                    onClick={startRagInitialization}
-                    className="h-9 px-4 text-sm font-medium bg-accent text-accent-foreground rounded-md shadow-neumorph-sm active:shadow-neumorph-insert transition-all"
-                  >
-                    Initialize & Index
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         )}

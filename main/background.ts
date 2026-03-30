@@ -1,4 +1,15 @@
 /**
+ * File: main/background.ts
+ * Purpose: Main Electron process bootstrap and IPC registration.
+ * Summary of what was added/changed:
+ * - Added central IPC handler for renderer error reporting.
+ * - Added process-level fallback logging for uncaught exceptions and unhandled rejections.
+ * Author: Malek Kchaou (add your name if you made changes here)
+ * Date Created: 
+ * Last Updated: 2026-03-28
+ */
+
+/**
  * Main Electron Process (background.ts)
  *
  * Serves as the primary entry point for the application's main process. Responsibilities include:
@@ -19,7 +30,8 @@
  *  • Wesley McDougal - 29MAR2026 - Windows menu visibility enforcement and title bar adjustments
  */
 import path from "path";
-import { app, ipcMain, Menu, dialog, shell } from "electron";
+import { app, ipcMain, BrowserWindow, Menu, dialog, shell } from "electron";
+app.disableHardwareAcceleration();
 import serve from "electron-serve";
 import { createWindow, ensureConfigDirectory, getConfigDirectoryPath } from "./helpers";
 import fs from "fs/promises";
@@ -48,6 +60,12 @@ import {
 } from "./database/documentRepository";
 import { chunkDirectory, chunkSingleFile, getChunkStats, DirectoryChunkerConfig, chunkAndStoreDirectory, chunkAndStoreFile } from "./indexing/DirectoryChuncker";
 import { UUID } from "crypto";
+import { startWatching, stopWatching, stopAllWatchers, getActiveWatchers, isWatching } from "./watcher/fileWatcher";
+import {
+    logMainError,
+    logRendererError,
+} from "./logging/errorLogger";
+import { registerErrorLoggingIpc } from "./logging/registerErrorLoggingIpc";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -173,6 +191,20 @@ if (isProd) {
   app.setPath("userData", `${app.getPath("userData")} (development)`);
 }
 
+/**
+ * Adds top-level safety nets so catastrophic main-process issues
+ * still get written to the same log file.
+ */
+function registerProcessLevelErrorHandlers(): void {
+    process.on("uncaughtException", (error) => {
+        logMainError(error, "process.uncaughtException");
+    });
+
+    process.on("unhandledRejection", (reason) => {
+        logMainError(reason, "process.unhandledRejection");
+    });
+}
+
 // ---------------------------------------------------------------------------
 // Settings manager (singleton)
 // ---------------------------------------------------------------------------
@@ -180,13 +212,31 @@ const settingsManager = new SettingsManager();
 let mainWindowRef: Electron.BrowserWindow | null = null;
 
 (async () => {
-  await app.whenReady();
-  process.stderr.write("[Local Notes] Initializing config directory...\n");
-  const configDirectoryPath = await ensureConfigDirectory();
-  process.stderr.write(`[Local Notes] Config directory ready at: ${configDirectoryPath}\n`);
+    try {
+        /**
+         * Wait for Electron to finish initialization before using app APIs.
+         */
+        await app.whenReady();
 
-  // Load global settings before creating the window
-  const globalSettings = await settingsManager.loadGlobal();
+        /**
+         * Register centralized error plumbing as early as possible.
+         * This ensures both renderer-reported errors and startup/runtime crashes
+         * can be captured consistently.
+         */
+        registerErrorLoggingIpc();
+        registerProcessLevelErrorHandlers();
+
+        process.stderr.write("[Local Notes] Initializing config directory...\n");
+        const configDirectoryPath = await ensureConfigDirectory();
+        process.stderr.write(
+            `[Local Notes] Config directory ready at: ${configDirectoryPath}\n`
+        );
+
+        /**
+         * Load global settings before creating the main window so the initial
+         * UI and menu state reflect the saved configuration.
+         */
+        const globalSettings = await settingsManager.loadGlobal();
 
   const mainWindow = createWindow("main", {
     width: 1000,
@@ -203,18 +253,23 @@ let mainWindowRef: Electron.BrowserWindow | null = null;
     ...(process.platform === "darwin" ? { titleBarStyle: "hidden" as const } : {}),
   });
 
-  mainWindowRef = mainWindow;
+        mainWindowRef = mainWindow;
 
-  // Register settings IPC handlers
-  registerSettingsIpc(settingsManager, () => mainWindowRef);
+        /**
+         * Register settings IPC handlers after the window reference exists.
+         * This preserves the current app architecture and avoids unnecessary changes.
+         */
+        registerSettingsIpc(settingsManager, () => mainWindowRef);
 
-  // Context menu
-  const contextTemplate: any = [
-    { role: "copy" },
-    { role: "cut" },
-    { role: "paste" },
-    { role: "selectall" },
-  ];
+        /**
+         * Context menu definition for standard text actions.
+         */
+        const contextTemplate: any = [
+            { role: "copy" },
+            { role: "cut" },
+            { role: "paste" },
+            { role: "selectall" },
+        ];
 
   // Build menu from settings (keybindings-driven instead of hardcoded)
   const menuTemplate = buildMenuTemplate(globalSettings, mainWindow);
@@ -236,27 +291,43 @@ let mainWindowRef: Electron.BrowserWindow | null = null;
     mainWindow.on("unmaximize", keepMenuBarVisible);
   }
 
-  const contextMenu = Menu.buildFromTemplate(contextTemplate);
+        const contextMenu = Menu.buildFromTemplate(contextTemplate);
 
-  mainWindow.webContents.on("context-menu", (_event, params) => {
-    contextMenu.popup();
-  });
+        mainWindow.webContents.on("context-menu", (_event, _params) => {
+            contextMenu.popup();
+        });
 
-  if (isProd) {
-    await mainWindow.loadURL("app://./home");
-  } else {
-    const port = process.argv[2];
-    await mainWindow.loadURL(`http://localhost:${port}/home`);
-    
-  }
+        /**
+         * Load the correct renderer entry depending on environment.
+         */
+        if (isProd) {
+            await mainWindow.loadURL("app://./home");
+        } else {
+            const port = process.argv[2];
+            await mainWindow.loadURL(`http://localhost:${port}/home`);
+        }
 
-    try {
-        initializeDB();
-        console.log("✓ Database ready");
+        /**
+         * Initialize the database after the app window is ready.
+         * If this fails, log through the central logger and then exit cleanly.
+         */
+        try {
+            initializeDB();
+            console.log("✓ Database ready");
+        } catch (error) {
+            logMainError(error, "database.initialize");
+            console.error("✗ Failed to initialize database:", error);
+            app.quit();
+            return;
+        }
     } catch (error) {
-        console.error("✗ Failed to initialize database:", error);
+        /**
+         * Final startup safety net.
+         * Any failure during bootstrap gets logged to the same central system.
+         */
+        logMainError(error, "background.bootstrap");
+        console.error("✗ Fatal startup error:", error);
         app.quit();
-        return;
     }
 
     try {
@@ -271,12 +342,14 @@ let mainWindowRef: Electron.BrowserWindow | null = null;
 
 app.on("window-all-closed", () => {
     if (process.platform !== "darwin") {
+    void stopAllWatchers();
         closeDB();
         app.quit();
     }
 });
 
 app.on("will-quit", () => {
+  void stopAllWatchers();
     closeDB();
 });
 
@@ -722,6 +795,7 @@ ipcMain.handle("fs:exportFolder", async (_, sourceFolder: string, targetFolder: 
 ipcMain.handle("db:addDirectory", async (_, uuid: string, path: string) => {
     try {
         const result = addDirectory(uuid, path);
+    startWatching(uuid, path);
         return { success: true, data: result };
     } catch (error) {
         return { success: false, error: (error as Error).message };
@@ -739,6 +813,7 @@ ipcMain.handle("db:updateDirectory", async (_, id: UUID, name?: string, path?: s
 
 ipcMain.handle("db:deleteDirectory", async (_, id: UUID) => {
     try {
+    await stopWatching(id);
         deleteDirectory(id);
         return { success: true };
     } catch (error) {
@@ -928,6 +1003,10 @@ ipcMain.handle("indexer:indexDirectory", async (_, directoryId: string, director
     try {
         console.log(`Starting indexing for directory: ${directoryPath}`);
         console.log("Using placeholder embeddings (384-dimensional vectors)");
+
+    if (!isWatching(directoryId)) {
+      startWatching(directoryId, directoryPath);
+    }
         
         const stats = await chunkAndStoreDirectory(directoryId, directoryPath, config);
         return { success: true, data: stats };
@@ -952,3 +1031,46 @@ ipcMain.handle("indexer:indexFile", async (_, directoryId: string, filePath: str
         return { success: false, error: (error as Error).message };
     }
 });
+
+    ipcMain.handle("watcher:start", async (_, directoryId: UUID, directoryPath: string) => {
+      try {
+        startWatching(directoryId, directoryPath);
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle("watcher:stop", async (_, directoryId: UUID) => {
+      try {
+        await stopWatching(directoryId);
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle("watcher:stopAll", async () => {
+      try {
+        await stopAllWatchers();
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle("watcher:getActive", async () => {
+      try {
+        return { success: true, data: getActiveWatchers() };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle("watcher:isWatching", async (_, directoryId: UUID) => {
+      try {
+        return { success: true, data: isWatching(directoryId) };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
+    });
