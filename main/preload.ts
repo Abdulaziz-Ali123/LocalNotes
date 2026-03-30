@@ -75,6 +75,8 @@ const vectorDbHandler = {
         ipcRenderer.invoke("db:getDirectory", id),
     getAllDirectories: () => 
         ipcRenderer.invoke("db:getAllDirectories"),
+    getDirectoryIdByPath: (path: string) => 
+        ipcRenderer.invoke("db:getDirectoryIdByPath", path),
     addFile: (directoryId: UUID, filePath: string, fileHash: string, lastModified: number) =>
         ipcRenderer.invoke("db:addFile", directoryId, filePath, fileHash, lastModified),
     updateFileHash: (fileId: UUID, fileHash: string, lastModified: number) =>

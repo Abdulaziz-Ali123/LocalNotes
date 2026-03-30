@@ -107,6 +107,22 @@ export function getAllDirectories() {
     }
 }
 
+export function getDirectoryIdByPath(path: string): string | undefined {
+    const db = getDB();
+
+    try {
+        const result = db.prepare(`
+            SELECT id FROM directories
+            WHERE path = ?
+        `).get(path) as { id: string } | undefined;
+        return result?.id;
+    } catch (error) {
+        console.error("Failed to get directory ID by path:", error);
+        throw error;
+    }
+}
+
+
 export function addFile(
     directoryId: UUID,
     filePath: string,

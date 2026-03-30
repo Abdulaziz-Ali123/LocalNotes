@@ -303,7 +303,24 @@ export default function Editor() {
           }
           const result = await window.fs.openFolderDialog();
           if (result.success && result.data) {
-            localStorage.setItem("currentFolderPath", result.data);
+            const folderPath = result.data;
+            localStorage.setItem("currentFolderPath", folderPath);
+            
+            // Check if folder is already in database
+            const idRes = await window.db.getDirectoryIdByPath(folderPath);
+            let uuid = idRes.success && idRes.data ? idRes.data : crypto.randomUUID();
+            
+            // Register if not found
+            if (!idRes.data) {
+                await window.db.addDirectory(uuid, folderPath);
+            }
+            
+            // Initialize .localnotes/.env for compatibility
+            const localNotesDir = window.fs.join(folderPath, ".localnotes");
+            await window.fs.createFolder(localNotesDir);
+            await window.fs.writeFile(window.fs.join(localNotesDir, ".env"), `DIRECTORY_ID=${uuid}`);
+            
+            // Reload to re-initialize tree etc.
             window.location.reload();
           }
           break;

@@ -764,6 +764,16 @@ ipcMain.handle("db:getAllDirectories", async () => {
     }
 });
 
+ipcMain.handle("db:getDirectoryIdByPath", async (_, path: string) => {
+    try {
+        const { getDirectoryIdByPath } = require("./database/documentRepository");
+        const id = getDirectoryIdByPath(path);
+        return { success: true, data: id };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
 // ========== FILES ==========
 ipcMain.handle("db:addFile", async (_, directoryId: UUID, filePath: string, fileHash: string, lastModified: number) => {
     try {

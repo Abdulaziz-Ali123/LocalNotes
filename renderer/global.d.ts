@@ -18,6 +18,7 @@ declare global {
             deleteDirectory: (id: UUID) => Promise<DbResponse>;
             getDirectory: (id: UUID) => Promise<DbResponse>;
             getAllDirectories: () => Promise<DbResponse>;
+            getDirectoryIdByPath: (path: string) => Promise<DbResponse>;
             addFile: (directoryId: UUID, filePath: string, fileHash: string, lastModified: number) => Promise<DbResponse>;
             updateFileHash: (fileId: UUID, fileHash: string, lastModified: number) => Promise<DbResponse>;
             deleteFile: (fileId: UUID) => Promise<DbResponse>;
