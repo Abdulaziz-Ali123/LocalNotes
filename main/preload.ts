@@ -1,3 +1,11 @@
+/**
+ * File: main/preload.ts
+ * Purpose: Exposes safe renderer APIs through Electron's preload bridge.
+ * Author: Malek Kchaou (if you see this and you've worked on it add your name)
+ * Date created: 2024-06
+ * Last Updated: 2026-03-28
+ */
+
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
 import path from "path";
 import { DirectoryChunkerConfig, DirectoryChunkResult} from "./indexing/DirectoryChuncker";
@@ -261,6 +269,29 @@ const projectSettingsHandler = {
 };
 
 contextBridge.exposeInMainWorld("projectSettings", projectSettingsHandler);
+
+/**
+ * Expose only the minimal error-reporting surface needed by the renderer.
+ * The renderer should not write files directly; it should report through IPC.
+ */
+contextBridge.exposeInMainWorld("localNotes", {
+    errors: {
+        /**
+         * Sends a structured error payload to the main process.
+         * The main process is responsible for persisting it in the central log.
+         */
+        report: (payload: {
+            message: string;
+            stack?: string;
+            code?: string;
+            context?: string;
+            details?: Record<string, unknown>;
+        }) => ipcRenderer.invoke("errors:report", payload),
+    },
+
+    // Preserve any existing APIs already exposed here.
+    // Merge this into your current preload object rather than replacing it.
+});
 
 export type IpcHandler = typeof handler;
 export type FileSystemHandler = typeof fileSystemHandler;

@@ -11,10 +11,9 @@
  * Last Updated: 03/2026
  *
  * Change Summary:
- * Updated the editor content region to support the new multi-page canvas editor
- * alongside existing markdown and plain-text editing modes. This file now provides
- * the bounded layout chain required for the canvas notebook viewport to scroll
- * correctly inside the larger editor shell.
+ * Removed an accidentally duplicated JSX block that appeared after the main
+ * return statement and caused a syntax error. Kept the bounded layout chain
+ * required for the multi-page canvas editor to scroll correctly.
  */
 
 /**
@@ -43,21 +42,24 @@ import { Button } from "@/renderer/components/ui/button";
 import MarkdownViewer from "@/renderer/components/MarkdownViewer";
 import CanvasEditor from "@/renderer/components/CanvasEditor";
 
-const TiptapTextEditor = dynamic(() => import("@/renderer/components/TiptapTextEditor"), {
-  ssr: false,
-});
+const TiptapTextEditor = dynamic(
+    () => import("@/renderer/components/TiptapTextEditor"),
+    {
+        ssr: false,
+    }
+);
 
 export interface EditorSpaceProps {
-  selectedFile: string | null;
-  previewMode: boolean;
-  livePreview: boolean;
-  fileContent: string;
-  isSaving: boolean;
-  handleSave: () => void;
-  setPreviewMode: React.Dispatch<React.SetStateAction<boolean>>;
-  setLivePreview: React.Dispatch<React.SetStateAction<boolean>>;
-  setFileContent: React.Dispatch<React.SetStateAction<string>>;
-  saveMessage: string | null;
+    selectedFile: string | null;
+    previewMode: boolean;
+    livePreview: boolean;
+    fileContent: string;
+    isSaving: boolean;
+    handleSave: () => void;
+    setPreviewMode: React.Dispatch<React.SetStateAction<boolean>>;
+    setLivePreview: React.Dispatch<React.SetStateAction<boolean>>;
+    setFileContent: React.Dispatch<React.SetStateAction<string>>;
+    saveMessage: string | null;
 }
 
 export default function EditorSpace({ selectedFile, previewMode, livePreview, fileContent, isSaving, handleSave, setPreviewMode, setLivePreview, setFileContent, saveMessage }: EditorSpaceProps) {
