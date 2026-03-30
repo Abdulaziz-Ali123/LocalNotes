@@ -5,8 +5,12 @@ import { chunkText, Chunk, ChunkingConfig } from "./chunking";
 import {
     addFile,
     addChunk,
+    deleteChunkById,
+    getFileByPath,
     getFilesByDirectory,
     addEmbedding,
+    updateFileHash,
+    getChunksByFile,
 } from "@/main/database/documentRepository";
 import { embedChunk } from "../embeding/embeding";
 
@@ -35,6 +39,12 @@ export interface FileWithChunks {
     fileName: string;
     chunks: Chunk[];
     error?: string;
+}
+
+interface ChunkSyncStats {
+    chunksAdded: number;
+    chunksRemoved: number;
+    chunksUnchanged: number;
 }
 
 /**
@@ -270,12 +280,6 @@ export async function chunkAndStoreDirectory(
     };
     
     try {
-        // Get existing files from database
-        const existingFilesRaw = getFilesByDirectory(directoryId) as any[];
-        const existingFilesMap = new Map(
-            existingFilesRaw.map(f => [f.file_path, f])
-        );
-        
         // Find all supported files
         const filePaths = await findSupportedFiles(directoryPath, config);
         console.log(`Found ${filePaths.length} files to process`);
@@ -286,71 +290,27 @@ export async function chunkAndStoreDirectory(
                 // Read file content
                 const content = await fs.readFile(filePath, "utf-8");
                 
-                // Compute file hash
-                const fileHash = computeFileHash(content);
                 const fileStat = await fs.stat(filePath);
                 const lastModified = fileStat.mtimeMs;
-                
-                // Check if file already exists with same hash
-                const existingFile = existingFilesMap.get(filePath);
-                if (existingFile && existingFile.file_hash === fileHash) {
-                    console.log(`Skipping unchanged file: ${filePath}`);
+
+                const result = await upsertFileChunks(
+                    directoryId,
+                    filePath,
+                    content,
+                    lastModified,
+                    config.chunkingConfig
+                );
+
+                if (result.skipped) {
                     stats.filesSkipped++;
                     continue;
                 }
-                
-                // Chunk the file
-                const chunks = chunkText(content, filePath, config.chunkingConfig);
-                
-                if (chunks.length === 0) {
-                    console.warn(`No chunks generated for: ${filePath}`);
-                    stats.filesSkipped++;
-                    continue;
-                }
-                
-                // Add file to database (or skip if exists)
-                let fileId: UUID;
-                if (existingFile) {
-                    console.log(`File exists, skipping for now: ${filePath}`);
-                    stats.filesSkipped++;
-                    continue;
-                } else {
-                    // FIXED: Use the returned UUID
-                    const { id } = addFile(
-                        directoryId,
-                        filePath,
-                        fileHash,
-                        lastModified
-                    );
-                    fileId = id;
-                    console.log(`Added file: ${path.basename(filePath)} (${fileId.substring(0, 8)}...)`);
-                }
-                
-                // Store chunks with placeholder embeddings
-                for (let i = 0; i < chunks.length; i++) {
-                    const chunk = chunks[i];
-                    
-                    try {
-                        // Generate placeholder embedding
-                        const embedding = await embedChunk(chunk.content);
-                        
-                        addChunk(
-                            fileId,
-                            chunk.contentHash,
-                            chunk.content
-                        );
-                
-                        addEmbedding(embedding);
-                        
-                        stats.chunksCreated++;
-                    } catch (error) {
-                        console.error(`Failed to store chunk ${i} for ${filePath}:`, error);
-                        stats.errors++;
-                    }
-                }
-                
+
                 stats.filesProcessed++;
-                console.log(`✓ Processed ${path.basename(filePath)}: ${chunks.length} chunks`);
+                stats.chunksCreated += result.chunkStats.chunksAdded;
+                console.log(
+                    `✓ Processed ${path.basename(filePath)}: +${result.chunkStats.chunksAdded} / -${result.chunkStats.chunksRemoved} / =${result.chunkStats.chunksUnchanged}`
+                );
                 
             } catch (error) {
                 console.error(`Failed to process file ${filePath}:`, error);
@@ -382,50 +342,117 @@ export async function chunkAndStoreFile(
     config?: ChunkingConfig
 ): Promise<{ fileId: UUID; chunksCreated: number }> {
     console.log(`Chunking and storing file: ${filePath}`);
-    
-    // Read file content
+
     const content = await fs.readFile(filePath, "utf-8");
-    
-    // Chunk the content
-    const chunks = chunkText(content, filePath, config);
-    
-    if (chunks.length === 0) {
-        throw new Error("No chunks generated for file");
-    }
-    
-    // Compute file hash
-    const fileHash = computeFileHash(content);
     const fileStat = await fs.stat(filePath);
     const lastModified = fileStat.mtimeMs;
-    
-    // FIXED: Use the returned UUID
-    const { id: fileId } = addFile(
+
+    const result = await upsertFileChunks(
         directoryId,
         filePath,
-        fileHash,
-        lastModified
+        content,
+        lastModified,
+        config
     );
-    
-    // Store chunks with placeholder embeddings
-    let chunksCreated = 0;
-    for (const chunk of chunks) {
-        const embedding = await embedChunk(chunk.content);
-        
-      
-        addChunk(
-            fileId,
-            chunk.contentHash,
-            chunk.content
-        );
 
-        addEmbedding(embedding);
-        
-        chunksCreated++;
+    if (result.skipped) {
+        console.log(`Skipping unchanged file: ${filePath}`);
+    } else {
+        console.log(
+            `✓ Stored ${filePath}: +${result.chunkStats.chunksAdded} / -${result.chunkStats.chunksRemoved} / =${result.chunkStats.chunksUnchanged}`
+        );
     }
-    
-    console.log(`✓ Stored ${filePath}: ${chunksCreated} chunks`);
-    
-    return { fileId, chunksCreated };
+
+    return { fileId: result.fileId, chunksCreated: result.chunkStats.chunksAdded };
+}
+
+async function upsertFileChunks(
+    directoryId: UUID,
+    filePath: string,
+    content: string,
+    lastModified: number,
+    chunkingConfig?: ChunkingConfig
+): Promise<{ fileId: UUID; skipped: boolean; chunkStats: ChunkSyncStats }> {
+    const fileHash = computeFileHash(content);
+    const existingFile = getFileByPath(directoryId, filePath) as any | undefined;
+
+    if (existingFile && existingFile.file_hash === fileHash) {
+        return {
+            fileId: existingFile.id,
+            skipped: true,
+            chunkStats: { chunksAdded: 0, chunksRemoved: 0, chunksUnchanged: 0 },
+        };
+    }
+
+    const nextChunks = chunkText(content, filePath, chunkingConfig);
+
+    let fileId: UUID;
+    if (existingFile) {
+        fileId = existingFile.id;
+    } else {
+        const created = addFile(directoryId, filePath, fileHash, lastModified);
+        fileId = created.id;
+    }
+
+    const chunkStats = await syncChangedChunks(fileId, nextChunks);
+
+    // Update file hash only after chunk+embedding updates succeed.
+    updateFileHash(fileId, fileHash, lastModified);
+
+    return {
+        fileId,
+        skipped: false,
+        chunkStats,
+    };
+}
+
+async function syncChangedChunks(fileId: UUID, nextChunks: Chunk[]): Promise<ChunkSyncStats> {
+    const existingChunks = getChunksByFile(fileId) as Array<{ id: number; content_hash: string }>;
+
+    const byHash = new Map<string, Array<{ id: number; content_hash: string }>>();
+    for (const chunk of existingChunks) {
+        const list = byHash.get(chunk.content_hash) ?? [];
+        list.push(chunk);
+        byHash.set(chunk.content_hash, list);
+    }
+
+    const toAdd: Chunk[] = [];
+    let chunksUnchanged = 0;
+
+    for (const nextChunk of nextChunks) {
+        const matches = byHash.get(nextChunk.contentHash);
+        if (matches && matches.length > 0) {
+            matches.pop();
+            chunksUnchanged++;
+        } else {
+            toAdd.push(nextChunk);
+        }
+    }
+
+    const toDeleteIds: number[] = [];
+    for (const remaining of Array.from(byHash.values())) {
+        for (const chunk of remaining) {
+            toDeleteIds.push(chunk.id);
+        }
+    }
+
+    const embeddingsForAdds = await Promise.all(toAdd.map((chunk) => embedChunk(chunk.content)));
+
+    for (const chunkId of toDeleteIds) {
+        deleteChunkById(chunkId);
+    }
+
+    for (let i = 0; i < toAdd.length; i++) {
+        const chunk = toAdd[i];
+        addChunk(fileId, chunk.contentHash, chunk.content);
+        addEmbedding(embeddingsForAdds[i]);
+    }
+
+    return {
+        chunksAdded: toAdd.length,
+        chunksRemoved: toDeleteIds.length,
+        chunksUnchanged,
+    };
 }
 
 // Re-export types for convenience
