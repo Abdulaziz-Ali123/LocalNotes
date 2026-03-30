@@ -84,6 +84,7 @@ export interface CustomModel {
 export interface AiSettings {
   endpointUrl: string;
   apiKey: string;
+  defaultRagEnabled: boolean;
   modelConfigs: Record<string, AiModelConfig>;
   customModels: CustomModel[];
 }
@@ -167,6 +168,7 @@ export const DEFAULT_MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {};
 const INITIAL_AI: AiSettings = {
   endpointUrl: "http://localhost:11434",
   apiKey: "",
+  defaultRagEnabled: false,
   modelConfigs: {},
   customModels: [],
 };

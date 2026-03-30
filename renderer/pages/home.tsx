@@ -5,9 +5,77 @@ import Image from "next/image";
 import { useRouter } from "next/router";
 import { Button } from "@/renderer/components/ui/button";
 import InputDialog from "@/renderer/components/InputDialog";
+import { useBoundStore } from "@/renderer/store/useBoundStore";
 
 export default function HomePage() {
   const router = useRouter();
+  const globalAiSettings = useBoundStore((s) => s.settings.global.ai);
+  const defaultRagEnabled = globalAiSettings?.defaultRagEnabled ?? false;
+
+  const handleLocalNotesEnv = async (folderPath: string) => {
+    const localNotesDir = window.fs.join(folderPath, ".localnotes");
+    const envPath = window.fs.join(localNotesDir, ".env");
+    
+    const localNotesRes = await window.fs.exists(localNotesDir);
+    const hasLocalNotes = localNotesRes.success ? localNotesRes.data : false;
+    
+    if (!hasLocalNotes) {
+      await window.fs.createFolder(localNotesDir);
+    }
+
+    const envRes = await window.fs.exists(envPath);
+    const hasEnv = envRes.success ? envRes.data : false;
+    let uuid = crypto.randomUUID();
+    let ragEnabledStr = defaultRagEnabled ? "true" : "false";
+    let indexedStr = "false";
+    let needsWrite = false;
+
+    if (hasEnv) {
+      const envContent = await window.fs.readFile(envPath);
+      if (envContent.success) {
+        const lines = envContent.data.split("\\n");
+        let foundRag = false;
+        lines.forEach((line: string) => {
+          if (line.startsWith("DIRECTORY_ID=")) uuid = line.split("=")[1].trim();
+          if (line.startsWith("INDEXED=")) indexedStr = line.split("=")[1].trim();
+          if (line.startsWith("RAG_ENABLED=")) {
+            ragEnabledStr = line.split("=")[1].trim();
+            foundRag = true;
+          }
+        });
+
+        if (!foundRag) {
+          const userWantsRag = await new Promise<boolean>((resolve) => {
+            setRagDialog({ isOpen: true, resolve });
+          });
+          ragEnabledStr = userWantsRag ? "true" : "false";
+          needsWrite = true;
+        }
+      }
+    } else {
+      const userWantsRag = await new Promise<boolean>((resolve) => {
+        setRagDialog({ isOpen: true, resolve });
+      });
+      ragEnabledStr = userWantsRag ? "true" : "false";
+      needsWrite = true;
+    }
+
+    if (needsWrite) {
+      const newEnvContent = `DIRECTORY_ID=${uuid}\\nRAG_ENABLED=${ragEnabledStr}\\nINDEXED=${indexedStr}`;
+      await window.fs.writeFile(envPath, newEnvContent);
+    }
+    
+    return { uuid, ragEnabledStr, indexedStr };
+  };
+
+  const [ragDialog, setRagDialog] = useState<{
+    isOpen: boolean;
+    resolve: (value: boolean) => void;
+  }>({
+    isOpen: false,
+    resolve: () => {},
+  });
+
   const [inputDialog, setInputDialog] = useState({
     isOpen: false,
     title: "",
@@ -27,6 +95,9 @@ export default function HomePage() {
     const result = await window.fs.openFolderDialog();
     if (result.success && result.data) {
       try {
+        // Parse or Create .localnotes/.env
+        const { uuid, ragEnabledStr } = await handleLocalNotesEnv(result.data);
+
         setIsIndexing(true);
         setIndexingStatus("Adding directory to database...");
         
@@ -34,7 +105,6 @@ export default function HomePage() {
         localStorage.setItem("currentFolderPath", result.data);
 
         // Generate UUID and add directory to database
-        const uuid: string = crypto.randomUUID();
         const dirResult = await window.db.addDirectory(uuid, result.data);
         
         if (!dirResult.success) {
@@ -43,27 +113,31 @@ export default function HomePage() {
         
         console.log("Directory added with ID:", uuid);
         
-        // Index the directory
-        setIndexingStatus("Indexing files...");
-        const storeResult = await window.indexer.indexDirectory(uuid, result.data);
+        // Index the directory if RAG is enabled
+        if (ragEnabledStr === "true") {
+          setIndexingStatus("Indexing files...");
+          const storeResult = await window.indexer.indexDirectory(uuid, result.data);
 
-        if (storeResult.success && storeResult.data) {
-          console.log(`✓ Indexing complete!`);
-          console.log(`Files processed: ${storeResult.data.filesProcessed}`);
-          console.log(`Chunks created: ${storeResult.data.chunksCreated}`);
-          
-          setIndexingStatus("Complete!");
-          
-          // Navigate to editor page
-          setTimeout(() => {
-            router.push("/editor");
-          }, 500);
+          if (storeResult.success && storeResult.data) {
+            console.log(`✓ Indexing complete!`);
+            console.log(`Files processed: ${storeResult.data.filesProcessed}`);
+            console.log(`Chunks created: ${storeResult.data.chunksCreated}`);
+            
+            setIndexingStatus("Complete!");
+            
+            // Navigate to editor page
+            setTimeout(() => {
+              router.push("/editor");
+            }, 500);
+          } else {
+            throw new Error(storeResult.error || "Failed to index directory");
+          }
         } else {
-          throw new Error(storeResult.error || "Failed to index directory");
+          router.push("/editor");
         }
       } catch (error) {
         console.error("Error:", error);
-        alert(`Failed to open and index folder: ${error}`);
+        alert(`Failed to open folder: ${error}`);
         setIndexingStatus("");
         setIsIndexing(false);
       }
@@ -99,20 +173,39 @@ export default function HomePage() {
             // Store the folder path in localStorage
             localStorage.setItem("currentFolderPath", newFolderPath);
 
+            // Parse or Create .localnotes/.env
+            const { uuid, ragEnabledStr } = await handleLocalNotesEnv(newFolderPath);
+
             // Add directory to database
-            const uuid: string = crypto.randomUUID();
             const storeResult = await window.db.addDirectory(uuid, newFolderPath);
 
             if (storeResult.success) {
               console.log("Directory added to database with ID:", uuid);
-              // Navigate to editor page
-              router.push("/editor");
+              
+              if (ragEnabledStr === "true") {
+                setIsIndexing(true);
+                setIndexingStatus("Initializing index...");
+                const indexResult = await window.indexer.indexDirectory(uuid, newFolderPath);
+                if (indexResult.success) {
+                  console.log("Empty directory index initialized successfully.");
+                  setIndexingStatus("Complete!");
+                } else {
+                  console.error("Failed to initialize index:", indexResult.error);
+                }
+                setTimeout(() => {
+                  router.push("/editor");
+                }, 500);
+              } else {
+                router.push("/editor");
+              }
             } else {
               throw new Error(storeResult.error || "Failed to add directory to database");
             }
           } catch (error) {
             console.error("Error:", error);
             alert(`Failed to create folder: ${error}`);
+            setIsIndexing(false);
+            setIndexingStatus("");
           }
         }
       },
@@ -199,6 +292,31 @@ export default function HomePage() {
           onConfirm={inputDialog.onConfirm}
           onCancel={() => setInputDialog((prev) => ({ ...prev, isOpen: false }))}
         />
+
+        {ragDialog.isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-background border border-border rounded-lg shadow-lg w-[400px] p-6">
+              <h2 className="text-lg font-semibold mb-2">Index this directory?</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Do you want to map and index this directory for AI capabilities? If you select Yes, the directory will be continuously indexed so the AI can understand your notes.
+              </p>
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => {
+                  ragDialog.resolve(false);
+                  setRagDialog((prev) => ({ ...prev, isOpen: false }));
+                }}>
+                  No
+                </Button>
+                <Button onClick={() => {
+                  ragDialog.resolve(true);
+                  setRagDialog((prev) => ({ ...prev, isOpen: false }));
+                }}>
+                  Yes
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </React.Fragment>
   );

@@ -136,6 +136,7 @@ export interface CustomModel {
 export interface AiSettings {
   endpointUrl: string;
   apiKey: string;
+  defaultRagEnabled: boolean;
   modelConfigs: Record<string, AiModelConfig>;
   customModels: CustomModel[];
 }
