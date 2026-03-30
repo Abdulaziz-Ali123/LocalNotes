@@ -57,6 +57,7 @@ export const DEFAULT_LLM = {
 export const DEFAULT_AI = {
   endpointUrl: "http://localhost:11434",
   apiKey: "",
+  defaultRagEnabled: false,
   modelConfigs: {},
   customModels: [],
 };
