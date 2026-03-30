@@ -242,7 +242,7 @@ export default function AIChatPanel() {
   // Derive capabilities for the active model
   const caps = (
     aiSettings?.modelConfigs?.[activeConvo.model]?.capabilities ??
-    aiSettings?.customModels?.find(m => m.id === activeConvo.model)?.capabilities ??
+  aiSettings?.customModels?.find(m => m.id === activeConvo.model)?.capabilities ??
     { fileUpload: false, voice: false, thinking: false }
   );
 
@@ -252,6 +252,199 @@ export default function AIChatPanel() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, []);
+
+  const executeRAG = async (convoId: string, userText: string) => {
+    // Scaffold UI
+    const assistantId = generateId();
+    updateConversation(convoId, (c) => ({
+      ...c,
+      messages: [
+        ...c.messages,
+        {
+          id: assistantId,
+          role: "assistant",
+          content: "",
+          timestamp: new Date(),
+          isStreaming: true,
+        },
+      ],
+    }));
+
+    try {
+      // 1. Get current directory UUID
+      const currentFolderPath = localStorage.getItem("currentFolderPath");
+      if (!currentFolderPath) throw new Error("No folder open.");
+      
+      const localNotesDir = window.fs.join(currentFolderPath, ".localnotes");
+      const envPath = window.fs.join(localNotesDir, ".env");
+      
+      const envRes = await window.fs.exists(envPath);
+      let directoryId = "";
+      let debugInfo = `Path: ${envPath} | Exists: ${envRes.success ? envRes.data : envRes.error} | `;
+      
+      if (envRes.success && envRes.data) {
+         const contentRes = await window.fs.readFile(envPath);
+         if (contentRes.success) {
+            const lines = contentRes.data.split("\n");
+            lines.forEach((line: string) => {
+              if (line.startsWith("DIRECTORY_ID=")) {
+                 directoryId = line.split("=")[1].trim();
+              }
+            });
+            debugInfo += `Read Success | Lines: ${lines.length} | ID: ${directoryId}`;
+         } else {
+            debugInfo += `Read Failed: ${contentRes.error}`;
+         }
+      }
+      
+      if (!directoryId) throw new Error(`Could not find directory database ID.\nDebug: ${debugInfo}`);
+
+      // 2. Retrieve Context via RAG IPC
+      updateConversation(convoId, (c) => ({
+        ...c,
+        messages: c.messages.map(m => m.id === assistantId ? { ...m, thinking: "Retrieving relevant notes from local database..." } : m)
+      }));
+      
+      const contextRes = await window.rag.retrieveContext(directoryId, userText, 5);
+      const contextAugmentation = contextRes.success && contextRes.contextText 
+        ? contextRes.contextText 
+        : "No relevant local notes found.";
+
+      updateConversation(convoId, (c) => ({
+        ...c,
+        messages: c.messages.map(m => m.id === assistantId ? { ...m, thinking: "Thinking based on your notes..." } : m)
+      }));
+
+      // 3. Prepare Chat Prompt
+      const c = conversations.find(c => c.id === convoId);
+      if (!c) return;
+
+      const systemPrompt = `You are a helpful assistant assisting the user with their local markdown notes repository.
+      
+${contextAugmentation}
+
+Use the above context to answer the user accurately. If the context does not answer the question, say so, but try to be helpful based on your general knowledge if applicable.`;
+
+      // We only send prior conversation context + the new system prompt
+      const previousMessagesForAPI = c.messages
+        .filter(m => m.id !== assistantId)
+        .map(m => ({ role: m.role, content: m.content }));
+
+      const messagesData = [
+         { role: "system", content: systemPrompt },
+         ...previousMessagesForAPI
+      ];
+
+      // 4. Contact LLM
+      const customModels = aiSettings?.customModels || [];
+      const currentModel = customModels.find(m => m.id === activeConvo.model);
+      if (!currentModel) throw new Error("Selected LLM model not found in settings.");
+      
+      const endpoint = currentModel.baseUrl || "http://localhost:11434/v1/chat/completions";
+      const apiKey = currentModel.apiKey || "";
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
+        },
+        body: JSON.stringify({
+          model: currentModel.id,
+          messages: messagesData,
+          stream: true
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`LLM Error: ${response.statusText}`);
+      }
+
+      // 5. Stream Output
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder("utf-8");
+
+      let rawResponse = "";
+      let buffer = "";
+
+      updateConversation(convoId, (c) => ({
+        ...c,
+        messages: c.messages.map(m => m.id === assistantId ? { ...m, thinking: undefined } : m)
+      }));
+
+      while (true) {
+        if (!reader) break;
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        
+        let boundary = buffer.indexOf('\n');
+        while (boundary !== -1) {
+          const line = buffer.slice(0, boundary).trim();
+          buffer = buffer.slice(boundary + 1);
+          boundary = buffer.indexOf('\n');
+
+          if (line === "data: [DONE]") continue;
+          if (line.startsWith("data: ")) {
+            try {
+              const payload = line.slice(6).trim();
+              if (payload === "[DONE]") continue; // Backup check
+              
+              const data = JSON.parse(payload);
+              const delta = data.choices?.[0]?.delta?.content || "";
+              rawResponse += delta;
+              
+              let contentStr = rawResponse;
+              let thinkStr = "";
+
+              const thinkStartIdx = contentStr.indexOf("<think>");
+              if (thinkStartIdx !== -1) {
+                 const thinkEndIdx = contentStr.indexOf("</think>");
+                 if (thinkEndIdx !== -1) {
+                     thinkStr = contentStr.substring(thinkStartIdx + 7, thinkEndIdx).trim();
+                     contentStr = contentStr.substring(0, thinkStartIdx) + contentStr.substring(thinkEndIdx + 8);
+                 } else {
+                     thinkStr = contentStr.substring(thinkStartIdx + 7).trim();
+                     contentStr = contentStr.substring(0, thinkStartIdx);
+                 }
+              }
+
+              updateConversation(convoId, (c) => ({
+                ...c,
+                messages: c.messages.map((m) =>
+                  m.id === assistantId ? { ...m, content: contentStr, thinking: thinkStr || undefined } : m
+                ),
+              }));
+            } catch (err) {
+               // Ignore partial or malformed JSON payload per tick
+            }
+          }
+        }
+      }
+
+      // Cleanup
+      updateConversation(convoId, (c) => ({
+        ...c,
+        messages: c.messages.map((m) =>
+          m.id === assistantId ? { ...m, isStreaming: false } : m
+        ),
+      }));
+      setIsGenerating(false);
+
+    } catch (error: any) {
+      console.error(error);
+      updateConversation(convoId, (c) => ({
+        ...c,
+        messages: c.messages.map(m => m.id === assistantId ? { 
+          ...m, 
+          isStreaming: false, 
+          content: m.content + `\n\n**Error:** ${error.message}`
+        } : m)
+      }));
+      setIsGenerating(false);
+    }
+  };
 
   useEffect(() => {
     scrollToBottom();
@@ -267,55 +460,6 @@ export default function AIChatPanel() {
 
   const updateConversation = (id: string, updater: (c: Conversation) => Conversation) => {
     setConversations((prev) => prev.map((c) => (c.id === id ? updater(c) : c)));
-  };
-
-  // Simulated AI response for UI demo
-  const simulateResponse = (convoId: string) => {
-    const assistantId = generateId();
-    const thinkingText = thinkingEnabled
-      ? "Let me analyze your question carefully...\nConsidering the context of your notes and the specific request...\nFormulating a comprehensive response..."
-      : undefined;
-
-    updateConversation(convoId, (c) => ({
-      ...c,
-      messages: [
-        ...c.messages,
-        {
-          id: assistantId,
-          role: "assistant",
-          content: "",
-          thinking: thinkingText,
-          timestamp: new Date(),
-          isStreaming: true,
-        },
-      ],
-    }));
-
-    const demoResponse =
-      "This is a **demo response** from the AI assistant. Once connected to a local LLM like **Ollama**, responses will stream here in real-time.\n\nYou can:\n- Ask questions about your notes\n- Get summaries\n- Generate content\n- And much more!";
-
-    let index = 0;
-    const interval = setInterval(() => {
-      index += 3;
-      const partial = demoResponse.slice(0, index);
-      updateConversation(convoId, (c) => ({
-        ...c,
-        messages: c.messages.map((m) =>
-          m.id === assistantId ? { ...m, content: partial } : m
-        ),
-      }));
-
-      if (index >= demoResponse.length) {
-        clearInterval(interval);
-        updateConversation(convoId, (c) => ({
-          ...c,
-          messages: c.messages.map((m) =>
-            m.id === assistantId ? { ...m, isStreaming: false } : m
-          ),
-        }));
-        setIsGenerating(false);
-      }
-    }, 25);
   };
 
   const handleSend = () => {
@@ -342,7 +486,8 @@ export default function AIChatPanel() {
     setAttachments([]);
     setIsGenerating(true);
 
-    setTimeout(() => simulateResponse(convoId), 600);
+    // Give state time to update, then fire RAG
+    setTimeout(() => executeRAG(convoId, trimmed), 50);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -476,7 +621,21 @@ export default function AIChatPanel() {
 
       {/* ── Messages ── */}
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 py-4">
-        {activeConvo.messages.length === 0 ? (
+        {aiSettings?.customModels?.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center text-destructive">
+              <RiRobot2Line className="w-8 h-8" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-1">
+                No AI Models Configured
+              </h3>
+              <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-4">
+                You currently don't have any LLMs enabled to process your notes. Please add a model in the AI Settings to chat with your documents.
+              </p>
+            </div>
+          </div>
+        ) : activeConvo.messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
               <RiRobot2Line className="w-8 h-8 text-muted-foreground" />

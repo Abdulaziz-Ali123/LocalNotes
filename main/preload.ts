@@ -262,6 +262,12 @@ const projectSettingsHandler = {
 
 contextBridge.exposeInMainWorld("projectSettings", projectSettingsHandler);
 
+const ragHandler = {
+    retrieveContext: (directoryId: string, query: string, topK?: number) => 
+        ipcRenderer.invoke("rag:retrieveContext", { directoryId, query, topK })
+};
+contextBridge.exposeInMainWorld("rag", ragHandler);
+
 export type IpcHandler = typeof handler;
 export type FileSystemHandler = typeof fileSystemHandler;
 export type TabHandler = typeof tabHandler;
@@ -271,3 +277,5 @@ export type IndexHandler = typeof indexerHandler;
 export type WatcherHandler = typeof watcherHandler;
 export type SettingsHandler = typeof settingsHandler;
 export type ProjectSettingsHandler = typeof projectSettingsHandler;
+export type RagHandler = typeof ragHandler;
+

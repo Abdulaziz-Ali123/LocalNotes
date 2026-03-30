@@ -298,3 +298,40 @@ export function getChunksByFile(fileId: UUID) {
         throw error;
     }
 }
+
+export function searchSimilarChunks(
+    directoryId: UUID,
+    queryEmbedding: Float32Array | number[],
+    topK: number = 5
+) {
+    const db = getDB();
+
+    try {
+        const float32ArrayBinding = queryEmbedding instanceof Float32Array 
+            ? queryEmbedding 
+            : new Float32Array(queryEmbedding);
+
+        // Uses the vec0 extension's virtual table `embeddings` and joins on the actual
+        // chunks to filter down by `directoryId`.
+        const sql = `
+            SELECT
+                c.id,
+                c.file_id,
+                c.content,
+                f.file_path,
+                vec.distance
+            FROM embeddings vec
+            INNER JOIN chunks c ON c.id = vec.rowid
+            INNER JOIN files f ON f.id = c.file_id
+            WHERE vec.embedding MATCH ? AND vec.k = ?
+              AND f.directory_id = ?
+            ORDER BY vec.distance ASC
+        `;
+
+        const stmt = db.prepare(sql);
+        return stmt.all(float32ArrayBinding, topK, directoryId);
+    } catch (error) {
+        console.error("Failed to search similar chunks:", error);
+        throw error;
+    }
+}

@@ -258,6 +258,14 @@ let mainWindowRef: Electron.BrowserWindow | null = null;
         app.quit();
         return;
     }
+
+    try {
+        const { registerRagIpc } = require("./rag/ragService");
+        registerRagIpc();
+        console.log("✓ RAG service ready");
+    } catch (error) {
+        console.error("✗ Failed to load RAG service:", error);
+    }
 })();
 
 
@@ -419,13 +427,14 @@ ipcMain.handle("fs:renameItem", async (_event, oldPath: string, newPath: string)
 ipcMain.handle("fs:readFile", async (event, filePath: string) => {
   try {
         const ext = path.extname(filePath).toLowerCase();
+        const baseName = path.basename(filePath).toLowerCase();
 
         // Define file types
         const textExtensions = ['.md', '.txt', '.tex', '.json', '.js', '.ts', '.css', '.html', '.canvas', '.xml', '.yaml', '.yml'];
         const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.ico'];
 
         // Read as text
-        if (textExtensions.includes(ext)) {
+        if (textExtensions.includes(ext) || baseName === '.env') {
     const content = await fs.readFile(filePath, "utf-8");
             return { success: true, data: content, type: 'text' };
         }
