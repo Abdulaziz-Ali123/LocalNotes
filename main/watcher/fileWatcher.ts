@@ -3,10 +3,8 @@ import * as crypto from "crypto";
 import * as fs from "fs/promises";
 import * as path from "path";
 import {
-    addFile,
     deleteFile,
-    updateFileHash,
-    getFilesByDirectory,
+    getFileByPath,
 } from "@/main/database/documentRepository";
 import { chunkAndStoreFile } from "@/main/indexing/DirectoryChuncker";
 
@@ -78,19 +76,6 @@ function shouldIgnore(filePath: string, config: FileWatcherConfig): boolean {
 }
 
 /**
- * Get file from database by path
- */
-async function getFileByPath(directoryId: UUID, filePath: string): Promise<any> {
-    try {
-        const files = getFilesByDirectory(directoryId);
-        return (files as any[]).find((f: any) => f.file_path === filePath);
-    } catch (error) {
-        console.error("Error getting file by path:", error);
-        return null;
-    }
-}
-
-/**
  * Handle file addition
  */
 async function handleFileAdd(
@@ -111,42 +96,15 @@ async function handleFileAdd(
             return;
         }
 
-        // Read file content
-        const content = await fs.readFile(filePath, "utf-8");
-        
         // Check file size
-        if (content.length > (config.maxFileSize || DEFAULT_CONFIG.maxFileSize!)) {
+        const stats = await fs.stat(filePath);
+        if (stats.size > (config.maxFileSize || DEFAULT_CONFIG.maxFileSize!)) {
             console.warn(`File too large: ${filePath}`);
             return;
         }
 
-        // Compute hash
-        const fileHash = computeFileHash(content);
-        const stats = await fs.stat(filePath);
-        const lastModified = stats.mtimeMs;
-
-        // Check if file already exists in database
-        const existingFile = await getFileByPath(directoryId, filePath);
-        
-        if (existingFile) {
-            // File exists, check if it has changed
-            if (existingFile.file_hash !== fileHash) {
-                console.log(`File modified (from add event): ${filePath}`);
-                await handleFileChange(directoryId, filePath, config);
-            }
-        } else {
-            // Add file to database
-            const { id: fileId } = addFile(directoryId, filePath, fileHash, lastModified);
-            console.log(`File added to database: ${filePath}`);
-
-            // Index the file (chunk and store)
-            try {
-                await chunkAndStoreFile(directoryId, filePath);
-                console.log(`File indexed: ${filePath}`);
-            } catch (error) {
-                console.error(`Failed to index file ${filePath}:`, error);
-            }
-        }
+        await chunkAndStoreFile(directoryId, filePath);
+        console.log(`File indexed/updated: ${filePath}`);
     } catch (error) {
         console.error(`Error handling file add for ${filePath}:`, error);
     }
@@ -172,7 +130,7 @@ async function handleFileChange(
         }
 
         // Get existing file from database
-        const existingFile = await getFileByPath(directoryId, filePath);
+        const existingFile = getFileByPath(directoryId, filePath) as any;
         
         if (!existingFile) {
             // File not in database, treat as add
@@ -183,7 +141,7 @@ async function handleFileChange(
 
         // Read new content
         const content = await fs.readFile(filePath, "utf-8");
-        
+
         // Check file size
         if (content.length > (config.maxFileSize || DEFAULT_CONFIG.maxFileSize!)) {
             console.warn(`File too large: ${filePath}`);
@@ -197,14 +155,10 @@ async function handleFileChange(
 
         // Check if hash has changed
         if (existingFile.file_hash !== newFileHash) {
-            // Update file hash
-            updateFileHash(existingFile.id, newFileHash, lastModified);
-            console.log(`File hash updated: ${filePath}`);
-
-            // Re-index the file (delete old chunks and create new ones)
+            // Re-index with hash-based chunk diff so only changed chunks are updated.
             try {
                 await chunkAndStoreFile(directoryId, filePath);
-                console.log(`File re-indexed: ${filePath}`);
+                console.log(`File incrementally re-indexed: ${filePath}`);
             } catch (error) {
                 console.error(`Failed to re-index file ${filePath}:`, error);
             }
@@ -224,7 +178,7 @@ async function handleFileUnlink(
 ): Promise<void> {
     try {
         // Get file from database
-        const existingFile = await getFileByPath(directoryId, filePath);
+        const existingFile = getFileByPath(directoryId, filePath) as any;
         
         if (existingFile) {
             // Delete file and its chunks from database
