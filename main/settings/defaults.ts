@@ -54,6 +54,13 @@ export const DEFAULT_LLM = {
     models: {},
 };
 
+export const DEFAULT_AI = {
+  endpointUrl: "http://localhost:11434",
+  apiKey: "",
+  modelConfigs: {},
+  customModels: [],
+};
+
 // ---------------------------------------------------------------------------
 // Composite defaults
 // ---------------------------------------------------------------------------
@@ -66,6 +73,7 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
     defaultModelId: DEFAULT_LLM.defaultModelId,
     models: { ...DEFAULT_LLM.models },
   },
+  ai: { ...DEFAULT_AI },
 };
 
 export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {

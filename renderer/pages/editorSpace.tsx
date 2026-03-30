@@ -39,7 +39,7 @@
 
 import React from "react";
 import dynamic from "next/dynamic";
-import {Button} from "@/renderer/components/ui/button";
+import { Button } from "@/renderer/components/ui/button";
 import MarkdownViewer from "@/renderer/components/MarkdownViewer";
 import CanvasEditor from "@/renderer/components/CanvasEditor";
 
@@ -60,23 +60,13 @@ export interface EditorSpaceProps {
   saveMessage: string | null;
 }
 
-export default function EditorSpace({
-  selectedFile,
-  previewMode,
-  livePreview,
-  fileContent,
-  isSaving,
-  handleSave,
-  setPreviewMode,
-  setLivePreview,
-  setFileContent,
-  saveMessage,
-}: EditorSpaceProps) {
+export default function EditorSpace({ selectedFile, previewMode, livePreview, fileContent, isSaving, handleSave, setPreviewMode, setLivePreview, setFileContent, saveMessage }: EditorSpaceProps) {
+  const markdownBaseDir = selectedFile ? window.fs.dirname(selectedFile) : null;
   return (
     <div className="flex h-full flex-col p-3 pr-1 bg-secondary">
       {selectedFile ? (
         <div className="flex flex-col h-full">
-          {/* Header: file name + mode toggle (md only) + save button */}
+          {/* Header */}
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm font-semibold text-muted-foreground truncate max-w-[70%]">
               {selectedFile}
@@ -112,7 +102,6 @@ export default function EditorSpace({
                 </button>
               </div>
             )}
-            {/* Shared save button used by markdown, canvas, and plain text flows */}
             <Button
               onClick={handleSave}
               className="bg-accent px-4 py-1 rounded-md shadow-neumorph-sm hover:shadow-neumorph-inset"
@@ -122,36 +111,28 @@ export default function EditorSpace({
             </Button>
           </div>
 
-          {/* Main editable / preview content region */}
-          <div className="flex-1 min-h-0 w-full bg-secondary text-foreground rounded-lg p-3 pr-1 font-mono text-sm border border-border overflow-hidden">
+          {/* Editable / Preview area */}
+          <div className="flex-1 w-full bg-secondary  text-foreground rounded-lg p-3 pr-1 font-mono text-sm resize-none focus:outline-none border border-border overflow-hidden">
             {selectedFile.toLowerCase().endsWith(".md") ? (
-              /**
-               * Markdown mode branch
-               *
-               * Supports:
-               * - live side-by-side preview
-               * - preview-only mode
-               * - plain markdown editing mode
-               */
               livePreview ? (
-                <div className="flex h-full min-h-0 gap-4">
+                <div className="flex h-full gap-4">
                   <textarea
                     key={selectedFile}
                     value={fileContent}
                     onChange={(e) => {
                       setFileContent(e.target.value);
                     }}
-                    className="h-full w-1/2 bg-secondary custom-scrollbar text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
+                    className="h-[97%] w-1/2 bg-secondary custom-scrollbar  text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
                     spellCheck={false}
                     autoFocus
                   />
-                  <div className="h-full w-1/2 overflow-auto bg-secondary custom-scrollbar rounded-lg p-3 border border-border">
-                    <MarkdownViewer content={fileContent} />
+                  <div className="h-[97%] w-1/2 overflow-auto bg-secondary custom-scrollbar rounded-lg p-3 border border-border">
+                    <MarkdownViewer content={fileContent} baseDir={markdownBaseDir} />
                   </div>
                 </div>
               ) : previewMode ? (
-                <div className="h-full overflow-auto custom-scrollbar">
-                  <MarkdownViewer content={fileContent} />
+                <div className="h-[97%]  overflow-auto custom-scrollbar">
+                  <MarkdownViewer content={fileContent} baseDir={markdownBaseDir} />
                 </div>
               ) : (
                 <textarea
@@ -160,21 +141,14 @@ export default function EditorSpace({
                   onChange={(e) => {
                     setFileContent(e.target.value);
                   }}
-                  className="h-full w-full custom-scrollbar bg-secondary text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
+                  className="h-[97%] w-full custom-scrollbar bg-secondary text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
                   spellCheck={false}
                   autoFocus
                 />
               )
             ) : selectedFile.toLowerCase().endsWith(".canvas") ? (
-              /**
-               * Canvas mode branch
-               *
-               * This wrapper chain is intentionally structured with flex + flex-1 +
-               * min-h-0 + overflow-hidden so the CanvasEditor creates a true internal
-               * notebook viewport with scrolling rather than expanding to fit all pages.
-               */
-              <div className="flex flex-col w-full h-full min-h-0">
-                <div className="flex-1 min-h-0 overflow-hidden">
+              <div className="flex flex-col w-full h-[97%]">
+                <div className="flex-1">
                   <CanvasEditor
                     value={fileContent}
                     onChange={setFileContent}
@@ -184,22 +158,17 @@ export default function EditorSpace({
                 </div>
               </div>
             ) : selectedFile.toLowerCase().endsWith(".txt") ? (
-              <div className="h-full w-full">
+              <div className="h-[97%] w-full">
                 <TiptapTextEditor value={fileContent} onChange={setFileContent} />
               </div>
             ) : (
-              /**
-               * Plain text fallback branch
-               *
-               * Used for non-markdown, non-canvas file types.
-               */
               <textarea
                 key={selectedFile}
                 value={fileContent}
                 onChange={(e) => {
                   setFileContent(e.target.value);
                 }}
-                className="h-full w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
+                className="h-[97%] w-full bg-background text-foreground rounded-lg p-3 font-mono text-sm resize-none focus:outline-none border border-border"
                 spellCheck={false}
                 autoFocus
               />
@@ -207,17 +176,12 @@ export default function EditorSpace({
           </div>
         </div>
       ) : (
-        /**
-         * Empty-state view shown when no file is currently open.
-         */
-        <div className="flex h-full min-h-0 items-center justify-center">
+        <div className="flex h-full items-center justify-center">
           <span className="font-semibold text-muted-foreground">
             Open a file to start editing
           </span>
         </div>
       )}
-
-      {/* Temporary save feedback toast shown after manual save operations */}
       {saveMessage && (
         <div className="fixed bottom-6 right-6 bg-accent text-background text-sm px-4 py-2 rounded-lg shadow-lg transition-opacity duration-300 animate-fade-in-out">
           {saveMessage}
