@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import Image from "next/image";
+import { RiRobot2Line, RiCloseLine, RiInformationLine } from "react-icons/ri";
 import { useRouter } from "next/router";
 import { Button } from "@/renderer/components/ui/button";
 import InputDialog from "@/renderer/components/InputDialog";
@@ -85,6 +86,8 @@ export default function HomePage() {
   });
   const [isIndexing, setIsIndexing] = useState(false);
   const [indexingStatus, setIndexingStatus] = useState("");
+  const [showRagModal, setShowRagModal] = useState(false);
+  const [pendingRagInit, setPendingRagInit] = useState<{uuid: string, path: string} | null>(null);
 
   const handleOpenFolder = async () => {
     if (!window.fs?.openFolderDialog || !window.db?.addDirectory || !window.indexer?.indexDirectory) {
@@ -99,7 +102,7 @@ export default function HomePage() {
         const { uuid, ragEnabledStr } = await handleLocalNotesEnv(result.data);
 
         setIsIndexing(true);
-        setIndexingStatus("Adding directory to database...");
+        setIndexingStatus("Searching for existing repository...");
         
         // Store the folder path in localStorage
         localStorage.setItem("currentFolderPath", result.data);
@@ -210,6 +213,48 @@ export default function HomePage() {
         }
       },
     });
+  };
+
+  const startRagInitialization = async () => {
+    if (!pendingRagInit) return;
+    
+    try {
+      setIsIndexing(true);
+      setIndexingStatus("Registering folder...");
+      
+      const { uuid, path } = pendingRagInit;
+
+      // Check if already in DB (might be re-indexing)
+      const existingDir = await window.db.getDirectoryIdByPath(path);
+      if (!existingDir.success || !existingDir.data) {
+        const dirResult = await window.db.addDirectory(uuid, path);
+        if (!dirResult.success) {
+          throw new Error(dirResult.error || "Failed to add directory to database");
+        }
+      }
+
+      // Ensure .Local Notes/.env exists
+      const localNotesDir = window.fs.join(path, ".Local Notes");
+      await window.fs.createFolder(localNotesDir);
+      await window.fs.writeFile(window.fs.join(localNotesDir, ".env"), `DIRECTORY_ID=${uuid}`);
+      
+      setIndexingStatus("Indexing files (this may take a moment)...");
+      const storeResult = await window.indexer.indexDirectory(uuid, path);
+
+      if (storeResult.success) {
+        setIndexingStatus("Complete!");
+        setTimeout(() => {
+          router.push("/editor");
+        }, 500);
+      } else {
+        throw new Error(storeResult.error || "Failed to index directory");
+      }
+    } catch (error) {
+      console.error("RAG Init Error:", error);
+      alert(`Failed to initialize AI search: ${error}`);
+      setIsIndexing(false);
+      setShowRagModal(false);
+    }
   };
 
   return (

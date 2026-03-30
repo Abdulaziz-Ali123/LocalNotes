@@ -15,10 +15,13 @@ import {
   RiUser3Line,
   RiStopCircleLine,
   RiCloseLine,
+  RiInformationLine,
 } from "react-icons/ri";
 import { LuBrain, LuBrainCircuit } from "react-icons/lu";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { DEFAULT_MODEL_CAPABILITIES } from "@/renderer/store/settings-slice";
+import { Button } from "@/renderer/components/ui/button";
+import { X } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -227,6 +230,10 @@ export default function AIChatPanel() {
     },
   ]);
   const [activeConvoId, setActiveConvoId] = useState(conversations[0].id);
+  const [isInitializingRag, setIsInitializingRag] = useState(false);
+  const [ragInitStatus, setRagInitStatus] = useState("");
+  const [showRagInitDialog, setShowRagInitDialog] = useState(false);
+  const [pendingUserText, setPendingUserText] = useState("");
   const [input, setInput] = useState("");
   const [thinkingEnabled, setThinkingEnabled] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -242,7 +249,7 @@ export default function AIChatPanel() {
   // Derive capabilities for the active model
   const caps = (
     aiSettings?.modelConfigs?.[activeConvo.model]?.capabilities ??
-    aiSettings?.customModels?.find(m => m.id === activeConvo.model)?.capabilities ??
+  aiSettings?.customModels?.find(m => m.id === activeConvo.model)?.capabilities ??
     { fileUpload: false, voice: false, thinking: false }
   );
 
@@ -252,6 +259,254 @@ export default function AIChatPanel() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, []);
+
+  const executeRAG = async (convoId: string, userText: string) => {
+    // Scaffold UI
+    const assistantId = generateId();
+    updateConversation(convoId, (c) => ({
+      ...c,
+      messages: [
+        ...c.messages,
+        {
+          id: assistantId,
+          role: "assistant",
+          content: "",
+          timestamp: new Date(),
+          isStreaming: true,
+        },
+      ],
+    }));
+
+    try {
+      // 1. Get current directory UUID
+      const currentFolderPath = localStorage.getItem("currentFolderPath");
+      if (!currentFolderPath) throw new Error("No folder open.");
+      
+      let directoryId = "";
+      let debugInfo = "";
+
+      // Prioritize Database Lookup
+      const idRes = await window.db.getDirectoryIdByPath(currentFolderPath);
+      if (idRes.success && idRes.data) {
+        directoryId = idRes.data;
+        debugInfo += `DB Match Found | `;
+      } else {
+        debugInfo += `DB Lookup Failed: ${idRes.error || "Not found"} | `;
+        
+        // Fallback: Read from .Local Notes/.env
+        const localNotesDir = window.fs.join(currentFolderPath, ".Local Notes");
+        const envPath = window.fs.join(localNotesDir, ".env");
+        
+        const envRes = await window.fs.exists(envPath);
+        debugInfo += `Env Path: ${envPath} | Env Exists: ${envRes.success ? envRes.data : envRes.error} | `;
+        
+        if (envRes.success && envRes.data) {
+           const contentRes = await window.fs.readFile(envPath);
+           if (contentRes.success) {
+              const lines = contentRes.data.split("\n");
+              lines.forEach((line: string) => {
+                if (line.startsWith("DIRECTORY_ID=")) {
+                   directoryId = line.split("=")[1].trim();
+                }
+              });
+              debugInfo += `Env Read Success | Lines: ${lines.length} | ID: ${directoryId}`;
+           } else {
+              debugInfo += `Env Read Failed: ${contentRes.error}`;
+           }
+        }
+      }
+      
+      if (!directoryId) {
+        setPendingUserText(userText);
+        setShowRagInitDialog(true);
+        throw new Error("RAG not initialized for this folder.");
+      }
+
+      // 2. Retrieve Context via RAG IPC
+      updateConversation(convoId, (c) => ({
+        ...c,
+        messages: c.messages.map(m => m.id === assistantId ? { ...m, thinking: "Retrieving relevant notes from local database..." } : m)
+      }));
+      
+      const contextRes = await window.rag.retrieveContext(directoryId, userText, 5);
+      const contextAugmentation = contextRes.success && contextRes.contextText 
+        ? contextRes.contextText 
+        : "No relevant local notes found.";
+
+      updateConversation(convoId, (c) => ({
+        ...c,
+        messages: c.messages.map(m => m.id === assistantId ? { ...m, thinking: "Thinking based on your notes..." } : m)
+      }));
+
+      // 3. Prepare Chat Prompt
+      const c = conversations.find(c => c.id === convoId);
+      if (!c) return;
+
+      const systemPrompt = `You are a helpful assistant assisting the user with their local markdown notes repository.
+      
+${contextAugmentation}
+
+Use the above context to answer the user accurately. If the context does not answer the question, say so, but try to be helpful based on your general knowledge if applicable.`;
+
+      // We only send prior conversation context + the new system prompt
+      const previousMessagesForAPI = c.messages
+        .filter(m => m.id !== assistantId)
+        .map(m => ({ role: m.role, content: m.content }));
+
+      const messagesData = [
+         { role: "system", content: systemPrompt },
+         ...previousMessagesForAPI
+      ];
+
+      // 4. Contact LLM
+      const customModels = aiSettings?.customModels || [];
+      const currentModel = customModels.find(m => m.id === activeConvo.model);
+      if (!currentModel) throw new Error("Selected LLM model not found in settings.");
+      
+      const apiKey = currentModel.apiKey || "";
+      
+      // Use the exact URL defined by the user for the model
+      let endpoint = (currentModel.baseUrl || "").trim();
+      
+      if (!endpoint) {
+        // Fallback only if the user hasn't provided a URL at all
+        switch (currentModel.provider) {
+          case "Ollama": endpoint = "http://localhost:11434/v1/chat/completions"; break;
+          case "OpenAI": endpoint = "https://api.openai.com/v1/chat/completions"; break;
+          case "Anthropic": endpoint = "https://api.anthropic.com/v1/chat/completions"; break;
+          case "Google": endpoint = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"; break;
+          case "OpenRouter": endpoint = "https://openrouter.ai/api/v1/chat/completions"; break;
+          case "xAI": endpoint = "https://api.x.ai/v1/chat/completions"; break;
+          default: endpoint = "http://localhost:11434/v1/chat/completions";
+        }
+      }
+      
+      console.log(`[AIChat] Sending request to: ${endpoint} (Model: ${currentModel.name}, Provider: ${currentModel.provider})`);
+
+      let response;
+      try {
+        response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
+          },
+          body: JSON.stringify({
+            model: currentModel.name, // Use the actual name like 'llama3' instead of the internal unique 'id'
+            messages: messagesData,
+            stream: true
+          })
+        });
+      } catch (fetchError: any) {
+        console.error("[AIChat] Fetch error:", fetchError);
+        throw new Error(`Failed to connect to ${currentModel.provider} at ${endpoint}. Please ensure the server is running and accessible (check CORS settings if applicable). Error: ${fetchError.message}`);
+      }
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`LLM Error: ${response.statusText} (${response.status}). Details: ${errorBody.slice(0, 100)}...`);
+      }
+
+      // 5. Stream Output
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder("utf-8");
+
+      let rawResponse = "";
+      let buffer = "";
+
+      updateConversation(convoId, (c) => ({
+        ...c,
+        messages: c.messages.map(m => m.id === assistantId ? { ...m, thinking: undefined } : m)
+      }));
+
+      while (true) {
+        if (!reader) break;
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        
+        let boundary = buffer.indexOf('\n');
+        while (boundary !== -1) {
+          const line = buffer.slice(0, boundary).trim();
+          buffer = buffer.slice(boundary + 1);
+          boundary = buffer.indexOf('\n');
+
+          if (line === "data: [DONE]") continue;
+          if (line.startsWith("data: ")) {
+            try {
+              const payload = line.slice(6).trim();
+              if (payload === "[DONE]") continue; // Backup check
+              
+              const data = JSON.parse(payload);
+              const delta = data.choices?.[0]?.delta?.content || "";
+              rawResponse += delta;
+              
+              let contentStr = rawResponse;
+              let thinkStr = "";
+
+              const thinkStartIdx = contentStr.indexOf("<think>");
+              if (thinkStartIdx !== -1) {
+                 const thinkEndIdx = contentStr.indexOf("</think>");
+                 if (thinkEndIdx !== -1) {
+                     thinkStr = contentStr.substring(thinkStartIdx + 7, thinkEndIdx).trim();
+                     contentStr = contentStr.substring(0, thinkStartIdx) + contentStr.substring(thinkEndIdx + 8);
+                 } else {
+                     thinkStr = contentStr.substring(thinkStartIdx + 7).trim();
+                     contentStr = contentStr.substring(0, thinkStartIdx);
+                 }
+              }
+
+              updateConversation(convoId, (c) => ({
+                ...c,
+                messages: c.messages.map((m) =>
+                  m.id === assistantId ? { ...m, content: contentStr, thinking: thinkStr || undefined } : m
+                ),
+              }));
+            } catch (err) {
+               // Ignore partial or malformed JSON payload per tick
+            }
+          }
+        }
+      }
+
+      // Cleanup
+      updateConversation(convoId, (c) => ({
+        ...c,
+        messages: c.messages.map((m) =>
+          m.id === assistantId ? { ...m, isStreaming: false } : m
+        ),
+      }));
+      setIsGenerating(false);
+
+    } catch (error: any) {
+      console.error(error);
+
+      // Don't show the error message if we're showing the RAG init dialog
+      if (error instanceof Error && error.message === "RAG not initialized for this folder.") {
+        updateConversation(convoId, (c) => ({
+          ...c,
+          messages: c.messages.filter((m) => m.id !== assistantId),
+        }));
+        setIsGenerating(false);
+        return;
+      }
+
+      updateConversation(convoId, (c) => ({
+        ...c,
+        messages: c.messages.map((m) =>
+          m.id === assistantId
+            ? {
+                ...m,
+                isStreaming: false,
+                content: m.content + `\n\n**Error:** ${error.message}`,
+              }
+            : m
+        ),
+      }));
+      setIsGenerating(false);
+    }
+  };
 
   useEffect(() => {
     scrollToBottom();
@@ -267,55 +522,6 @@ export default function AIChatPanel() {
 
   const updateConversation = (id: string, updater: (c: Conversation) => Conversation) => {
     setConversations((prev) => prev.map((c) => (c.id === id ? updater(c) : c)));
-  };
-
-  // Simulated AI response for UI demo
-  const simulateResponse = (convoId: string) => {
-    const assistantId = generateId();
-    const thinkingText = thinkingEnabled
-      ? "Let me analyze your question carefully...\nConsidering the context of your notes and the specific request...\nFormulating a comprehensive response..."
-      : undefined;
-
-    updateConversation(convoId, (c) => ({
-      ...c,
-      messages: [
-        ...c.messages,
-        {
-          id: assistantId,
-          role: "assistant",
-          content: "",
-          thinking: thinkingText,
-          timestamp: new Date(),
-          isStreaming: true,
-        },
-      ],
-    }));
-
-    const demoResponse =
-      "This is a **demo response** from the AI assistant. Once connected to a local LLM like **Ollama**, responses will stream here in real-time.\n\nYou can:\n- Ask questions about your notes\n- Get summaries\n- Generate content\n- And much more!";
-
-    let index = 0;
-    const interval = setInterval(() => {
-      index += 3;
-      const partial = demoResponse.slice(0, index);
-      updateConversation(convoId, (c) => ({
-        ...c,
-        messages: c.messages.map((m) =>
-          m.id === assistantId ? { ...m, content: partial } : m
-        ),
-      }));
-
-      if (index >= demoResponse.length) {
-        clearInterval(interval);
-        updateConversation(convoId, (c) => ({
-          ...c,
-          messages: c.messages.map((m) =>
-            m.id === assistantId ? { ...m, isStreaming: false } : m
-          ),
-        }));
-        setIsGenerating(false);
-      }
-    }, 25);
   };
 
   const handleSend = () => {
@@ -342,7 +548,8 @@ export default function AIChatPanel() {
     setAttachments([]);
     setIsGenerating(true);
 
-    setTimeout(() => simulateResponse(convoId), 600);
+    // Give state time to update, then fire RAG
+    setTimeout(() => executeRAG(convoId, trimmed), 50);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -435,6 +642,56 @@ export default function AIChatPanel() {
     updateConversation(activeConvoId, (c) => ({ ...c, model: modelId }));
   };
 
+  const handleInitializeRag = async () => {
+    const currentFolderPath = localStorage.getItem("currentFolderPath");
+    if (!currentFolderPath) {
+      alert("No folder open to initialize RAG.");
+      return;
+    }
+
+    try {
+      setIsInitializingRag(true);
+      setRagInitStatus("Initializing RAG database...");
+
+      // Generate new UUID and add directory to database
+      const uuid = window.crypto.randomUUID();
+      const dirResult = await window.db.addDirectory(uuid, currentFolderPath);
+
+      if (!dirResult.success) {
+        throw new Error(dirResult.error || "Failed to add directory to database");
+      }
+
+      // Ensure .localnotes/.env exists for compatibility
+      const localNotesDir = window.fs.join(currentFolderPath, ".localnotes");
+      await window.fs.createFolder(localNotesDir);
+      await window.fs.writeFile(window.fs.join(localNotesDir, ".env"), `DIRECTORY_ID=${uuid}`);
+
+      setRagInitStatus("Indexing files (this may take a moment)...");
+      const storeResult = await window.indexer.indexDirectory(uuid, currentFolderPath);
+
+      if (storeResult.success) {
+        setRagInitStatus("Complete!");
+        setShowRagInitDialog(false);
+
+        // Retry the original query
+        if (activeConvoId && pendingUserText) {
+          setTimeout(() => {
+            executeRAG(activeConvoId, pendingUserText);
+            setPendingUserText("");
+          }, 500);
+        }
+      } else {
+        throw new Error(storeResult.error || "Failed to index directory");
+      }
+    } catch (error) {
+      console.error("RAG Init Error:", error);
+      alert(`Failed to initialize RAG: ${error}`);
+    } finally {
+      setIsInitializingRag(false);
+      setRagInitStatus("");
+    }
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden bg-secondary">
       {/* ── Header ── */}
@@ -476,7 +733,21 @@ export default function AIChatPanel() {
 
       {/* ── Messages ── */}
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 py-4">
-        {activeConvo.messages.length === 0 ? (
+        {aiSettings?.customModels?.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center text-destructive">
+              <RiRobot2Line className="w-8 h-8" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-1">
+                No AI Models Configured
+              </h3>
+              <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-4">
+                You currently don't have any LLMs enabled to process your notes. Please add a model in the AI Settings to chat with your documents.
+              </p>
+            </div>
+          </div>
+        ) : activeConvo.messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
               <RiRobot2Line className="w-8 h-8 text-muted-foreground" />
@@ -606,6 +877,76 @@ export default function AIChatPanel() {
           Responses are generated by your local LLM. Connect Ollama or a compatible server to get started.
         </p>
       </div>
+
+      {/* RAG Initialization Modal */}
+      {showRagInitDialog && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={() => !isInitializingRag && setShowRagInitDialog(false)}
+        >
+          <div 
+            className="bg-background border border-border rounded-lg shadow-xl w-[450px] overflow-hidden animate-in fade-in zoom-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <LuBrainCircuit className="w-5 h-5 text-accent" />
+                <h2 className="text-lg font-semibold">Initialize AI Search</h2>
+              </div>
+              <button
+                onClick={() => !isInitializingRag && setShowRagInitDialog(false)}
+                disabled={isInitializingRag}
+                className="rounded-md p-1 hover:bg-accent transition-colors disabled:opacity-50"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                To provide answers based on your notes, the AI needs to index this folder.
+                This will create a hidden <code className="bg-muted px-1 rounded font-mono text-xs">.localnotes</code> folder inside your project.
+              </p>
+
+              {isInitializingRag ? (
+                <div className="py-6 flex flex-col items-center justify-center gap-4 bg-muted/30 rounded-lg border border-dashed border-border">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
+                  <p className="text-sm font-medium animate-pulse">{ragInitStatus}</p>
+                </div>
+              ) : (
+                <div className="p-3 bg-muted/50 rounded-lg flex gap-3 border border-border">
+                  <RiInformationLine className="w-5 h-5 text-accent shrink-0 mt-0.5" />
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Indexing involves breaking your notes into small chunks and generating 
+                    embeddings (mathematical representations) for each. This stays 100% local.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-muted/20 border-t border-border flex justify-end gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowRagInitDialog(false)}
+                disabled={isInitializingRag}
+                className="h-9"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleInitializeRag}
+                disabled={isInitializingRag}
+                className="h-9 min-w-[120px]"
+              >
+                {isInitializingRag ? "Initializing..." : "Initialize & Index"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

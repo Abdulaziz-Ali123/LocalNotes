@@ -329,6 +329,14 @@ let mainWindowRef: Electron.BrowserWindow | null = null;
         console.error("✗ Fatal startup error:", error);
         app.quit();
     }
+
+    try {
+        const { registerRagIpc } = require("./rag/ragService");
+        registerRagIpc();
+        console.log("✓ RAG service ready");
+    } catch (error) {
+        console.error("✗ Failed to load RAG service:", error);
+    }
 })();
 
 
@@ -492,13 +500,14 @@ ipcMain.handle("fs:renameItem", async (_event, oldPath: string, newPath: string)
 ipcMain.handle("fs:readFile", async (event, filePath: string) => {
   try {
         const ext = path.extname(filePath).toLowerCase();
+        const baseName = path.basename(filePath).toLowerCase();
 
         // Define file types
         const textExtensions = ['.md', '.txt', '.tex', '.json', '.js', '.ts', '.css', '.html', '.canvas', '.xml', '.yaml', '.yml'];
         const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.ico'];
 
         // Read as text
-        if (textExtensions.includes(ext)) {
+        if (textExtensions.includes(ext) || baseName === '.env') {
     const content = await fs.readFile(filePath, "utf-8");
             return { success: true, data: content, type: 'text' };
         }
@@ -825,6 +834,16 @@ ipcMain.handle("db:getAllDirectories", async () => {
     try {
         const data = getAllDirectories();
         return { success: true, data };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:getDirectoryIdByPath", async (_, path: string) => {
+    try {
+        const { getDirectoryIdByPath } = require("./database/documentRepository");
+        const id = getDirectoryIdByPath(path);
+        return { success: true, data: id };
     } catch (error) {
         return { success: false, error: (error as Error).message };
     }

@@ -1,4 +1,14 @@
-import { IpcHandler, FileSystemHandler, SettingsHandler, ProjectSettingsHandler, WatcherHandler } from "../main/preload";
+import { 
+  IpcHandler, 
+  FileSystemHandler, 
+  SettingsHandler, 
+  ProjectSettingsHandler, 
+  WatcherHandler,
+  RagHandler,
+  VectorDbHandler,
+  IndexHandler,
+  ChunckerHandler
+} from "../main/preload";
 
 declare global {
   interface Window {
@@ -7,6 +17,10 @@ declare global {
     settings: SettingsHandler;
     projectSettings: ProjectSettingsHandler;
     watcher: WatcherHandler;
+    rag: RagHandler;
+    db: VectorDbHandler;
+    indexer: IndexHandler;
+    chunker: ChunckerHandler;
     tabs: {
       getAllTabIds: () => Promise<number[]>;
       getSelectedTabId: () => Promise<number>;

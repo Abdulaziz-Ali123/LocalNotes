@@ -83,6 +83,8 @@ const vectorDbHandler = {
         ipcRenderer.invoke("db:getDirectory", id),
     getAllDirectories: () => 
         ipcRenderer.invoke("db:getAllDirectories"),
+    getDirectoryIdByPath: (path: string) => 
+        ipcRenderer.invoke("db:getDirectoryIdByPath", path),
     addFile: (directoryId: UUID, filePath: string, fileHash: string, lastModified: number) =>
         ipcRenderer.invoke("db:addFile", directoryId, filePath, fileHash, lastModified),
     updateFileHash: (fileId: UUID, fileHash: string, lastModified: number) =>
@@ -270,6 +272,12 @@ const projectSettingsHandler = {
 
 contextBridge.exposeInMainWorld("projectSettings", projectSettingsHandler);
 
+const ragHandler = {
+    retrieveContext: (directoryId: string, query: string, topK?: number) => 
+        ipcRenderer.invoke("rag:retrieveContext", { directoryId, query, topK })
+};
+contextBridge.exposeInMainWorld("rag", ragHandler);
+
 /**
  * Expose only the minimal error-reporting surface needed by the renderer.
  * The renderer should not write files directly; it should report through IPC.
@@ -302,3 +310,5 @@ export type IndexHandler = typeof indexerHandler;
 export type WatcherHandler = typeof watcherHandler;
 export type SettingsHandler = typeof settingsHandler;
 export type ProjectSettingsHandler = typeof projectSettingsHandler;
+export type RagHandler = typeof ragHandler;
+
