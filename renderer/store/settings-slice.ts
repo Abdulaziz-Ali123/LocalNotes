@@ -3,9 +3,10 @@
  *
  * Loads settings from the main process on init and keeps them in sync.
  * Exposes setter helpers that persist changes via IPC and update local state.
- * 
+ *
  * Revision History:
  *  • Wesley McDougal - 29MAR2026 - Custom theme types and initial state
+ *  • Wesley McDougal - 05APR2026 - Added sidebar layout types/defaults and persisted appearance layout state
  */
 
 import { StateCreator } from "zustand";
@@ -44,11 +45,24 @@ export interface CustomThemeDefinition {
   tokens: CustomThemeTokens;
 }
 
+export type SidebarPosition = "left" | "right";
+export type SidebarEdge = "left" | "right" | "bottom";
+export type SidebarRailAlignment = "start" | "center" | "end";
+export type SidebarLayoutScope = "global" | "project";
+
+export interface SidebarLayoutSettings {
+  panelPosition: SidebarPosition;
+  rails: Record<SidebarEdge, string[]>;
+  railAlignment: Record<SidebarEdge, SidebarRailAlignment>;
+}
+
 export interface AppearanceSettings {
   theme: ThemeType;
   fontSize: number;
   fontFamily: string;
   customThemes: Record<string, CustomThemeDefinition>;
+  sidebarLayout: SidebarLayoutSettings;
+  sidebarLayoutScope: SidebarLayoutScope;
 }
 
 export interface EditorSettings {
@@ -173,6 +187,32 @@ const INITIAL_AI: AiSettings = {
   customModels: [],
 };
 
+const DEFAULT_SIDEBAR_ICON_ORDER = [
+  "file",
+  "search",
+  "import",
+  "ai",
+  "theme",
+  "tags",
+  "share",
+  "settings",
+  "history",
+];
+
+const DEFAULT_SIDEBAR_RAILS = {
+  left: [...DEFAULT_SIDEBAR_ICON_ORDER],
+  right: [],
+  top: [],
+  bottom: [],
+};
+
+const DEFAULT_SIDEBAR_RAIL_ALIGNMENT = {
+  left: "start",
+  right: "start",
+  top: "center",
+  bottom: "center",
+} as const;
+
 // ---------------------------------------------------------------------------
 // Default state (before loading)
 // ---------------------------------------------------------------------------
@@ -183,6 +223,20 @@ const INITIAL_GLOBAL: GlobalSettings = {
     fontSize: 14,
     fontFamily: "monospace",
     customThemes: {},
+    sidebarLayout: {
+      panelPosition: "left",
+      rails: {
+        left: [...DEFAULT_SIDEBAR_RAILS.left],
+        right: [...DEFAULT_SIDEBAR_RAILS.right],
+        bottom: [...DEFAULT_SIDEBAR_RAILS.bottom],
+      },
+      railAlignment: {
+        left: DEFAULT_SIDEBAR_RAIL_ALIGNMENT.left,
+        right: DEFAULT_SIDEBAR_RAIL_ALIGNMENT.right,
+        bottom: DEFAULT_SIDEBAR_RAIL_ALIGNMENT.bottom,
+      },
+    },
+    sidebarLayoutScope: "global",
   },
   editor: {
     autosaveEnabled: true,

@@ -3,9 +3,10 @@
  *
  * Full-screen modal dialog for managing global settings.
  * Contains three tabs: Appearance, Editor, and Keybindings.
- * 
+ *
  * Revision History:
- * - 29 MAR 2026: Wesley McDougal - Updated Appearance tab to include custom themes in dropdown
+ *  • Wesley McDougal - 29 MAR 2026 -Updated Appearance tab to include custom themes in dropdown
+ *  • Wesley McDougal - 05APR2026 - Added Sidebar tab controls for layout scope, panel position, and layout reset
  */
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -18,7 +19,12 @@ import { Button } from "@/renderer/components/ui/button";
 import { Checkbox } from "@/renderer/components/ui/checkbox";
 import { Label } from "@/renderer/components/ui/label";
 import AddModelsModal from "@/renderer/components/AddModelsModal";
-import { type ModelCapabilities } from "@/renderer/store/settings-slice";
+import {
+  type ModelCapabilities,
+  type SidebarLayoutScope,
+  type SidebarLayoutSettings,
+  type SidebarPosition,
+} from "@/renderer/store/settings-slice";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -28,14 +34,30 @@ interface SettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
   /** Which tab to show when the dialog opens (defaults to "appearance"). */
-  defaultTab?: "appearance" | "editor" | "keybindings" | "ai";
+  defaultTab?: "appearance" | "editor" | "keybindings" | "ai" | "sidebar";
+  sidebarLayout: SidebarLayoutSettings;
+  layoutScope: SidebarLayoutScope;
+  isProjectScopeAvailable: boolean;
+  onSidebarPositionChange: (position: SidebarPosition) => void;
+  onSidebarScopeChange: (scope: SidebarLayoutScope) => void;
+  onResetSidebarLayout: () => void;
 }
 
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
-export default function SettingsDialog({ isOpen, onClose, defaultTab = "appearance" }: SettingsDialogProps) {
+export default function SettingsDialog({
+  isOpen,
+  onClose,
+  defaultTab = "appearance",
+  sidebarLayout,
+  layoutScope,
+  isProjectScopeAvailable,
+  onSidebarPositionChange,
+  onSidebarScopeChange,
+  onResetSidebarLayout,
+}: SettingsDialogProps) {
   if (!isOpen) return null;
 
   return (
@@ -62,6 +84,7 @@ export default function SettingsDialog({ isOpen, onClose, defaultTab = "appearan
         <Tabs.Root defaultValue={defaultTab} className="flex-1 flex flex-col overflow-hidden">
           <Tabs.List className="flex border-b border-border px-6 gap-1">
             <TabTrigger value="appearance">Appearance</TabTrigger>
+            <TabTrigger value="sidebar">Sidebar</TabTrigger>
             <TabTrigger value="editor">Editor</TabTrigger>
             <TabTrigger value="keybindings">Keybindings</TabTrigger>
             <TabTrigger value="ai">AI</TabTrigger>
@@ -70,6 +93,16 @@ export default function SettingsDialog({ isOpen, onClose, defaultTab = "appearan
           <div className="flex-1 overflow-y-auto p-6">
             <Tabs.Content value="appearance" className="outline-none">
               <AppearanceTab />
+            </Tabs.Content>
+            <Tabs.Content value="sidebar" className="outline-none">
+              <SidebarTab
+                sidebarLayout={sidebarLayout}
+                layoutScope={layoutScope}
+                isProjectScopeAvailable={isProjectScopeAvailable}
+                onSidebarPositionChange={onSidebarPositionChange}
+                onSidebarScopeChange={onSidebarScopeChange}
+                onResetSidebarLayout={onResetSidebarLayout}
+              />
             </Tabs.Content>
             <Tabs.Content value="editor" className="outline-none">
               <EditorTab />
@@ -82,6 +115,93 @@ export default function SettingsDialog({ isOpen, onClose, defaultTab = "appearan
             </Tabs.Content>
           </div>
         </Tabs.Root>
+      </div>
+    </div>
+  );
+}
+
+function SidebarTab({
+  sidebarLayout,
+  layoutScope,
+  isProjectScopeAvailable,
+  onSidebarPositionChange,
+  onSidebarScopeChange,
+  onResetSidebarLayout,
+}: {
+  sidebarLayout: SidebarLayoutSettings;
+  layoutScope: SidebarLayoutScope;
+  isProjectScopeAvailable: boolean;
+  onSidebarPositionChange: (position: SidebarPosition) => void;
+  onSidebarScopeChange: (scope: SidebarLayoutScope) => void;
+  onResetSidebarLayout: () => void;
+}) {
+
+
+  return (
+    <div className="space-y-6">
+      <SettingRow
+        label="Persistence Scope"
+        description="Choose whether sidebar layout is shared globally or saved per notes directory"
+      >
+        <select
+          value={layoutScope}
+          onChange={(e) => onSidebarScopeChange(e.target.value as SidebarLayoutScope)}
+          className="w-56 p-2 rounded-md bg-secondary text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+        >
+          <option value="global">Global (all folders)</option>
+          <option value="project" disabled={!isProjectScopeAvailable}>
+            Per Notes Directory
+          </option>
+        </select>
+      </SettingRow>
+
+      {!isProjectScopeAvailable && (
+        <p className="text-xs text-muted-foreground">
+          Open a notes directory to enable per-directory sidebar persistence.
+        </p>
+      )}
+
+      <SettingRow
+        label="Content Panel Side"
+        description="Choose where the expandable sidebar content panel opens"
+      >
+        <div className="grid grid-cols-2 gap-2 w-56">
+          <Button
+            variant={sidebarLayout.panelPosition === "left" ? "default" : "outline"}
+            size="sm"
+            onClick={() => onSidebarPositionChange("left")}
+          >
+            Left
+          </Button>
+          <Button
+            variant={sidebarLayout.panelPosition === "right" ? "default" : "outline"}
+            size="sm"
+            onClick={() => onSidebarPositionChange("right")}
+          >
+            Right
+          </Button>
+        </div>
+      </SettingRow>
+
+      <SettingRow
+        label="Icon Order"
+        description="Drag icons between left/right/top/bottom rails to reorder and move them. Right-click any rail to set alignment."
+      >
+        <div className="text-xs text-muted-foreground text-right max-w-56 space-y-1">
+          <div>Changes save automatically.</div>
+          <div>
+            Left: {sidebarLayout.rails.left.length} | Right: {sidebarLayout.rails.right.length}
+          </div>
+          <div>
+            Bottom: {sidebarLayout.rails.bottom.length}
+          </div>
+        </div>
+      </SettingRow>
+
+      <div className="flex justify-end pt-2 border-t border-border">
+        <Button variant="outline" size="sm" onClick={onResetSidebarLayout}>
+          Reset Sidebar Layout
+        </Button>
       </div>
     </div>
   );
