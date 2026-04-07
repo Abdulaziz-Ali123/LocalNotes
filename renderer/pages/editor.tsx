@@ -19,6 +19,8 @@
  * Revision History:
  *  • Wesley McDougal - 29MAR2026 - Menu command handler and sidebar toggle fixes
  *  • Wesley McDougal - 05APR2026 - Added draggable sidebar rails, context-menu alignment, and bottom-rail layout updates
+ *  • Wesley McDougal - 07APR2026 - Added "ai" to settingsDefaultTab union and handleOpenAiSettings
+ *    callback so AIChatPanel can deep-link directly into the AI settings tab.
  */
 
 import { SidebarProvider, Sidebar, SidebarContent } from "../components/ui/sidebar";
@@ -371,8 +373,16 @@ export default function Editor() {
   const sidebarPanelRef = useRef<ImperativePanelHandle>(null);
   const fileTreeRef = useRef<any>(null);
   const initializeTabs = useBoundStore((state) => state.tabs.initialize);
-  // Which tab the settings dialog should open to
-  const [settingsDefaultTab, setSettingsDefaultTab] = useState<"appearance" | "sidebar" | "editor" | "keybindings">("appearance");
+  // Which tab the settings dialog should open to ("ai" added for deep-link)
+  const [settingsDefaultTab, setSettingsDefaultTab] = useState<"appearance" | "sidebar" | "editor" | "keybindings" | "ai">("appearance");
+
+  // Callback passed down to AIChatPanel so the empty-state "Add AI Model"
+  // button and the removed-model warning can navigate the user directly to the
+  // AI tab of the Settings dialog without exposing dialog state to child components.
+  const handleOpenAiSettings = React.useCallback(() => {
+    setSettingsDefaultTab("ai");
+    setSettingsOpen(true);
+  }, []);
 
   // Autosave states
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -1336,7 +1346,7 @@ export default function Editor() {
                         </div>
                       </div>
                       <div className="flex-1 min-h-0">
-                        <AIChatPanel />
+                        <AIChatPanel onOpenAiSettings={handleOpenAiSettings} />
                       </div>
                     </div>
                   ) : (
@@ -1380,7 +1390,7 @@ export default function Editor() {
                         </div>
                       </div>
                       <div className="flex-1 min-h-0">
-                        <AIChatPanel />
+                        <AIChatPanel onOpenAiSettings={handleOpenAiSettings} />
                       </div>
                     </div>
                   ) : (

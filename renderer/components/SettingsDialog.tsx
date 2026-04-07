@@ -5,8 +5,12 @@
  * Contains three tabs: Appearance, Editor, and Keybindings.
  *
  * Revision History:
- *  • Wesley McDougal - 29 MAR 2026 -Updated Appearance tab to include custom themes in dropdown
+ *  • Wesley McDougal - 29 MAR 2026 - Updated Appearance tab to include custom themes in dropdown
  *  • Wesley McDougal - 05APR2026 - Added Sidebar tab controls for layout scope, panel position, and layout reset
+ *  • Wesley McDougal - 07APR2026 - AI tab overhaul: clickable model rows with green active state,
+ *    inline Yes/No delete confirmation (replaces window.confirm to prevent Electron focus loss),
+ *    handleEnableModel writing to ai.defaultModelId, and red warning text when the active model
+ *    is deleted (model selection; UX polish).
  */
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -14,7 +18,7 @@ import * as Tabs from "@radix-ui/react-tabs";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { useTheme, type ThemeType } from "@/renderer/lib/theme";
 import { X, Eye, EyeOff } from "lucide-react";
-import { RiAddLine } from "react-icons/ri";
+import { RiAddLine, RiDeleteBinLine } from "react-icons/ri";
 import { Button } from "@/renderer/components/ui/button";
 import { Checkbox } from "@/renderer/components/ui/checkbox";
 import { Label } from "@/renderer/components/ui/label";
@@ -594,9 +598,15 @@ function AiTab() {
   const aiSettings = useBoundStore((s) => s.settings.global.ai);
   const setGlobal = useBoundStore((s) => s.settings.setGlobal);
   const [showKey, setShowKey] = useState(false);
+  /** Shown below the capabilities description when the active model is deleted.
+   *  Cleared as soon as the user selects a new active model row. */
+  const [deletedActiveModelWarning, setDeletedActiveModelWarning] = useState(false);
 
   // Add Models UI state
   const [isAddModelsOpen, setIsAddModelsOpen] = useState(false);
+  /** True while the inline Yes/No delete confirmation is showing for a row.
+   *  Prevents Electron focus-loss that window.confirm() causes. */
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const modelIds = aiSettings?.customModels?.map(m => m.id) || [];
 
@@ -615,6 +625,30 @@ function AiTab() {
       [modelId]: { capabilities: { ...currentCaps, [cap]: val } },
     };
     setGlobal("ai.modelConfigs", updatedConfigs);
+  };
+
+  /** Sets ai.defaultModelId to the clicked model, syncing the AI
+   *  chat dropdown selection. Also clears the deleted-model warning if present. */
+  const handleEnableModel = (modelId: string) => {
+    setDeletedActiveModelWarning(false);
+    setGlobal("ai.defaultModelId", modelId);
+  };
+
+  /** Deletes a model from ai.customModels and clears related config entries.
+   *  Uses inline confirmation instead of window.confirm() to avoid Electron
+   *  stealing focus from subsequent inputs (e.g. AddModelsModal text fields). */
+  const handleDeleteModel = (modelId: string) => {
+    const isDeletedModelActive = aiSettings?.defaultModelId === modelId;
+    const updatedModels = aiSettings?.customModels?.filter(m => m.id !== modelId) ?? [];
+    setGlobal("ai.customModels", updatedModels);
+    if (isDeletedModelActive) {
+      setGlobal("ai.defaultModelId", undefined);
+      setDeletedActiveModelWarning(true);
+    }
+    const updatedConfigs = { ...(aiSettings?.modelConfigs ?? {}) };
+    delete updatedConfigs[modelId];
+    setGlobal("ai.modelConfigs", updatedConfigs);
+    setConfirmDeleteId(null);
   };
 
   return (
@@ -638,8 +672,13 @@ function AiTab() {
           <div>
             <div className="text-sm font-medium mb-1">Model Capabilities</div>
             <div className="text-xs text-muted-foreground">
-              Enable or disable UI features for each model.
+              Enable or disable UI features for each model and select a default model to use in AI chat.
             </div>
+            {deletedActiveModelWarning && (
+              <div className="text-xs text-destructive mt-1">
+                The active model was deleted. Select another model to keep AI chat enabled.
+              </div>
+            )}
           </div>
 
           {/* Add Models Button */}
@@ -659,6 +698,7 @@ function AiTab() {
             <span className="w-24 text-center">File Upload</span>
             <span className="w-24 text-center">Voice</span>
             <span className="w-24 text-center">Thinking</span>
+            <span className="w-16"></span>
           </div>
           {modelIds.length === 0 ? (
             <div className="px-4 py-8 flex flex-col items-center justify-center text-center text-sm text-muted-foreground bg-muted/10">
@@ -668,23 +708,68 @@ function AiTab() {
           ) : (
             modelIds.map((id, idx) => {
               const caps = getCaps(id);
+              const isActiveModel = aiSettings?.defaultModelId === id;
               return (
                 <div
                   key={id}
-                  className={`flex items-center px-4 py-2.5 text-sm ${idx > 0 ? "border-t border-border" : ""
-                    }`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleEnableModel(id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleEnableModel(id);
+                    }
+                  }}
+                  className={`flex items-center px-4 py-2.5 text-sm cursor-pointer transition-colors ${
+                    idx > 0 ? "border-t border-border" : ""
+                  } ${
+                    isActiveModel
+                      ? "bg-emerald-50 dark:bg-emerald-950/20"
+                      : "hover:bg-muted/40"
+                  }`}
                 >
-                  <span className="flex-1 font-medium truncate">
+                  <span className={`flex-1 font-medium truncate ${isActiveModel ? "text-emerald-700 dark:text-emerald-300" : ""}`}>
                     {aiSettings?.customModels?.find(m => m.id === id)?.name ?? id}
                   </span>
                   {(["fileUpload", "voice", "thinking"] as const).map((cap) => (
                     <div key={cap} className="w-24 flex justify-center">
                       <Checkbox
+                        onClick={(event) => event.stopPropagation()}
                         checked={caps[cap]}
                         onCheckedChange={(checked) => toggleCap(id, cap, !!checked)}
                       />
                     </div>
                   ))}
+                  <div className="w-16 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                    {confirmDeleteId === id ? (
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteModel(id)}
+                          className="px-1.5 py-0.5 rounded text-xs font-medium bg-destructive text-white hover:bg-destructive/90 transition-colors"
+                        >
+                          Yes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="px-1.5 py-0.5 rounded text-xs font-medium bg-muted hover:bg-muted/80 transition-colors"
+                        >
+                          No
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteId(id)}
+                        className="p-1.5 rounded-md text-destructive hover:bg-destructive/10 transition-colors"
+                        title="Delete model"
+                      >
+                        <RiDeleteBinLine className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })
