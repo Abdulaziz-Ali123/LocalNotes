@@ -9,6 +9,7 @@ export function addDirectory(uuid: string, path: string) {
     const sql = `
         INSERT INTO directories (id, path)
         VALUES (?, ?)
+        ON CONFLICT(id) DO UPDATE SET path=excluded.path
     `;
 
     try {
