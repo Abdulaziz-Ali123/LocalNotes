@@ -5,10 +5,14 @@
  *
  * Authors / Contributors:
  * - Malek Kchaou
+ * - Wesley McDougal
  * - If you worked on this file besides me, add your name here when you see this.
  *
  * Date Created: 03/2026
  * Last Updated: 03/2026
+ *
+ * Revision History:
+ *  • Wesley McDougal - 05APR2026 - Added low-latency overlay stroke rendering and RAF-batched drawing updates
  *
  * Change Summary:
  * Refactored the old single-page canvas editor into a vertically scrollable,
@@ -117,6 +121,9 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({
     const scaledNotebookRef = useRef<HTMLDivElement | null>(null);
     const mousePanRef = useRef<MousePanState | null>(null);
     const touchGestureRef = useRef<TouchGestureState | null>(null);
+    const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const activeStrokeRef = useRef<GlobalCanvasPoint[]>([]);
+    const pendingRAFRef = useRef<number | null>(null);
 
     const [doc, setDoc] = useState<CanvasDocV1>(createEmptyCanvasDoc());
     const [activeStroke, setActiveStroke] = useState<GlobalCanvasPoint[]>([]);
@@ -186,6 +193,59 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 y: (clientY - rect.top) / zoom,
                 t: performance.now(),
             };
+        },
+        [zoom]
+    );
+
+    const renderOverlayStroke = useCallback(
+        (points: GlobalCanvasPoint[], color: string, size: number) => {
+            const overlay = overlayCanvasRef.current;
+            const scaledNotebook = scaledNotebookRef.current;
+            if (!overlay || !scaledNotebook || points.length === 0) return;
+
+            const dpr = window.devicePixelRatio || 1;
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            if (
+                overlay.width !== Math.floor(viewportWidth * dpr) ||
+                overlay.height !== Math.floor(viewportHeight * dpr)
+            ) {
+                overlay.width = Math.floor(viewportWidth * dpr);
+                overlay.height = Math.floor(viewportHeight * dpr);
+                overlay.style.width = `${viewportWidth}px`;
+                overlay.style.height = `${viewportHeight}px`;
+            }
+
+            const ctx = overlay.getContext("2d");
+            if (!ctx) return;
+
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, viewportWidth, viewportHeight);
+
+            const notebookRect = scaledNotebook.getBoundingClientRect();
+
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = size * zoom;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+
+            const first = points[0];
+            ctx.moveTo(
+                notebookRect.left + first.x * zoom,
+                notebookRect.top + first.y * zoom
+            );
+
+            for (let i = 1; i < points.length; i++) {
+                const p = points[i];
+                ctx.lineTo(
+                    notebookRect.left + p.x * zoom,
+                    notebookRect.top + p.y * zoom
+                );
+            }
+
+            ctx.stroke();
         },
         [zoom]
     );
@@ -295,8 +355,26 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
             e.currentTarget.setPointerCapture(e.pointerId);
 
+            activeStrokeRef.current = [pos];
             setIsDrawing(true);
             setActiveStroke([pos]);
+            
+            // Set up overlay canvas
+            const overlay = overlayCanvasRef.current;
+            if (overlay) {
+                const dpr = window.devicePixelRatio || 1;
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+                overlay.width = Math.floor(viewportWidth * dpr);
+                overlay.height = Math.floor(viewportHeight * dpr);
+                overlay.style.width = `${viewportWidth}px`;
+                overlay.style.height = `${viewportHeight}px`;
+                const ctx = overlay.getContext("2d");
+                if (ctx) {
+                    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                    ctx.clearRect(0, 0, viewportWidth, viewportHeight);
+                }
+            }
         },
         [getNotebookPos]
     );
@@ -331,12 +409,25 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({
             const pos = getNotebookPos(e.clientX, e.clientY);
             if (!pos) return;
 
-            setActiveStroke((prev) => [...prev, pos]);
+            // Update ref immediately for next RAF
+            activeStrokeRef.current = [...activeStrokeRef.current, pos];
+            
+            // Ensure pages exist
             setDoc((prevDoc) => ensurePagesThroughY(prevDoc, pos.y));
 
-            updateVisibleRange();
+            // Cancel pending RAF and queue a new one
+            if (pendingRAFRef.current !== null) {
+                cancelAnimationFrame(pendingRAFRef.current);
+            }
+            
+            pendingRAFRef.current = requestAnimationFrame(() => {
+                pendingRAFRef.current = null;
+                setActiveStroke([...activeStrokeRef.current]);
+                renderOverlayStroke(activeStrokeRef.current, currentColor, currentSize);
+                updateVisibleRange();
+            });
         },
-        [getNotebookPos, isDrawing, updateVisibleRange]
+        [getNotebookPos, isDrawing, updateVisibleRange, currentColor, currentSize, renderOverlayStroke]
     );
 
     const handlePointerUp = useCallback(() => {
@@ -345,9 +436,23 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({
             return;
         }
 
-        if (!isDrawing || !activeStroke.length) {
+        // Cancel any pending RAF
+        if (pendingRAFRef.current !== null) {
+            cancelAnimationFrame(pendingRAFRef.current);
+            pendingRAFRef.current = null;
+        }
+        
+        // Clear overlay
+        const overlay = overlayCanvasRef.current;
+        if (overlay) {
+            const ctx = overlay.getContext("2d");
+            if (ctx) ctx.clearRect(0, 0, overlay.width, overlay.height);
+        }
+
+        if (!isDrawing || !activeStrokeRef.current.length) {
             setIsDrawing(false);
             setActiveStroke([]);
+            activeStrokeRef.current = [];
             return;
         }
 
@@ -355,7 +460,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
         const fragments = splitStrokeAcrossPages(
             nextDoc,
-            activeStroke,
+            activeStrokeRef.current,
             currentColor,
             currentSize
         );
@@ -379,7 +484,8 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({
         commitDoc(nextDoc);
         setIsDrawing(false);
         setActiveStroke([]);
-    }, [isDrawing, activeStroke, doc, currentColor, currentSize, commitDoc]);
+        activeStrokeRef.current = [];
+    }, [isDrawing, doc, currentColor, currentSize, commitDoc]);
 
     const handleWheel = useCallback(
         (e: React.WheelEvent<HTMLDivElement>) => {
@@ -646,6 +752,15 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 onTouchEnd={handleTouchEnd}
                 onTouchCancel={handleTouchEnd}
             >
+                <canvas
+                    ref={overlayCanvasRef}
+                    className="fixed pointer-events-none z-50"
+                    style={{
+                        left: 0,
+                        top: 0,
+                        display: isDrawing ? "block" : "none",
+                    }}
+                />
                 <div
                     className="relative"
                     style={{

@@ -1,3 +1,11 @@
+/**
+ * Purpose:
+ *  Provides database operations for directories, files, chunks, and embeddings.
+ *
+ * Revision History:
+ *  • Wesley McDougal - 05APR2026 - Made addDirectory idempotent and prevented duplicate directory registration failures
+ */
+
 import { randomUUID } from "crypto";
 import { getDB } from "@/main/database/sqllite";
 
@@ -6,14 +14,43 @@ type UUID = string;
 export function addDirectory(uuid: string, path: string) {
     const db = getDB();
 
-    const sql = `
-        INSERT INTO directories (id, path)
-        VALUES (?, ?)
-        ON CONFLICT(id) DO UPDATE SET path=excluded.path
-    `;
-
     try {
-        const stmt = db.prepare(sql);
+        const existingById = db.prepare(`
+            SELECT id, path FROM directories
+            WHERE id = ?
+        `).get(uuid) as { id: string; path: string } | undefined;
+
+        if (existingById) {
+            if (existingById.path !== path) {
+                return db.prepare(`
+                    UPDATE directories
+                    SET path = ?
+                    WHERE id = ?
+                `).run(path, uuid);
+            }
+
+            return {
+                changes: 0,
+                lastInsertRowid: 0,
+            };
+        }
+
+        const existingByPath = db.prepare(`
+            SELECT id FROM directories
+            WHERE path = ?
+        `).get(path) as { id: string } | undefined;
+
+        if (existingByPath) {
+            return {
+                changes: 0,
+                lastInsertRowid: 0,
+            };
+        }
+
+        const stmt = db.prepare(`
+            INSERT INTO directories (id, path)
+            VALUES (?, ?)
+        `);
         return stmt.run(uuid, path);
     } catch (error) {
         console.error("Failed to add directory:", error);
