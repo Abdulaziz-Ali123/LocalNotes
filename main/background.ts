@@ -5,8 +5,10 @@
  * - Added central IPC handler for renderer error reporting.
  * - Added process-level fallback logging for uncaught exceptions and unhandled rejections.
  * Author: Malek Kchaou (add your name if you made changes here)
+ * Update Log:
+ *  - 2026-04-12: Atharva Patil - Added code for quiz integration.
  * Date Created: 
- * Last Updated: 2026-03-28
+ * Last Updated: 2026-04-12
  */
 
 /**
@@ -28,6 +30,7 @@
  *
  * Revision History:
  *  • Wesley McDougal - 29MAR2026 - Windows menu visibility enforcement and title bar adjustments
+ *  • Atharva Patil - 12APR2026 - Bootstraps local quiz session services (IPC + WebSocket server). Ensures graceful shutdown of quiz resources on app exit.
  */
 import path from "path";
 import { app, ipcMain, BrowserWindow, Menu, dialog, shell } from "electron";
@@ -66,6 +69,9 @@ import {
     logRendererError,
 } from "./logging/errorLogger";
 import { registerErrorLoggingIpc } from "./logging/registerErrorLoggingIpc";
+import { QuizSessionManager } from "./quiz/quizSessionManager";
+import { QuizWebSocketServer } from "./quiz/quizWebSocketServer";
+import { registerQuizIpc } from "./quiz/ipc-handlers";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -210,6 +216,8 @@ function registerProcessLevelErrorHandlers(): void {
 // ---------------------------------------------------------------------------
 const settingsManager = new SettingsManager();
 let mainWindowRef: Electron.BrowserWindow | null = null;
+const quizSessionManager = new QuizSessionManager();
+const quizWebSocketServer = new QuizWebSocketServer(quizSessionManager, 9898);
 
 (async () => {
     try {
@@ -260,6 +268,15 @@ let mainWindowRef: Electron.BrowserWindow | null = null;
          * This preserves the current app architecture and avoids unnecessary changes.
          */
         registerSettingsIpc(settingsManager, () => mainWindowRef);
+        registerQuizIpc(quizSessionManager, quizWebSocketServer, () => mainWindowRef);
+
+        try {
+          await quizWebSocketServer.start();
+          console.log("✓ Quiz session server ready");
+        } catch (error) {
+          logMainError(error, "quiz.server.start");
+          console.error("✗ Failed to start quiz session server:", error);
+        }
 
         /**
          * Context menu definition for standard text actions.
@@ -342,6 +359,8 @@ let mainWindowRef: Electron.BrowserWindow | null = null;
 
 app.on("window-all-closed", () => {
     if (process.platform !== "darwin") {
+  quizWebSocketServer.stop();
+  quizSessionManager.shutdown();
     void stopAllWatchers();
         closeDB();
         app.quit();
@@ -349,6 +368,8 @@ app.on("window-all-closed", () => {
 });
 
 app.on("will-quit", () => {
+  quizWebSocketServer.stop();
+  quizSessionManager.shutdown();
   void stopAllWatchers();
     closeDB();
 });
