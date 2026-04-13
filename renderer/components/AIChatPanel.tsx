@@ -1,3 +1,21 @@
+/**
+ * AIChatPanel
+ *
+ * AI chat interface embedded in the editor sidebar. Allows users to converse
+ * with a configured LLM model using their open notes as optional RAG context.
+ *
+ * Revision History:
+ *  • Wesley McDougal - 07APR2026 - Initial implementation:
+ *    - Model dropdown reads from ai.customModels (Zustand).
+ *    - Pre-send guard blocks send and shows amber banner when no models exist.
+ *    - "Add AI Model" button in empty state navigates to Settings → AI tab.
+ *    - New chats initialise from ai.defaultModelId; selection persists on change.
+ *    - useEffect detects deleted active model and shows amber replacement warning.
+ *    - Settings load errors surfaced as red banner with Retry button.
+ *    - Replaced direct fetch() with window.llm.chat() IPC call so API keys
+ *              remain in the main process and are invisible to the renderer.
+ */
+
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/renderer/components/ui/scroll-area";
 import MarkdownViewer from "@/renderer/components/MarkdownViewer";
@@ -75,7 +93,7 @@ function ModelSelector({
   }, []);
 
   const customModels = aiSettings?.customModels || [];
-  const current = customModels.find((m) => m.id === selectedModel) ?? customModels[0];
+  const current = customModels.find((m) => m.id === selectedModel);
 
   return (
     <div ref={ref} className="relative">
@@ -85,7 +103,7 @@ function ModelSelector({
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background border border-border text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <span className="truncate max-w-[140px]">
-          {current ? current.name : "No Models Added"}
+          {current ? current.name : customModels.length > 0 ? "Select Model" : "No Models Added"}
         </span>
         <RiArrowDownSLine
           className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`}
@@ -217,15 +235,26 @@ function MessageBubble({
 
 // ─── Main Chat Panel ─────────────────────────────────────────────────────────
 
-export default function AIChatPanel() {
+interface AIChatPanelProps {
+  /** Callback that opens Settings → AI tab so the empty-state button
+   *  and removed-model warning can navigate without knowing dialog internals. */
+  onOpenAiSettings?: () => void;
+}
+
+export default function AIChatPanel({ onOpenAiSettings }: AIChatPanelProps = {}) {
   const aiSettings = useBoundStore((s) => s.settings.global?.ai);
+  // error string set by settings-slice when initialization fails
+  const settingsLoadError = useBoundStore((s) => s.settings.loadError);
+  // re-runs initialize() and clears loadError; bound to Retry button
+  const retrySettingsLoad = useBoundStore((s) => s.settings.retryLoad);
 
   const [conversations, setConversations] = useState<Conversation[]>([
     {
       id: generateId(),
       title: "New Chat",
       messages: [],
-      model: aiSettings?.customModels?.[0]?.id ?? "",
+  // seed the first conversation from saved default, then first model, then empty
+      model: aiSettings?.defaultModelId ?? aiSettings?.customModels?.[0]?.id ?? "",
       createdAt: new Date(),
     },
   ]);
@@ -239,11 +268,16 @@ export default function AIChatPanel() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [isListening, setIsListening] = useState(false);
+  /** validation message shown in amber banner when send is attempted
+   *  without any models configured. Cleared on successful model selection. */
+  const [modelError, setModelError] = useState<string>("");
+  /** true when the conversation's selected model no longer exists in
+   *  ai.customModels; triggers the amber "model removed" warning banner. */
+  const [removedModelWarning, setRemovedModelWarning] = useState<boolean>(false);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
-
   const activeConvo = conversations.find((c) => c.id === activeConvoId)!;
 
   // Derive capabilities for the active model
@@ -358,123 +392,35 @@ Use the above context to answer the user accurately. If the context does not ans
          ...previousMessagesForAPI
       ];
 
-      // 4. Contact LLM
-      const customModels = aiSettings?.customModels || [];
-      const currentModel = customModels.find(m => m.id === activeConvo.model);
-      if (!currentModel) throw new Error("Selected LLM model not found in settings.");
+      // 4. Contact LLM via IPC handler (API key stays in main process)
+      const chatResult = await (window as any).llm.chat(activeConvo.model, messagesData, thinkingEnabled);
       
-      const apiKey = currentModel.apiKey || "";
-      
-      // Use the exact URL defined by the user for the model
-      let endpoint = (currentModel.baseUrl || "").trim();
-      
-      if (!endpoint) {
-        // Fallback only if the user hasn't provided a URL at all
-        switch (currentModel.provider) {
-          case "Ollama": endpoint = "http://localhost:11434/v1/chat/completions"; break;
-          case "OpenAI": endpoint = "https://api.openai.com/v1/chat/completions"; break;
-          case "Anthropic": endpoint = "https://api.anthropic.com/v1/chat/completions"; break;
-          case "Google": endpoint = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"; break;
-          case "OpenRouter": endpoint = "https://openrouter.ai/api/v1/chat/completions"; break;
-          case "xAI": endpoint = "https://api.x.ai/v1/chat/completions"; break;
-          default: endpoint = "http://localhost:11434/v1/chat/completions";
-        }
-      }
-      
-      console.log(`[AIChat] Sending request to: ${endpoint} (Model: ${currentModel.name}, Provider: ${currentModel.provider})`);
-
-      let response;
-      try {
-        response = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
-          },
-          body: JSON.stringify({
-            model: currentModel.name, // Use the actual name like 'llama3' instead of the internal unique 'id'
-            messages: messagesData,
-            stream: true
-          })
-        });
-      } catch (fetchError: any) {
-        console.error("[AIChat] Fetch error:", fetchError);
-        throw new Error(`Failed to connect to ${currentModel.provider} at ${endpoint}. Please ensure the server is running and accessible (check CORS settings if applicable). Error: ${fetchError.message}`);
+      if (!chatResult.success) {
+        throw new Error(chatResult.error || "Unknown LLM error");
       }
 
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`LLM Error: ${response.statusText} (${response.status}). Details: ${errorBody.slice(0, 100)}...`);
+      let rawResponse = chatResult.content;
+      
+      // Extract thinking blocks if present
+      let contentStr = rawResponse;
+      let thinkStr = "";
+
+      const thinkStartIdx = contentStr.indexOf("<think>");
+      if (thinkStartIdx !== -1) {
+         const thinkEndIdx = contentStr.indexOf("</think>");
+         if (thinkEndIdx !== -1) {
+             thinkStr = contentStr.substring(thinkStartIdx + 7, thinkEndIdx).trim();
+             contentStr = contentStr.substring(0, thinkStartIdx) + contentStr.substring(thinkEndIdx + 8);
+         } else {
+             thinkStr = contentStr.substring(thinkStartIdx + 7).trim();
+             contentStr = contentStr.substring(0, thinkStartIdx);
+         }
       }
 
-      // 5. Stream Output
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder("utf-8");
-
-      let rawResponse = "";
-      let buffer = "";
-
-      updateConversation(convoId, (c) => ({
-        ...c,
-        messages: c.messages.map(m => m.id === assistantId ? { ...m, thinking: undefined } : m)
-      }));
-
-      while (true) {
-        if (!reader) break;
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        
-        let boundary = buffer.indexOf('\n');
-        while (boundary !== -1) {
-          const line = buffer.slice(0, boundary).trim();
-          buffer = buffer.slice(boundary + 1);
-          boundary = buffer.indexOf('\n');
-
-          if (line === "data: [DONE]") continue;
-          if (line.startsWith("data: ")) {
-            try {
-              const payload = line.slice(6).trim();
-              if (payload === "[DONE]") continue; // Backup check
-              
-              const data = JSON.parse(payload);
-              const delta = data.choices?.[0]?.delta?.content || "";
-              rawResponse += delta;
-              
-              let contentStr = rawResponse;
-              let thinkStr = "";
-
-              const thinkStartIdx = contentStr.indexOf("<think>");
-              if (thinkStartIdx !== -1) {
-                 const thinkEndIdx = contentStr.indexOf("</think>");
-                 if (thinkEndIdx !== -1) {
-                     thinkStr = contentStr.substring(thinkStartIdx + 7, thinkEndIdx).trim();
-                     contentStr = contentStr.substring(0, thinkStartIdx) + contentStr.substring(thinkEndIdx + 8);
-                 } else {
-                     thinkStr = contentStr.substring(thinkStartIdx + 7).trim();
-                     contentStr = contentStr.substring(0, thinkStartIdx);
-                 }
-              }
-
-              updateConversation(convoId, (c) => ({
-                ...c,
-                messages: c.messages.map((m) =>
-                  m.id === assistantId ? { ...m, content: contentStr, thinking: thinkStr || undefined } : m
-                ),
-              }));
-            } catch (err) {
-               // Ignore partial or malformed JSON payload per tick
-            }
-          }
-        }
-      }
-
-      // Cleanup
       updateConversation(convoId, (c) => ({
         ...c,
         messages: c.messages.map((m) =>
-          m.id === assistantId ? { ...m, isStreaming: false } : m
+          m.id === assistantId ? { ...m, content: contentStr, thinking: thinkStr || undefined, isStreaming: false } : m
         ),
       }));
       setIsGenerating(false);
@@ -520,6 +466,38 @@ Use the above context to answer the user accurately. If the context does not ans
     }
   }, [input]);
 
+  // Detect when the active conversation's model is deleted from settings.
+  // Does NOT auto-swap to another model — shows an amber warning and requires
+  // the user to pick a replacement explicitly from the dropdown.
+  useEffect(() => {
+    if (!activeConvo || !aiSettings?.customModels) return;
+
+    // Only show warning if a model was actually selected
+    if (!activeConvo.model) {
+      setRemovedModelWarning(false);
+      return;
+    }
+
+    const modelExists = aiSettings.customModels.some((m) => m.id === activeConvo.model);
+    if (!modelExists) {
+      setRemovedModelWarning(true);
+    } else {
+      setRemovedModelWarning(false);
+    }
+  }, [activeConvo, activeConvoId, aiSettings?.customModels]);
+
+  // If settings push a new defaultModelId (e.g. user clicked "Enable"
+  // in Settings → AI), sync the active conversation to match so the dropdown
+  // and settings table always reflect the same selection.
+  useEffect(() => {
+    if (!activeConvo || !aiSettings?.defaultModelId || !aiSettings?.customModels) return;
+
+    const defaultModelExists = aiSettings.customModels.some((m) => m.id === aiSettings.defaultModelId);
+    if (!defaultModelExists || activeConvo.model === aiSettings.defaultModelId) return;
+
+    updateConversation(activeConvoId, (c) => ({ ...c, model: aiSettings.defaultModelId! }));
+  }, [activeConvo, activeConvoId, aiSettings?.customModels, aiSettings?.defaultModelId]);
+
   const updateConversation = (id: string, updater: (c: Conversation) => Conversation) => {
     setConversations((prev) => prev.map((c) => (c.id === id ? updater(c) : c)));
   };
@@ -528,6 +506,15 @@ Use the above context to answer the user accurately. If the context does not ans
     const trimmed = input.trim();
     if (!trimmed && attachments.length === 0) return;
     if (isGenerating) return;
+
+    // Pre-send validation: check if models exist
+    if (!aiSettings?.customModels?.length) {
+      setModelError("No AI models configured. Please add one in Settings.");
+      return;
+    }
+
+    // Clear any previous error
+    setModelError("");
 
     const userMessage: ChatMessage = {
       id: generateId(),
@@ -640,6 +627,9 @@ Use the above context to answer the user accurately. If the context does not ans
 
   const handleModelSelect = (modelId: string) => {
     updateConversation(activeConvoId, (c) => ({ ...c, model: modelId }));
+    // Persist selection so new chats and Settings reflect the choice
+    const setGlobal = useBoundStore.getState().settings.setGlobal;
+    setGlobal("ai.defaultModelId", modelId);
   };
 
   const handleInitializeRag = async () => {
@@ -694,6 +684,26 @@ Use the above context to answer the user accurately. If the context does not ans
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-secondary">
+      {/* ── Settings Load Error Banner ── */}
+      {settingsLoadError && (
+        <div className="flex-shrink-0 px-4 py-3 bg-red-50 dark:bg-red-950/20 border-b border-red-200 dark:border-red-700/30">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <RiInformationLine className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
+              <p className="text-sm text-red-800 dark:text-red-200">
+                Failed to load settings: {settingsLoadError}
+              </p>
+            </div>
+            <button
+              onClick={() => retrySettingsLoad()}
+              className="ml-auto px-2 py-1 text-xs font-medium rounded bg-red-600/10 hover:bg-red-600/20 text-red-700 dark:text-red-300 transition-colors flex-shrink-0"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Header ── */}
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border bg-secondary">
         <div className="flex items-center gap-3">
@@ -731,6 +741,32 @@ Use the above context to answer the user accurately. If the context does not ans
         </button>
       </div>
 
+      {/* ── Removed Model Warning ── */}
+      {removedModelWarning && (
+        <div className="flex-shrink-0 px-4 py-3 bg-amber-50 dark:bg-amber-950/20 border-b border-amber-200 dark:border-amber-700/30">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <RiInformationLine className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+              <p className="text-sm text-amber-800 dark:text-amber-200">
+                The selected model was removed. {aiSettings?.customModels?.length ? 'Please choose a replacement.' : 'Please add a model in AI Settings.'}
+              </p>
+            </div>
+            {aiSettings?.customModels?.length ? (
+              <button
+                onClick={() => {
+                  if (aiSettings.customModels[0]) {
+                    handleModelSelect(aiSettings.customModels[0].id);
+                  }
+                }}
+                className="ml-auto px-2 py-1 text-xs font-medium rounded bg-amber-600/10 hover:bg-amber-600/20 text-amber-700 dark:text-amber-300 transition-colors flex-shrink-0"
+              >
+                Switch Model
+              </button>
+            ) : null}
+          </div>
+        </div>
+      )}
+
       {/* ── Messages ── */}
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 py-4">
         {aiSettings?.customModels?.length === 0 ? (
@@ -745,6 +781,15 @@ Use the above context to answer the user accurately. If the context does not ans
               <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-4">
                 You currently don't have any LLMs enabled to process your notes. Please add a model in the AI Settings to chat with your documents.
               </p>
+              {onOpenAiSettings && (
+                <Button
+                  onClick={onOpenAiSettings}
+                  className="mt-4"
+                >
+                  <RiAddLine className="w-4 h-4 mr-2" />
+                  Add AI Model
+                </Button>
+              )}
             </div>
           </div>
         ) : activeConvo.messages.length === 0 ? (
@@ -810,6 +855,22 @@ Use the above context to answer the user accurately. If the context does not ans
       )}
 
       {/* ── Input Area ── */}
+      {modelError && (
+        <div className="flex-shrink-0 px-4 pt-2">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-100/20 border border-amber-600/30 text-sm text-amber-800 dark:text-amber-200">
+            <RiInformationLine className="w-4 h-4 flex-shrink-0" />
+            <span className="flex-1">{modelError}</span>
+            {onOpenAiSettings && (
+              <button
+                onClick={onOpenAiSettings}
+                className="ml-auto px-2 py-1 text-xs font-medium rounded hover:bg-amber-600/10 transition-colors"
+              >
+                Add Model
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       <div className="flex-shrink-0 px-4 pb-3 pt-2">
         <div className="flex items-end gap-2 bg-background border border-border rounded-2xl px-3 py-2 focus-within:ring-1 focus-within:ring-accent/40 transition-shadow">
           {/* File Upload — only shown if model supports it */}

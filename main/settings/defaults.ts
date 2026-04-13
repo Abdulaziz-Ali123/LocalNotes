@@ -4,9 +4,10 @@
  * This file is the single source of truth for what every setting should be
  * when the user hasn't explicitly changed it. The settings manager deep-merges
  * the user's sparse overrides on top of these defaults.
- * 
-  * Revision History:
+ *
+ * Revision History:
  *  • Wesley McDougal - 29MAR2026 - Default customThemes object and schema version bump to number 2
+ *  • Wesley McDougal - 05APR2026 - Added sidebar layout defaults and updated schema version for sidebar layout persistence
  */
 
 import {
@@ -15,17 +16,76 @@ import {
   KeybindingMap,
   AppearanceSettings,
   EditorSettings,
+  SidebarLayoutSettings,
 } from "./schema";
 
 // ---------------------------------------------------------------------------
 // Section defaults
 // ---------------------------------------------------------------------------
 
+export const DEFAULT_SIDEBAR_ICON_ORDER = [
+  "file",
+  "search",
+  "import",
+  "ai",
+  "theme",
+  "tags",
+  "share",
+  "settings",
+  "history",
+];
+
+export const DEFAULT_SIDEBAR_RAILS = {
+  left: [...DEFAULT_SIDEBAR_ICON_ORDER],
+  right: [],
+  top: [],
+  bottom: [],
+};
+
+export const DEFAULT_SIDEBAR_RAIL_ALIGNMENT = {
+  left: "start",
+  right: "start",
+  top: "center",
+  bottom: "center",
+} as const;
+
+export const DEFAULT_SIDEBAR_LAYOUT: SidebarLayoutSettings = {
+  panelPosition: "left",
+  rails: {
+    left: [...DEFAULT_SIDEBAR_RAILS.left],
+    right: [...DEFAULT_SIDEBAR_RAILS.right],
+    top: [...DEFAULT_SIDEBAR_RAILS.top],
+    bottom: [...DEFAULT_SIDEBAR_RAILS.bottom],
+  },
+  railAlignment: {
+    left: DEFAULT_SIDEBAR_RAIL_ALIGNMENT.left,
+    right: DEFAULT_SIDEBAR_RAIL_ALIGNMENT.right,
+    top: DEFAULT_SIDEBAR_RAIL_ALIGNMENT.top,
+    bottom: DEFAULT_SIDEBAR_RAIL_ALIGNMENT.bottom,
+  },
+};
+
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
   theme: "nord",
   fontSize: 14,
   fontFamily: "monospace",
   customThemes: {},
+  sidebarLayout: {
+    panelPosition: DEFAULT_SIDEBAR_LAYOUT.panelPosition,
+    rails: {
+      left: [...DEFAULT_SIDEBAR_LAYOUT.rails.left],
+      right: [...DEFAULT_SIDEBAR_LAYOUT.rails.right],
+      top: [...DEFAULT_SIDEBAR_LAYOUT.rails.top],
+      bottom: [...DEFAULT_SIDEBAR_LAYOUT.rails.bottom],
+    },
+    railAlignment: {
+      left: DEFAULT_SIDEBAR_LAYOUT.railAlignment.left,
+      right: DEFAULT_SIDEBAR_LAYOUT.railAlignment.right,
+      top: DEFAULT_SIDEBAR_LAYOUT.railAlignment.top,
+      bottom: DEFAULT_SIDEBAR_LAYOUT.railAlignment.bottom,
+    },
+  },
+  sidebarLayoutScope: "global",
 };
 
 export const DEFAULT_EDITOR: EditorSettings = {
@@ -78,6 +138,23 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
 };
 
 export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
+  appearance: {
+    sidebarLayout: {
+      panelPosition: DEFAULT_SIDEBAR_LAYOUT.panelPosition,
+      rails: {
+        left: [...DEFAULT_SIDEBAR_LAYOUT.rails.left],
+        right: [...DEFAULT_SIDEBAR_LAYOUT.rails.right],
+        top: [...DEFAULT_SIDEBAR_LAYOUT.rails.top],
+        bottom: [...DEFAULT_SIDEBAR_LAYOUT.rails.bottom],
+      },
+      railAlignment: {
+        left: DEFAULT_SIDEBAR_LAYOUT.railAlignment.left,
+        right: DEFAULT_SIDEBAR_LAYOUT.railAlignment.right,
+        top: DEFAULT_SIDEBAR_LAYOUT.railAlignment.top,
+        bottom: DEFAULT_SIDEBAR_LAYOUT.railAlignment.bottom,
+      },
+    },
+  },
   editor: { ...DEFAULT_EDITOR },
 };
 
@@ -85,4 +162,4 @@ export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
  * The current schema version. Bump this whenever the schema shape changes
  * and add a corresponding migration in migrations.ts.
  */
-export const LATEST_SCHEMA_VERSION = 2;
+export const LATEST_SCHEMA_VERSION = 5;

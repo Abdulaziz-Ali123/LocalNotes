@@ -3,9 +3,12 @@
  *
  * Loads settings from the main process on init and keeps them in sync.
  * Exposes setter helpers that persist changes via IPC and update local state.
- * 
+ *
  * Revision History:
  *  • Wesley McDougal - 29MAR2026 - Custom theme types and initial state
+ *  • Wesley McDougal - 05APR2026 - Added sidebar layout types/defaults and persisted appearance layout state
+ *  • Wesley McDougal - 07APR2026 - Added defaultModelId to AiSettings, loadError +
+ *    retryLoad to SettingsSlice, and try/catch in initialize() to surface load failures.
  */
 
 import { StateCreator } from "zustand";
@@ -44,11 +47,24 @@ export interface CustomThemeDefinition {
   tokens: CustomThemeTokens;
 }
 
+export type SidebarPosition = "left" | "right";
+export type SidebarEdge = "left" | "right" | "bottom";
+export type SidebarRailAlignment = "start" | "center" | "end";
+export type SidebarLayoutScope = "global" | "project";
+
+export interface SidebarLayoutSettings {
+  panelPosition: SidebarPosition;
+  rails: Record<SidebarEdge, string[]>;
+  railAlignment: Record<SidebarEdge, SidebarRailAlignment>;
+}
+
 export interface AppearanceSettings {
   theme: ThemeType;
   fontSize: number;
   fontFamily: string;
   customThemes: Record<string, CustomThemeDefinition>;
+  sidebarLayout: SidebarLayoutSettings;
+  sidebarLayoutScope: SidebarLayoutScope;
 }
 
 export interface EditorSettings {
@@ -85,6 +101,10 @@ export interface AiSettings {
   endpointUrl: string;
   apiKey: string;
   defaultRagEnabled: boolean;
+  /** The user's currently preferred/active AI model. Written by
+   *  handleModelSelect in AIChatPanel and read on new-chat creation so the
+   *  last-used model is pre-selected across sessions. */
+  defaultModelId?: string; // user's preferred model
   modelConfigs: Record<string, AiModelConfig>;
   customModels: CustomModel[];
 }
@@ -111,6 +131,9 @@ export interface SettingsSlice {
   settings: {
     /** Whether settings have been loaded from main at least once. */
     loaded: boolean;
+    /** Error message if settings failed to load; null when healthy.
+     *  Displayed as a red retry banner in AIChatPanel. */
+    loadError: string | null;
     /** The resolved global settings (defaults + overrides). */
     global: GlobalSettings;
     /** Registry of all bindable keybinding actions (from main). */
@@ -133,6 +156,11 @@ export interface SettingsSlice {
 
     /** Directly replace the local settings state (used by onChange listener). */
     _replaceGlobal: (settings: GlobalSettings) => void;
+
+    /** Retry loading settings after a failure: clears loadError then re-runs
+     *  initialize(). Called by the Retry button in the AIChatPanel error banner.
+     */
+    retryLoad: () => Promise<void>;
   };
 }
 
@@ -169,9 +197,36 @@ const INITIAL_AI: AiSettings = {
   endpointUrl: "http://localhost:11434",
   apiKey: "",
   defaultRagEnabled: false,
+  defaultModelId: undefined,
   modelConfigs: {},
   customModels: [],
 };
+
+const DEFAULT_SIDEBAR_ICON_ORDER = [
+  "file",
+  "search",
+  "import",
+  "ai",
+  "theme",
+  "tags",
+  "share",
+  "settings",
+  "history",
+];
+
+const DEFAULT_SIDEBAR_RAILS = {
+  left: [...DEFAULT_SIDEBAR_ICON_ORDER],
+  right: [],
+  top: [],
+  bottom: [],
+};
+
+const DEFAULT_SIDEBAR_RAIL_ALIGNMENT = {
+  left: "start",
+  right: "start",
+  top: "center",
+  bottom: "center",
+} as const;
 
 // ---------------------------------------------------------------------------
 // Default state (before loading)
@@ -183,6 +238,20 @@ const INITIAL_GLOBAL: GlobalSettings = {
     fontSize: 14,
     fontFamily: "monospace",
     customThemes: {},
+    sidebarLayout: {
+      panelPosition: "left",
+      rails: {
+        left: [...DEFAULT_SIDEBAR_RAILS.left],
+        right: [...DEFAULT_SIDEBAR_RAILS.right],
+        bottom: [...DEFAULT_SIDEBAR_RAILS.bottom],
+      },
+      railAlignment: {
+        left: DEFAULT_SIDEBAR_RAIL_ALIGNMENT.left,
+        right: DEFAULT_SIDEBAR_RAIL_ALIGNMENT.right,
+        bottom: DEFAULT_SIDEBAR_RAIL_ALIGNMENT.bottom,
+      },
+    },
+    sidebarLayoutScope: "global",
   },
   editor: {
     autosaveEnabled: true,
@@ -206,6 +275,7 @@ export const createSettingsSlice: StateCreator<
 > = (set) => ({
   settings: {
     loaded: false,
+    loadError: null,
     global: INITIAL_GLOBAL,
     keybindingActions: DEFAULT_KEYBINDING_ACTIONS,
 
@@ -214,7 +284,7 @@ export const createSettingsSlice: StateCreator<
         // window.settings may not exist if preload hasn't loaded yet
         if (typeof window === "undefined" || !window.settings) {
           set((state) => ({
-            settings: { ...state.settings, loaded: true },
+            settings: { ...state.settings, loaded: true, loadError: null },
           }));
           return;
         }
@@ -228,6 +298,7 @@ export const createSettingsSlice: StateCreator<
           settings: {
             ...state.settings,
             loaded: true,
+            loadError: null,
             global: globalSettings ?? INITIAL_GLOBAL,
             keybindingActions:
               keybindingActions && keybindingActions.length > 0
@@ -245,11 +316,17 @@ export const createSettingsSlice: StateCreator<
             },
           }));
         });
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to load settings from main process:", err);
-        // Keep defaults — the UI still works, just without persisted overrides
+        // Store the error message so the UI can surface a retry banner.
+        // Using state rather than throwing keeps the app usable with defaults.
+        const errorMsg = err?.message || "Failed to load settings";
         set((state) => ({
-          settings: { ...state.settings, loaded: true },
+          settings: {
+            ...state.settings,
+            loaded: true,
+            loadError: errorMsg,
+          },
         }));
       }
     },
@@ -303,6 +380,42 @@ export const createSettingsSlice: StateCreator<
           global: newSettings,
         },
       }));
+    },
+
+    retryLoad: async () => {
+      // Clear previous error and try loading again.
+      // We call window.settings directly here to avoid a circular dependency
+      // with useBoundStore (this slice IS part of that store).
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          loadError: null,
+        },
+      }));
+      try {
+        if (typeof window === "undefined" || !window.settings) return;
+        const [globalSettings, keybindingActions] = await Promise.all([
+          window.settings.getGlobal(),
+          window.settings.getKeybindingActions(),
+        ]);
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            loaded: true,
+            loadError: null,
+            global: globalSettings ?? state.settings.global,
+            keybindingActions:
+              keybindingActions && keybindingActions.length > 0
+                ? keybindingActions
+                : state.settings.keybindingActions,
+          },
+        }));
+      } catch (err: any) {
+        const errorMsg = err?.message || "Failed to load settings";
+        set((state) => ({
+          settings: { ...state.settings, loaded: true, loadError: errorMsg },
+        }));
+      }
     },
   },
 });

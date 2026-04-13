@@ -4,9 +4,9 @@
  * TypeScript interfaces defining the shape of all settings.
  * These interfaces are the single source of truth for the settings structure
  * and are shared between the main process SettingsManager and the renderer.
- * 
  * Revision History:
  *  • Wesley McDougal - 29MAR2026 - Added CustomThemeTokens and customThemes to AppearanceSettings
+ *  • Wesley McDougal - 05APR2026 - Added sidebar layout schema types and appearance/project layout support
  */
 
 // ---------------------------------------------------------------------------
@@ -44,11 +44,24 @@ export interface CustomThemeDefinition {
   tokens: CustomThemeTokens;
 }
 
+export type SidebarPosition = "left" | "right";
+export type SidebarEdge = "left" | "right" | "top" | "bottom";
+export type SidebarRailAlignment = "start" | "center" | "end";
+export type SidebarLayoutScope = "global" | "project";
+
+export interface SidebarLayoutSettings {
+  panelPosition: SidebarPosition;
+  rails: Record<SidebarEdge, string[]>;
+  railAlignment: Record<SidebarEdge, SidebarRailAlignment>;
+}
+
 export interface AppearanceSettings {
   theme: ThemeType;
   fontSize: number;
   fontFamily: string;
   customThemes: Record<string, CustomThemeDefinition>;
+  sidebarLayout: SidebarLayoutSettings;
+  sidebarLayoutScope: SidebarLayoutScope;
 }
 
 // ---------------------------------------------------------------------------
@@ -156,6 +169,9 @@ export interface GlobalSettings {
 
 /** Project-level settings (stored in .Local Notes/settings.json per project). */
 export interface ProjectSettings {
+  appearance: {
+    sidebarLayout: SidebarLayoutSettings;
+  };
   editor: EditorSettings;
 }
 
