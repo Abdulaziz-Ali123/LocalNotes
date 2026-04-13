@@ -57,6 +57,7 @@ import EditorSpace from "@/renderer/pages/editorSpace";
 import TabBar from "../components/TabBar";
 import AIChatPanel from "@/renderer/components/AIChatPanel";
 import { Popover, PopoverContent, PopoverTrigger } from "@/renderer/components/ui/popover";
+import Link from "next/link";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import {
   pointerWithin,
@@ -1330,20 +1331,32 @@ export default function Editor() {
                   {activeMainView === "ai" ? (
                     <div className="flex flex-col h-full overflow-hidden">
                       <div className="flex-shrink-0 flex items-center bg-background h-10 px-4 app-drag-region">
-                        <div className="app-nodrag-region flex items-center gap-2 mt-2">
-                          <button
-                            onClick={() => setActiveMainView("editor")}
-                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                          >
-                            <CiFileOn className="w-4 h-4" />
-                            Back to Files
-                          </button>
-                          <span className="text-xs text-muted-foreground/50">|</span>
-                          <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                            <RiRobot2Line className="w-3.5 h-3.5" />
-                            AI Chat
-                          </span>
-                        </div>
+                                          <div className="app-nodrag-region flex items-center gap-2 mt-2">
+                                              <button
+                                                  onClick={() => setActiveMainView("editor")}
+                                                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                              >
+                                                  <CiFileOn className="w-4 h-4" />
+                                                  Back to Files
+                                              </button>
+    
+                                          <span className="text-xs text-muted-foreground/50">|</span>
+    
+                                          <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                                                  <RiRobot2Line className="w-3.5 h-3.5" />
+                                                  AI Chat
+                                              </span>
+    
+                                          <Link href="/quiz">
+                                              <Button
+                                                  variant="outline"
+                                                  size="sm"
+                                                  className="h-7 px-2 text-xs"
+                                              >
+                                                  Open Quiz Preview
+                                              </Button>
+                                          </Link>
+                                      </div>
                       </div>
                       <div className="flex-1 min-h-0">
                         <AIChatPanel onOpenAiSettings={handleOpenAiSettings} />
