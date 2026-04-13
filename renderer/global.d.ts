@@ -132,6 +132,21 @@ declare global {
                 }) => Promise<{ ok: boolean }>;
             };
         };
+/**
+ * Update Log: 
+ *  - 2026-04-12: Atharva Patil - Added quiz API typings to the global Window interface. This includes methods for creating sessions, starting quizzes, navigating questions, fetching session data, and listening for session updates.
+ * Quiz Global API Notes:
+ * Extends Window with quiz APIs exposed from Electron preload.
+ */
+        quiz: {
+            getServerInfo: () => Promise<any>;
+            createSession: (payload: any) => Promise<any>;
+            getSession: (code: string) => Promise<any>;
+            startQuiz: (code: string) => Promise<any>;
+            nextQuestion: (code: string) => Promise<any>;
+            endQuiz: (code: string) => Promise<any>;
+            onSessionUpdated: (callback: (payload: { code: string; snapshot: any }) => void) => () => void;
+        };
     }
 }
 

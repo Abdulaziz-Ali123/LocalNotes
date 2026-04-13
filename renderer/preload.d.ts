@@ -7,7 +7,8 @@ import {
   RagHandler,
   VectorDbHandler,
   IndexHandler,
-  ChunckerHandler
+  ChunckerHandler,
+  QuizHandler
 } from "../main/preload";
 
 declare global {
@@ -18,6 +19,7 @@ declare global {
     projectSettings: ProjectSettingsHandler;
     watcher: WatcherHandler;
     rag: RagHandler;
+    quiz: QuizHandler; // Atharva Patil - Added quiz handler to the preload bridge.
     db: VectorDbHandler;
     indexer: IndexHandler;
     chunker: ChunckerHandler;

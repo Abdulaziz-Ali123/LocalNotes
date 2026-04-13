@@ -1,3 +1,9 @@
+/**
+ * File: renderer/pages/home.tsx
+ * Update Log:
+ *  - 2026-04-12: Atharva Patil - Home page now includes quiz host/join launch actions.
+ */
+
 import React, { useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
@@ -309,6 +315,36 @@ export default function HomePage() {
                   className="bg-accent rounded-md text-base p-2 h-12 w-32 shadow-neumorph-sm active:shadow-neumorph-insert transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isIndexing ? "Indexing..." : "Open Folder"}
+                </button>
+              </div>
+
+              <hr className="border-foreground/20" />
+              <div className="flex flex-row justify-between items-center py-3">
+                <span>
+                  Host a Quiz Session
+                  <p className="text-sm pb-3">Start a local multiplayer quiz lobby</p>
+                </span>
+                <button
+                  disabled={isIndexing}
+                  onClick={() => router.push("/quiz/host")}
+                  className="bg-accent rounded-md text-base p-2 h-12 w-32 shadow-neumorph-sm active:shadow-neumorph-insert transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Host Quiz
+                </button>
+              </div>
+
+              <hr className="border-foreground/20" />
+              <div className="flex flex-row justify-between items-center py-3">
+                <span>
+                  Join a Quiz Session
+                  <p className="text-sm pb-3">Join by game code, link, or QR address</p>
+                </span>
+                <button
+                  disabled={isIndexing}
+                  onClick={() => router.push("/quiz/join")}
+                  className="bg-accent rounded-md text-base p-2 h-12 w-32 shadow-neumorph-sm active:shadow-neumorph-insert transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Join Quiz
                 </button>
               </div>
 

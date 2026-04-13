@@ -2,8 +2,10 @@
  * File: main/preload.ts
  * Purpose: Exposes safe renderer APIs through Electron's preload bridge.
  * Author: Malek Kchaou (if you see this and you've worked on it add your name)
+ * Update Log:
+ *  - 2026-04-12: Atharva Patil - Added code for the quiz bridge. Exposes window.quiz APIs for host controls and session update listeners.
  * Date created: 2024-06
- * Last Updated: 2026-03-28
+ * Last Updated: 2026-04-12
  */
 
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
@@ -256,6 +258,28 @@ const settingsHandler = {
 
 contextBridge.exposeInMainWorld("settings", settingsHandler);
 
+const quizHandler = {
+  getServerInfo: () => ipcRenderer.invoke("quiz:getServerInfo"),
+  createSession: (payload: {
+    hostName: string;
+    questionTimeSec: number;
+    questions: Array<{ id?: string; prompt: string; options: string[]; correctAnswer: string }>;
+  }) => ipcRenderer.invoke("quiz:createSession", payload),
+  getSession: (code: string) => ipcRenderer.invoke("quiz:getSession", code),
+  startQuiz: (code: string) => ipcRenderer.invoke("quiz:startQuiz", code),
+  nextQuestion: (code: string) => ipcRenderer.invoke("quiz:nextQuestion", code),
+  endQuiz: (code: string) => ipcRenderer.invoke("quiz:endQuiz", code),
+  onSessionUpdated: (callback: (payload: { code: string; snapshot: any }) => void) => {
+    const listener = (_event: IpcRendererEvent, payload: { code: string; snapshot: any }) => {
+      callback(payload);
+    };
+    ipcRenderer.on("quiz:sessionUpdated", listener);
+    return () => ipcRenderer.removeListener("quiz:sessionUpdated", listener);
+  },
+};
+
+contextBridge.exposeInMainWorld("quiz", quizHandler);
+
 // Project Settings API
 const projectSettingsHandler = {
   load: (projectRoot: string) => 
@@ -309,6 +333,7 @@ export type ChunckerHandler = typeof chunkerHandler;
 export type IndexHandler = typeof indexerHandler;
 export type WatcherHandler = typeof watcherHandler;
 export type SettingsHandler = typeof settingsHandler;
+export type QuizHandler = typeof quizHandler;
 export type ProjectSettingsHandler = typeof projectSettingsHandler;
 export type RagHandler = typeof ragHandler;
 
