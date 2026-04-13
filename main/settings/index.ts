@@ -1,5 +1,8 @@
 /**
  * Barrel export for the settings module.
+ *
+ * Revision History:
+ *  • Wesley McDougal - 05APR2026 - Exported sidebar layout-related settings types
  */
 
 export { SettingsManager } from "./settings-manager";
@@ -18,6 +21,10 @@ export type {
   ProjectSettings,
   KeybindingMap,
   AppearanceSettings,
+  SidebarLayoutSettings,
+  SidebarLayoutScope,
+  SidebarEdge,
+  SidebarPosition,
   EditorSettings,
   SettingsFile,
   ThemeType,

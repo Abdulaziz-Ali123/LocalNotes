@@ -3,9 +3,14 @@
  *
  * Full-screen modal dialog for managing global settings.
  * Contains three tabs: Appearance, Editor, and Keybindings.
- * 
+ *
  * Revision History:
- * - 29 MAR 2026: Wesley McDougal - Updated Appearance tab to include custom themes in dropdown
+ *  • Wesley McDougal - 29 MAR 2026 - Updated Appearance tab to include custom themes in dropdown
+ *  • Wesley McDougal - 05APR2026 - Added Sidebar tab controls for layout scope, panel position, and layout reset
+ *  • Wesley McDougal - 07APR2026 - AI tab overhaul: clickable model rows with green active state,
+ *    inline Yes/No delete confirmation (replaces window.confirm to prevent Electron focus loss),
+ *    handleEnableModel writing to ai.defaultModelId, and red warning text when the active model
+ *    is deleted (model selection; UX polish).
  */
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -13,12 +18,17 @@ import * as Tabs from "@radix-ui/react-tabs";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { useTheme, type ThemeType } from "@/renderer/lib/theme";
 import { X, Eye, EyeOff } from "lucide-react";
-import { RiAddLine } from "react-icons/ri";
+import { RiAddLine, RiDeleteBinLine } from "react-icons/ri";
 import { Button } from "@/renderer/components/ui/button";
 import { Checkbox } from "@/renderer/components/ui/checkbox";
 import { Label } from "@/renderer/components/ui/label";
 import AddModelsModal from "@/renderer/components/AddModelsModal";
-import { type ModelCapabilities } from "@/renderer/store/settings-slice";
+import {
+  type ModelCapabilities,
+  type SidebarLayoutScope,
+  type SidebarLayoutSettings,
+  type SidebarPosition,
+} from "@/renderer/store/settings-slice";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -28,14 +38,30 @@ interface SettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
   /** Which tab to show when the dialog opens (defaults to "appearance"). */
-  defaultTab?: "appearance" | "editor" | "keybindings" | "ai";
+  defaultTab?: "appearance" | "editor" | "keybindings" | "ai" | "sidebar";
+  sidebarLayout: SidebarLayoutSettings;
+  layoutScope: SidebarLayoutScope;
+  isProjectScopeAvailable: boolean;
+  onSidebarPositionChange: (position: SidebarPosition) => void;
+  onSidebarScopeChange: (scope: SidebarLayoutScope) => void;
+  onResetSidebarLayout: () => void;
 }
 
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
-export default function SettingsDialog({ isOpen, onClose, defaultTab = "appearance" }: SettingsDialogProps) {
+export default function SettingsDialog({
+  isOpen,
+  onClose,
+  defaultTab = "appearance",
+  sidebarLayout,
+  layoutScope,
+  isProjectScopeAvailable,
+  onSidebarPositionChange,
+  onSidebarScopeChange,
+  onResetSidebarLayout,
+}: SettingsDialogProps) {
   if (!isOpen) return null;
 
   return (
@@ -62,6 +88,7 @@ export default function SettingsDialog({ isOpen, onClose, defaultTab = "appearan
         <Tabs.Root defaultValue={defaultTab} className="flex-1 flex flex-col overflow-hidden">
           <Tabs.List className="flex border-b border-border px-6 gap-1">
             <TabTrigger value="appearance">Appearance</TabTrigger>
+            <TabTrigger value="sidebar">Sidebar</TabTrigger>
             <TabTrigger value="editor">Editor</TabTrigger>
             <TabTrigger value="keybindings">Keybindings</TabTrigger>
             <TabTrigger value="ai">AI</TabTrigger>
@@ -70,6 +97,16 @@ export default function SettingsDialog({ isOpen, onClose, defaultTab = "appearan
           <div className="flex-1 overflow-y-auto p-6">
             <Tabs.Content value="appearance" className="outline-none">
               <AppearanceTab />
+            </Tabs.Content>
+            <Tabs.Content value="sidebar" className="outline-none">
+              <SidebarTab
+                sidebarLayout={sidebarLayout}
+                layoutScope={layoutScope}
+                isProjectScopeAvailable={isProjectScopeAvailable}
+                onSidebarPositionChange={onSidebarPositionChange}
+                onSidebarScopeChange={onSidebarScopeChange}
+                onResetSidebarLayout={onResetSidebarLayout}
+              />
             </Tabs.Content>
             <Tabs.Content value="editor" className="outline-none">
               <EditorTab />
@@ -82,6 +119,93 @@ export default function SettingsDialog({ isOpen, onClose, defaultTab = "appearan
             </Tabs.Content>
           </div>
         </Tabs.Root>
+      </div>
+    </div>
+  );
+}
+
+function SidebarTab({
+  sidebarLayout,
+  layoutScope,
+  isProjectScopeAvailable,
+  onSidebarPositionChange,
+  onSidebarScopeChange,
+  onResetSidebarLayout,
+}: {
+  sidebarLayout: SidebarLayoutSettings;
+  layoutScope: SidebarLayoutScope;
+  isProjectScopeAvailable: boolean;
+  onSidebarPositionChange: (position: SidebarPosition) => void;
+  onSidebarScopeChange: (scope: SidebarLayoutScope) => void;
+  onResetSidebarLayout: () => void;
+}) {
+
+
+  return (
+    <div className="space-y-6">
+      <SettingRow
+        label="Persistence Scope"
+        description="Choose whether sidebar layout is shared globally or saved per notes directory"
+      >
+        <select
+          value={layoutScope}
+          onChange={(e) => onSidebarScopeChange(e.target.value as SidebarLayoutScope)}
+          className="w-56 p-2 rounded-md bg-secondary text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+        >
+          <option value="global">Global (all folders)</option>
+          <option value="project" disabled={!isProjectScopeAvailable}>
+            Per Notes Directory
+          </option>
+        </select>
+      </SettingRow>
+
+      {!isProjectScopeAvailable && (
+        <p className="text-xs text-muted-foreground">
+          Open a notes directory to enable per-directory sidebar persistence.
+        </p>
+      )}
+
+      <SettingRow
+        label="Content Panel Side"
+        description="Choose where the expandable sidebar content panel opens"
+      >
+        <div className="grid grid-cols-2 gap-2 w-56">
+          <Button
+            variant={sidebarLayout.panelPosition === "left" ? "default" : "outline"}
+            size="sm"
+            onClick={() => onSidebarPositionChange("left")}
+          >
+            Left
+          </Button>
+          <Button
+            variant={sidebarLayout.panelPosition === "right" ? "default" : "outline"}
+            size="sm"
+            onClick={() => onSidebarPositionChange("right")}
+          >
+            Right
+          </Button>
+        </div>
+      </SettingRow>
+
+      <SettingRow
+        label="Icon Order"
+        description="Drag icons between left/right/top/bottom rails to reorder and move them. Right-click any rail to set alignment."
+      >
+        <div className="text-xs text-muted-foreground text-right max-w-56 space-y-1">
+          <div>Changes save automatically.</div>
+          <div>
+            Left: {sidebarLayout.rails.left.length} | Right: {sidebarLayout.rails.right.length}
+          </div>
+          <div>
+            Bottom: {sidebarLayout.rails.bottom.length}
+          </div>
+        </div>
+      </SettingRow>
+
+      <div className="flex justify-end pt-2 border-t border-border">
+        <Button variant="outline" size="sm" onClick={onResetSidebarLayout}>
+          Reset Sidebar Layout
+        </Button>
       </div>
     </div>
   );
@@ -474,9 +598,15 @@ function AiTab() {
   const aiSettings = useBoundStore((s) => s.settings.global.ai);
   const setGlobal = useBoundStore((s) => s.settings.setGlobal);
   const [showKey, setShowKey] = useState(false);
+  /** Shown below the capabilities description when the active model is deleted.
+   *  Cleared as soon as the user selects a new active model row. */
+  const [deletedActiveModelWarning, setDeletedActiveModelWarning] = useState(false);
 
   // Add Models UI state
   const [isAddModelsOpen, setIsAddModelsOpen] = useState(false);
+  /** True while the inline Yes/No delete confirmation is showing for a row.
+   *  Prevents Electron focus-loss that window.confirm() causes. */
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const modelIds = aiSettings?.customModels?.map(m => m.id) || [];
 
@@ -495,6 +625,30 @@ function AiTab() {
       [modelId]: { capabilities: { ...currentCaps, [cap]: val } },
     };
     setGlobal("ai.modelConfigs", updatedConfigs);
+  };
+
+  /** Sets ai.defaultModelId to the clicked model, syncing the AI
+   *  chat dropdown selection. Also clears the deleted-model warning if present. */
+  const handleEnableModel = (modelId: string) => {
+    setDeletedActiveModelWarning(false);
+    setGlobal("ai.defaultModelId", modelId);
+  };
+
+  /** Deletes a model from ai.customModels and clears related config entries.
+   *  Uses inline confirmation instead of window.confirm() to avoid Electron
+   *  stealing focus from subsequent inputs (e.g. AddModelsModal text fields). */
+  const handleDeleteModel = (modelId: string) => {
+    const isDeletedModelActive = aiSettings?.defaultModelId === modelId;
+    const updatedModels = aiSettings?.customModels?.filter(m => m.id !== modelId) ?? [];
+    setGlobal("ai.customModels", updatedModels);
+    if (isDeletedModelActive) {
+      setGlobal("ai.defaultModelId", undefined);
+      setDeletedActiveModelWarning(true);
+    }
+    const updatedConfigs = { ...(aiSettings?.modelConfigs ?? {}) };
+    delete updatedConfigs[modelId];
+    setGlobal("ai.modelConfigs", updatedConfigs);
+    setConfirmDeleteId(null);
   };
 
   return (
@@ -518,8 +672,13 @@ function AiTab() {
           <div>
             <div className="text-sm font-medium mb-1">Model Capabilities</div>
             <div className="text-xs text-muted-foreground">
-              Enable or disable UI features for each model.
+              Enable or disable UI features for each model and select a default model to use in AI chat.
             </div>
+            {deletedActiveModelWarning && (
+              <div className="text-xs text-destructive mt-1">
+                The active model was deleted. Select another model to keep AI chat enabled.
+              </div>
+            )}
           </div>
 
           {/* Add Models Button */}
@@ -539,6 +698,7 @@ function AiTab() {
             <span className="w-24 text-center">File Upload</span>
             <span className="w-24 text-center">Voice</span>
             <span className="w-24 text-center">Thinking</span>
+            <span className="w-16"></span>
           </div>
           {modelIds.length === 0 ? (
             <div className="px-4 py-8 flex flex-col items-center justify-center text-center text-sm text-muted-foreground bg-muted/10">
@@ -548,23 +708,68 @@ function AiTab() {
           ) : (
             modelIds.map((id, idx) => {
               const caps = getCaps(id);
+              const isActiveModel = aiSettings?.defaultModelId === id;
               return (
                 <div
                   key={id}
-                  className={`flex items-center px-4 py-2.5 text-sm ${idx > 0 ? "border-t border-border" : ""
-                    }`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleEnableModel(id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleEnableModel(id);
+                    }
+                  }}
+                  className={`flex items-center px-4 py-2.5 text-sm cursor-pointer transition-colors ${
+                    idx > 0 ? "border-t border-border" : ""
+                  } ${
+                    isActiveModel
+                      ? "bg-emerald-50 dark:bg-emerald-950/20"
+                      : "hover:bg-muted/40"
+                  }`}
                 >
-                  <span className="flex-1 font-medium truncate">
+                  <span className={`flex-1 font-medium truncate ${isActiveModel ? "text-emerald-700 dark:text-emerald-300" : ""}`}>
                     {aiSettings?.customModels?.find(m => m.id === id)?.name ?? id}
                   </span>
                   {(["fileUpload", "voice", "thinking"] as const).map((cap) => (
                     <div key={cap} className="w-24 flex justify-center">
                       <Checkbox
+                        onClick={(event) => event.stopPropagation()}
                         checked={caps[cap]}
                         onCheckedChange={(checked) => toggleCap(id, cap, !!checked)}
                       />
                     </div>
                   ))}
+                  <div className="w-16 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                    {confirmDeleteId === id ? (
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteModel(id)}
+                          className="px-1.5 py-0.5 rounded text-xs font-medium bg-destructive text-white hover:bg-destructive/90 transition-colors"
+                        >
+                          Yes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="px-1.5 py-0.5 rounded text-xs font-medium bg-muted hover:bg-muted/80 transition-colors"
+                        >
+                          No
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteId(id)}
+                        className="p-1.5 rounded-md text-destructive hover:bg-destructive/10 transition-colors"
+                        title="Delete model"
+                      >
+                        <RiDeleteBinLine className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })

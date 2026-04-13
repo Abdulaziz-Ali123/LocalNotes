@@ -6,6 +6,10 @@
  *  - 2026-04-12: Atharva Patil - Added code for the quiz bridge. Exposes window.quiz APIs for host controls and session update listeners.
  * Date created: 2024-06
  * Last Updated: 2026-04-12
+ *
+ * Revision History:
+ *  • Wesley McDougal - 07APR2026 - Added window.llm bridge: exposes chat() method
+ *    that proxies LLM requests to the main process so API keys never reach the renderer.
  */
 
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
@@ -279,6 +283,28 @@ const quizHandler = {
 };
 
 contextBridge.exposeInMainWorld("quiz", quizHandler);
+// ---------------------------------------------------------------------------
+// LLM Chat Bridge
+// Proxies all LLM HTTP requests through the main process so that API keys
+// are never accessible from the renderer / DevTools network panel.
+// ---------------------------------------------------------------------------
+const llmHandler = {
+  /**
+   * Send a chat completion request via the main-process IPC handler.
+   * @param modelId       The id of the saved CustomModel to use.
+   * @param messages      Conversation history in OpenAI message format.
+   * @param thinkingEnabled  Whether to enable extended "thinking" mode (provider-dependent).
+   * @returns             { success, content } on success; { success: false, error } on failure.
+   */
+  chat: (
+    modelId: string,
+    messages: Array<{ role: string; content: string }>,
+    thinkingEnabled?: boolean
+  ) =>
+    ipcRenderer.invoke("llm:chat", modelId, messages, thinkingEnabled),
+};
+
+contextBridge.exposeInMainWorld("llm", llmHandler);
 
 // Project Settings API
 const projectSettingsHandler = {

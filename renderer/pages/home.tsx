@@ -2,6 +2,11 @@
  * File: renderer/pages/home.tsx
  * Update Log:
  *  - 2026-04-12: Atharva Patil - Home page now includes quiz host/join launch actions.
+ * Purpose:
+ *  Entry page for creating or opening note directories and initializing indexing workflows.
+ *
+ * Revision History:
+ *  • Wesley McDougal - 05APR2026 - Added idempotent directory registration flow for open/create/index paths
  */
 
 import React, { useState } from "react";
@@ -95,8 +100,23 @@ export default function HomePage() {
   const [showRagModal, setShowRagModal] = useState(false);
   const [pendingRagInit, setPendingRagInit] = useState<{uuid: string, path: string} | null>(null);
 
+  const ensureDirectoryRegistered = async (uuid: string, path: string) => {
+    const existingDir = await window.db.getDirectoryIdByPath(path);
+
+    if (existingDir.success && typeof existingDir.data === "string" && existingDir.data.length > 0) {
+      return existingDir.data;
+    }
+
+    const dirResult = await window.db.addDirectory(uuid, path);
+    if (!dirResult.success) {
+      throw new Error(dirResult.error || "Failed to add directory");
+    }
+
+    return uuid;
+  };
+
   const handleOpenFolder = async () => {
-    if (!window.fs?.openFolderDialog || !window.db?.addDirectory || !window.indexer?.indexDirectory) {
+    if (!window.fs?.openFolderDialog || !window.db?.addDirectory || !window.db?.getDirectoryIdByPath || !window.indexer?.indexDirectory) {
       alert("App APIs are not available. Please restart the app to reload preload scripts.");
       return;
     }
@@ -113,19 +133,14 @@ export default function HomePage() {
         // Store the folder path in localStorage
         localStorage.setItem("currentFolderPath", result.data);
 
-        // Generate UUID and add directory to database
-        const dirResult = await window.db.addDirectory(uuid, result.data);
-        
-        if (!dirResult.success) {
-          throw new Error(dirResult.error || "Failed to add directory");
-        }
-        
-        console.log("Directory added with ID:", uuid);
+        const directoryId = await ensureDirectoryRegistered(uuid, result.data);
+
+        console.log("Directory ready with ID:", directoryId);
         
         // Index the directory if RAG is enabled
         if (ragEnabledStr === "true") {
           setIndexingStatus("Indexing files...");
-          const storeResult = await window.indexer.indexDirectory(uuid, result.data);
+          const storeResult = await window.indexer.indexDirectory(directoryId, result.data);
 
           if (storeResult.success && storeResult.data) {
             console.log(`✓ Indexing complete!`);
@@ -154,7 +169,7 @@ export default function HomePage() {
   };
 
   const handleCreateFolder = async () => {
-    if (!window.fs?.openFolderDialog || !window.fs?.createFolder || !window.db?.addDirectory) {
+    if (!window.fs?.openFolderDialog || !window.fs?.createFolder || !window.db?.addDirectory || !window.db?.getDirectoryIdByPath) {
       alert("App APIs are not available. Please restart the app to reload preload scripts.");
       return;
     }
@@ -185,16 +200,15 @@ export default function HomePage() {
             // Parse or Create .localnotes/.env
             const { uuid, ragEnabledStr } = await handleLocalNotesEnv(newFolderPath);
 
-            // Add directory to database
-            const storeResult = await window.db.addDirectory(uuid, newFolderPath);
+            const directoryId = await ensureDirectoryRegistered(uuid, newFolderPath);
 
-            if (storeResult.success) {
-              console.log("Directory added to database with ID:", uuid);
+            if (directoryId) {
+              console.log("Directory ready in database with ID:", directoryId);
               
               if (ragEnabledStr === "true") {
                 setIsIndexing(true);
                 setIndexingStatus("Initializing index...");
-                const indexResult = await window.indexer.indexDirectory(uuid, newFolderPath);
+                const indexResult = await window.indexer.indexDirectory(directoryId, newFolderPath);
                 if (indexResult.success) {
                   console.log("Empty directory index initialized successfully.");
                   setIndexingStatus("Complete!");
@@ -207,8 +221,6 @@ export default function HomePage() {
               } else {
                 router.push("/editor");
               }
-            } else {
-              throw new Error(storeResult.error || "Failed to add directory to database");
             }
           } catch (error) {
             console.error("Error:", error);
@@ -230,14 +242,7 @@ export default function HomePage() {
       
       const { uuid, path } = pendingRagInit;
 
-      // Check if already in DB (might be re-indexing)
-      const existingDir = await window.db.getDirectoryIdByPath(path);
-      if (!existingDir.success || !existingDir.data) {
-        const dirResult = await window.db.addDirectory(uuid, path);
-        if (!dirResult.success) {
-          throw new Error(dirResult.error || "Failed to add directory to database");
-        }
-      }
+      const directoryId = await ensureDirectoryRegistered(uuid, path);
 
       // Ensure .Local Notes/.env exists
       const localNotesDir = window.fs.join(path, ".Local Notes");
@@ -245,7 +250,7 @@ export default function HomePage() {
       await window.fs.writeFile(window.fs.join(localNotesDir, ".env"), `DIRECTORY_ID=${uuid}`);
       
       setIndexingStatus("Indexing files (this may take a moment)...");
-      const storeResult = await window.indexer.indexDirectory(uuid, path);
+      const storeResult = await window.indexer.indexDirectory(directoryId, path);
 
       if (storeResult.success) {
         setIndexingStatus("Complete!");
