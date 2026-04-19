@@ -29,3 +29,11 @@
 
     return { ok: true, name };
 }
+
+const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".ico", ".tiff", ".tif"]);
+
+/** Returns true if the given file path has an image extension. */
+export function isImageFile(filePath: string): boolean {
+    const ext = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
+    return IMAGE_EXTENSIONS.has(ext);
+}

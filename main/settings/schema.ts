@@ -7,6 +7,7 @@
  * Revision History:
  *  • Wesley McDougal - 29MAR2026 - Added CustomThemeTokens and customThemes to AppearanceSettings
  *  • Wesley McDougal - 05APR2026 - Added sidebar layout schema types and appearance/project layout support
+ *  • Wesley McDougal - 19APR2026 - Added StatusBarSettings interface and statusBar field to EditorSettings
  */
 
 // ---------------------------------------------------------------------------

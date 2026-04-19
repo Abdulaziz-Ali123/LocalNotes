@@ -9,6 +9,8 @@
  *  • Wesley McDougal - 05APR2026 - Added sidebar layout types/defaults and persisted appearance layout state
  *  • Wesley McDougal - 07APR2026 - Added defaultModelId to AiSettings, loadError +
  *    retryLoad to SettingsSlice, and try/catch in initialize() to surface load failures.
+ *  • Wesley McDougal - 19APR2026 - Added StatusBarSettings interface and statusBar field to EditorSettings;
+ *    updated INITIAL_GLOBAL with statusBar defaults
  */
 
 import { StateCreator } from "zustand";

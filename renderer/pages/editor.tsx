@@ -13,7 +13,7 @@
  * - Import/export workflows for files and folders
  * - Markdown preview and live preview modes
  * - AI chat panel for assistant interactions
- * - Status bar showing file info and autosave status
+ * - Status bar showing file info, autosave status, and live document statistics
  * - Responsive sidebar collapse/expand with active panel tracking
  * - Persistence of sidebar and editor state during session
  * Revision History:
@@ -21,6 +21,8 @@
  *  • Wesley McDougal - 05APR2026 - Added draggable sidebar rails, context-menu alignment, and bottom-rail layout updates
  *  • Wesley McDougal - 07APR2026 - Added "ai" to settingsDefaultTab union and handleOpenAiSettings
  *    callback so AIChatPanel can deep-link directly into the AI settings tab.
+ *  • Wesley McDougal - 19APR2026 - Added StatusBarStats to the status bar with per-stat toggle handler
+ *    (handleToggleStatVisibility) persisted via setGlobal("editor.statusBar", ...)
  */
 
 import { SidebarProvider, Sidebar, SidebarContent } from "../components/ui/sidebar";
@@ -56,6 +58,8 @@ import { Tag } from "lucide-react";
 import EditorSpace from "@/renderer/pages/editorSpace";
 import TabBar from "../components/TabBar";
 import AIChatPanel from "@/renderer/components/AIChatPanel";
+import StatusBarStats from "@/renderer/components/StatusBarStats";
+import { isImageFile } from "@/renderer/utils/fileValidation";
 import { Popover, PopoverContent, PopoverTrigger } from "@/renderer/components/ui/popover";
 import Link from "next/link";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
@@ -427,7 +431,7 @@ export default function Editor() {
 
   // Track unsaved changes
   useEffect(() => {
-    if (selectedFile && fileContent !== "") {
+    if (selectedFile && fileContent !== "" && !isImageFile(selectedFile)) {
       setHasUnsavedChanges(true);
     }
   }, [fileContent, selectedFile]);
@@ -445,20 +449,25 @@ export default function Editor() {
    * Called when user clicks file in FileSystemTree.
    */
   const handleFileSelect = async (filePath: string) => {
+    const selectedTabId = useBoundStore.getState().tabs.selectedTabId;
+
     const result = await window.fs.readFile(filePath);
     if (!result.success) {
       console.error("Failed to read file:", result.error);
       return;
     }
 
-    const selectedTabId = useBoundStore.getState().tabs.selectedTabId;
+    // For images, store as a data URL so editorSpace can render them directly
+    const content =
+      result.type === "binary" && result.mimeType
+        ? `data:${result.mimeType};base64,${result.data}`
+        : result.data;
 
-    // Update tab state directly
     useBoundStore.setState(
       produce((state: TabsSlice) => {
         const tab = state.tabs.items.find((t: any) => t.id === selectedTabId);
         if (tab) {
-          tab.content = result.data;
+          tab.content = content;
           tab.filePath = filePath;
           tab.name = window.fs.basename(filePath);
         }
@@ -467,7 +476,7 @@ export default function Editor() {
     );
 
     setSelectedFile(filePath);
-    setFileContent(result.data);
+    setFileContent(content);
   };
 
   // Load content when selected tab changes
@@ -494,6 +503,7 @@ export default function Editor() {
     const filePath = selectedTab?.filePath || null;
 
     if (!filePath) return;
+    if (isImageFile(filePath)) return; // Never write image data back to disk
 
     setIsSaving(true);
     const result = await window.fs.writeFile(filePath, fileContent);
@@ -752,6 +762,7 @@ export default function Editor() {
   // Autosave periodically
   useEffect(() => {
     if (!selectedFile) return;
+    if (isImageFile(selectedFile)) return; // Never autosave image files
 
     const interval = setInterval(async () => {
       if (!hasUnsavedChanges) return; // Don't save if no changes
@@ -1586,6 +1597,13 @@ export default function Editor() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Document stats */}
+            {selectedFile && !selectedFile.toLowerCase().endsWith(".canvas") && !isImageFile(selectedFile) && (
+              <StatusBarStats
+                content={fileContent}
+                isHtml={selectedFile.toLowerCase().endsWith(".txt")}
+              />
+            )}
             {/* File Type Button */}
             {selectedFile && (
               <Button
