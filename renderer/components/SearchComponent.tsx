@@ -232,6 +232,7 @@ export default function SearchComponent({ onFileSelect }: SearchComponentProps) 
           <div className="relative rounded-sm ">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground roun" />
             <Input
+              data-tutorial="search-input"
               type="text"
               placeholder="Search in files..."
               value={searchQuery}

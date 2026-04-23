@@ -153,7 +153,7 @@ export default function TagFilterPanel({ rootPath, onFiltersChange, selectedTagI
         </p>
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div data-tutorial="tags-list" className="flex flex-col gap-2">
         {allTags.map((tag) => (
           <button
             key={tag.id}
