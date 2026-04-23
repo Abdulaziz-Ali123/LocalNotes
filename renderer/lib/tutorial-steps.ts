@@ -1,50 +1,14 @@
 /**
- * File: renderer/lib/tutorial-steps.ts
+ * tutorial-steps (renderer/lib/tutorial-steps.ts)
  *
- * Defines the Driver.js step arrays for the first-time user tutorial.
+ * Defines the Driver.js step array for the first-time user tutorial.
+ * Each step targets a data-tutorial="<id>" attribute on a DOM element and
+ * provides a popover title and description. Steps may include an
+ * onHighlightStarted callback to auto-open panels when the step is reached.
+ * This file is the single source of truth for all tutorial content.
  *
- * HOW TO EDIT:
- *  Each step object has:
- *    - element:  A CSS selector for the element to highlight.
- *                All tutorial targets use data-tutorial="<name>" attributes.
- *    - popover:  The tooltip shown next to that element.
- *      - title:       Bold heading text.
- *      - description: Body text (HTML is supported, e.g. <b>bold</b>).
- *      - side:        Where the popover appears: "top" | "bottom" | "left" | "right".
- *      - align:       Alignment of the popover: "start" | "center" | "end".
- *
- * HOW TO ADD A NEW STEP:
- *  1. Add a data-tutorial="your-id" attribute to the target element in editor.tsx
- *     (or any other renderer component).
- *  2. Add a new step object to the array below, using '[data-tutorial="your-id"]'
- *     as the element selector.
- *
- * HOW TO REORDER STEPS:
- *  Simply move the step objects up or down in the array.
- *
- * HOW TO REMOVE A STEP:
- *  Delete the step object. The data-tutorial attribute on the element can stay —
- *  it has no visual effect when Driver.js is not active.
- *
- * HOW TO AUTO-OPEN A PANEL WHEN A STEP IS HIGHLIGHTED:
- *  Add an onHighlightStarted callback to the step. It receives the real DOM
- *  element and you can call .click() on it to trigger the same handler as a
- *  real user click. Only do this for panel buttons (files, search, themes, tags)
- *  — NOT for buttons that open dialogs or popovers (import, share, settings).
- *
- * CURRENT data-tutorial IDs in the codebase:
- *  "btn-files"          → Files sidebar button        (editor.tsx)
- *  "btn-search"         → Search sidebar button       (editor.tsx)
- *  "btn-ai"             → AI Assistant button         (editor.tsx)
- *  "btn-settings"       → Settings button             (editor.tsx)
- *  "tab-bar"            → Tab bar at the top          (TabBar.tsx)
- *  "editor-area"        → Main editor/content area    (editor.tsx)
- *  "ai-header"          → AI controls bar             (AIChatPanel.tsx) — not used in steps
- *  "ai-model-selector"  → Model selector dropdown     (AIChatPanel.tsx)
- *  "ai-thinking"        → Thinking toggle button      (AIChatPanel.tsx) — conditional
- *  "ai-new-chat"        → New Chat button             (AIChatPanel.tsx)
- *  "ai-messages"        → Chat messages area          (AIChatPanel.tsx)
- *  "ai-input"           → Chat input area             (AIChatPanel.tsx)
+ * Revision History:
+ *  • Wesley McDougal - 23APR2026 - Initial implementation
  */
 
 import type { DriveStep } from "driver.js";

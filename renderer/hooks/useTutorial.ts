@@ -1,33 +1,13 @@
 /**
- * File: renderer/hooks/useTutorial.ts
+ * useTutorial (renderer/hooks/useTutorial.ts)
  *
- * Manages the first-time user tutorial powered by Driver.js.
+ * React hook that manages the first-time user tutorial powered by Driver.js.
+ * Auto-starts on first visit by checking localStorage, and exposes a
+ * startTutorial() function for replay. Accepts an optional onReset callback
+ * to restore the UI to a known state before the tour begins.
  *
- * BEHAVIOUR:
- *  - On mount, checks localStorage for the key "localnotes-tutorial-done".
- *  - If the key is absent, the tutorial starts automatically after a short delay
- *    (giving the UI time to fully render).
- *  - When the user finishes or closes the tour, the key is written so the tour
- *    never auto-starts again.
- *  - Returns a `startTutorial` function so you can add a "Replay Tutorial" button
- *    in Settings or anywhere else.
- *
- * USAGE:
- *  import { useTutorial } from "@/renderer/hooks/useTutorial";
- *
- *  // Inside a component (e.g. editor.tsx):
- *  const { startTutorial } = useTutorial({
- *    // Called before the tour starts to reset the UI to a known state.
- *    // Use this to directly set React state instead of relying on DOM clicks
- *    // (which would toggle panels closed if they're already open).
- *    onReset: () => {
- *      setSidebarCollapsed(false);
- *      setActiveSidebarPanel("file");
- *    },
- *  });
- *
- *  // To add a replay button:
- *  <button onClick={startTutorial}>Replay Tutorial</button>
+ * Revision History:
+ *  • Wesley McDougal - 23APR2026 - Initial implementation
  */
 
 import { useEffect, useRef, useCallback } from "react";
