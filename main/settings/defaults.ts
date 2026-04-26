@@ -96,6 +96,7 @@ export const DEFAULT_EDITOR: EditorSettings = {
 };
 
 export const DEFAULT_KEYBINDINGS: KeybindingMap = {
+  "app.openCommandPalette": "CommandOrControl+K",
   "file.save": "CommandOrControl+S",
   "file.open": "CommandOrControl+O",
   "file.newFile": "CommandOrControl+N",

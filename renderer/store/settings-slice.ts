@@ -170,6 +170,7 @@ export interface SettingsSlice {
 // ---------------------------------------------------------------------------
 
 const DEFAULT_KEYBINDING_ACTIONS: KeybindingAction[] = [
+  { id: "app.openCommandPalette", label: "Open Command Palette", category: "View", defaultAccelerator: "CommandOrControl+K" },
   { id: "file.save", label: "Save", category: "File", defaultAccelerator: "CommandOrControl+S" },
   { id: "file.open", label: "Open Folder", category: "File", defaultAccelerator: "CommandOrControl+O" },
   { id: "file.newFile", label: "New File", category: "File", defaultAccelerator: "CommandOrControl+N" },
