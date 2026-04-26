@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: main/helpers/debounced-writer.ts
+ * Brief description: Provides main-process helper utilities shared across Electron startup and file operations.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Wesley McDougal
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import fs from "fs/promises";
 import path from "path";
 import { withRetry } from "../fsRetry";
@@ -27,10 +38,22 @@ type PendingWrite = {
 const DEFAULT_DEBOUNCE_MS = 500;
 const DEFAULT_MAX_WAIT_MS = 1500;
 
+/**
+ * Class functionality: Defines the DebouncedWriter class used by main/helpers/debounced-writer.ts.
+ * Parameters: Constructor parameters are documented on the constructor when applicable.
+ * Returns: Returns the class constructor for creating or organizing related behavior.
+ * Usage: Instantiate or reference DebouncedWriter from modules that need this grouped behavior.
+ */
 export class DebouncedWriter {
   private pending = new Map<string, PendingWrite>();
 
-  async enqueue(filePath: string, content: string, options?: QueueOptions): Promise<{ success: true }> {
+    /**
+   * Functionality: enqueue performs the enqueue workflow used by main/helpers/debounced-writer.ts.
+   * Parameters: filePath (string); content (string); options (QueueOptions).
+   * Returns: Returns Promise<{ success: true }>.
+   * Usage: Call enqueue from the owning module or component when this behavior is required.
+   */
+async enqueue(filePath: string, content: string, options?: QueueOptions): Promise<{ success: true }> {
     const normalizedPath = path.normalize(filePath);
     const now = Date.now();
     const debounceMs = options?.debounceMs ?? DEFAULT_DEBOUNCE_MS;
@@ -67,16 +90,34 @@ export class DebouncedWriter {
     return result;
   }
 
-  hasPending(): boolean {
+    /**
+   * Functionality: hasPending performs the has pending workflow used by main/helpers/debounced-writer.ts.
+   * Parameters: None.
+   * Returns: Returns boolean.
+   * Usage: Call hasPending from the owning module or component when this behavior is required.
+   */
+hasPending(): boolean {
     return this.pending.size > 0;
   }
 
-  async flushAll(): Promise<void> {
+    /**
+   * Functionality: flushAll performs the flush all workflow used by main/helpers/debounced-writer.ts.
+   * Parameters: None.
+   * Returns: Returns Promise<void>.
+   * Usage: Call flushAll from the owning module or component when this behavior is required.
+   */
+async flushAll(): Promise<void> {
     const keys = Array.from(this.pending.keys());
     await Promise.all(keys.map((key) => this.flush(key, true)));
   }
 
-  private schedule(state: PendingWrite, now: number): void {
+    /**
+   * Functionality: schedule performs the schedule workflow used by main/helpers/debounced-writer.ts.
+   * Parameters: state (PendingWrite); now (number).
+   * Returns: Returns void.
+   * Usage: Call schedule from the owning module or component when this behavior is required.
+   */
+private schedule(state: PendingWrite, now: number): void {
     if (state.inFlight) {
       return;
     }
@@ -95,7 +136,13 @@ export class DebouncedWriter {
     }, delay);
   }
 
-  private async flush(key: string, immediate: boolean): Promise<void> {
+    /**
+   * Functionality: flush performs the flush workflow used by main/helpers/debounced-writer.ts.
+   * Parameters: key (string); immediate (boolean).
+   * Returns: Returns Promise<void>.
+   * Usage: Call flush from the owning module or component when this behavior is required.
+   */
+private async flush(key: string, immediate: boolean): Promise<void> {
     const state = this.pending.get(key);
     if (!state) {
       return;
@@ -123,7 +170,13 @@ export class DebouncedWriter {
     const waitersForThisFlush = state.waiters.splice(0, state.waiters.length);
     state.inFlight = true;
 
-    const executeFlush = async () => {
+        /**
+     * Functionality: executeFlush performs the execute flush workflow used by main/helpers/debounced-writer.ts.
+     * Parameters: None.
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call executeFlush from the owning module or component when this behavior is required.
+     */
+const executeFlush = async () => {
       try {
         await this.commit(state.filePath, contentToWrite);
         waitersForThisFlush.forEach((waiter) => waiter.resolve({ success: true }));
@@ -150,7 +203,13 @@ export class DebouncedWriter {
     await state.currentFlush;
   }
 
-  private async commit(filePath: string, content: string): Promise<void> {
+    /**
+   * Functionality: commit performs the commit workflow used by main/helpers/debounced-writer.ts.
+   * Parameters: filePath (string); content (string).
+   * Returns: Returns Promise<void>.
+   * Usage: Call commit from the owning module or component when this behavior is required.
+   */
+private async commit(filePath: string, content: string): Promise<void> {
     const dirPath = path.dirname(filePath);
     await fs.mkdir(dirPath, { recursive: true });
 

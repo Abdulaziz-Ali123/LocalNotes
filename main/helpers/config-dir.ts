@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: main/helpers/config-dir.ts
+ * Brief description: Provides main-process helper utilities shared across Electron startup and file operations.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Abdulaziz-Ali123; Wesley McDougal
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import fs from "fs/promises";
 import { constants as fsConstants } from "fs";
 import os from "os";
@@ -6,6 +17,12 @@ import path from "path";
 const APP_CONFIG_DIR_NAME = "LocalNotes";
 let CONFIG_PATH_CREATED = false
 
+/**
+ * Functionality: getBaseDataDirectory performs the get base data directory workflow used by main/helpers/config-dir.ts.
+ * Parameters: None.
+ * Returns: Returns string.
+ * Usage: Call getBaseDataDirectory from the owning module or component when this behavior is required.
+ */
 const getBaseDataDirectory = (): string => {
   if (process.platform === "win32") {
     return process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");
@@ -18,11 +35,23 @@ const getBaseDataDirectory = (): string => {
   return process.env.XDG_DATA_HOME || path.join(os.homedir(), ".local", "share");
 };
 
+/**
+ * Functionality: resolveConfigDirectoryPath performs the resolve config directory path workflow used by main/helpers/config-dir.ts.
+ * Parameters: None.
+ * Returns: Returns string.
+ * Usage: Call resolveConfigDirectoryPath from the owning module or component when this behavior is required.
+ */
 export const resolveConfigDirectoryPath = (): string => {
   const baseDataDirectory = getBaseDataDirectory();
   return path.join(baseDataDirectory, APP_CONFIG_DIR_NAME);
 };
 
+/**
+ * Functionality: ensureConfigDirectory performs the ensure config directory workflow used by main/helpers/config-dir.ts.
+ * Parameters: None.
+ * Returns: Returns Promise<string>.
+ * Usage: Call ensureConfigDirectory from the owning module or component when this behavior is required.
+ */
 export const ensureConfigDirectory = async (): Promise<string> => {
   const configDirectoryPath = resolveConfigDirectoryPath();
   let directoryAlreadyExists = false;
@@ -62,6 +91,12 @@ export const ensureConfigDirectory = async (): Promise<string> => {
   return configDirectoryPath;
 };
 
+/**
+ * Functionality: getConfigDirectoryPath performs the get config directory path workflow used by main/helpers/config-dir.ts.
+ * Parameters: None.
+ * Returns: Returns string.
+ * Usage: Call getConfigDirectoryPath from the owning module or component when this behavior is required.
+ */
 export const getConfigDirectoryPath = (): string => {
   return getBaseDataDirectory() + "/" + APP_CONFIG_DIR_NAME;
 };

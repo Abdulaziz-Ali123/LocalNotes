@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/components/TagsUI.tsx
+ * Brief description: Defines a renderer component that implements part of the LocalNotes user interface.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: m518n748; Abdulaziz-Ali123; Wesley McDougal; Malek Kchaou; Shaun
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import React, {
   createContext,
   forwardRef,
@@ -36,6 +47,12 @@ type TreeContextProps = {
 
 const TreeContext = createContext<TreeContextProps | null>(null);
 
+/**
+ * Functionality: useTree performs the use tree workflow used by renderer/components/TagsUI.tsx.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call useTree from the owning module or component when this behavior is required.
+ */
 const useTree = () => {
   const context = useContext(TreeContext);
   if (!context) {
@@ -93,7 +110,13 @@ const Tree = forwardRef<HTMLDivElement, TreeViewProps>(
     const expandSpecificTargetedElements = useCallback(
       (elements?: TreeViewElement[], selectId?: string) => {
         if (!elements || !selectId) return;
-        const findParent = (currentElement: TreeViewElement, currentPath: string[] = []) => {
+                /**
+         * Functionality: findParent performs the find parent workflow used by renderer/components/TagsUI.tsx.
+         * Parameters: currentElement (TreeViewElement); currentPath (string[]).
+         * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+         * Usage: Call findParent from the owning module or component when this behavior is required.
+         */
+const findParent = (currentElement: TreeViewElement, currentPath: string[] = []) => {
           const isSelectable = currentElement.isSelectable ?? true;
           const newPath = [...currentPath, currentElement.id];
           if (currentElement.id === selectId) {
@@ -232,7 +255,13 @@ const Folder = forwardRef<HTMLDivElement, FolderComponentProps>(
       setContextMenu,
     } = useTree();
 
-    const handleContextMenu = (e: React.MouseEvent) => {
+        /**
+     * Functionality: handleContextMenu performs the handle context menu workflow used by renderer/components/TagsUI.tsx.
+     * Parameters: e (React.MouseEvent).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleContextMenu from the owning module or component when this behavior is required.
+     */
+const handleContextMenu = (e: React.MouseEvent) => {
       e.preventDefault();
       setContextMenu?.({
         x: e.clientX,
@@ -299,7 +328,13 @@ const File = forwardRef<
     const { direction, selectedId, selectItem, setContextMenu } = useTree();
     const isSelected = isSelect ?? selectedId === value;
 
-    const handleContextMenu = (e: React.MouseEvent) => {
+        /**
+     * Functionality: handleContextMenu performs the handle context menu workflow used by renderer/components/TagsUI.tsx.
+     * Parameters: e (React.MouseEvent).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleContextMenu from the owning module or component when this behavior is required.
+     */
+const handleContextMenu = (e: React.MouseEvent) => {
       e.preventDefault();
       setContextMenu?.({
         x: e.clientX,
@@ -345,7 +380,13 @@ const CollapseButton = forwardRef<
   const { expandedItems, setExpandedItems } = useTree();
 
   const expendAllTree = useCallback((elements: TreeViewElement[]) => {
-    const expandTree = (element: TreeViewElement) => {
+        /**
+     * Functionality: expandTree performs the expand tree workflow used by renderer/components/TagsUI.tsx.
+     * Parameters: element (TreeViewElement).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call expandTree from the owning module or component when this behavior is required.
+     */
+const expandTree = (element: TreeViewElement) => {
       const isSelectable = element.isSelectable ?? true;
       if (isSelectable && element.children && element.children.length > 0) {
         setExpandedItems?.((prev) => [...(prev ?? []), element.id]);

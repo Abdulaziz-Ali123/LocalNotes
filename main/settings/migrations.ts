@@ -12,6 +12,7 @@
  *   1. Bump LATEST_SCHEMA_VERSION in defaults.ts
  *   2. Add a new entry here with the target version as key
  *   3. Update the TypeScript interfaces in schema.ts if the shape changed
+ * Git-history contributors: Shaun
  */
 
 import { LATEST_SCHEMA_VERSION } from "./defaults";
@@ -48,6 +49,12 @@ const migrations: Record<number, MigrationFn> = {
  * @param settings  The raw settings object (without the version wrapper)
  * @param fromVersion  The version the settings are currently at
  * @returns The migrated settings object, now at LATEST_SCHEMA_VERSION
+ */
+/**
+ * Functionality: migrateSettings performs the migrate settings workflow used by main/settings/migrations.ts.
+ * Parameters: settings (Record<string, any>); fromVersion (number).
+ * Returns: Returns Record<string, any>.
+ * Usage: Call migrateSettings from the owning module or component when this behavior is required.
  */
 export function migrateSettings(
   settings: Record<string, any>,

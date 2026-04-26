@@ -11,6 +11,7 @@
  * Date Created: 03/2026
  * Last Updated: 03/2026
  *
+ * Git-history contributors: Wesley McDougal; Malek Kchaou; Abdulaziz-Ali123
  * Revision History:
  *  • Wesley McDougal - 05APR2026 - Added low-latency overlay stroke rendering and RAF-batched drawing updates
  *
@@ -111,6 +112,12 @@ type TouchGestureState =
         startScrollTop: number;
     };
 
+/**
+ * Functionality: CanvasEditor performs the canvas editor workflow used by renderer/components/CanvasEditor.tsx.
+ * Parameters: { value, onChange, onSave, isSaving, } (inferred).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call CanvasEditor from the owning module or component when this behavior is required.
+ */
 const CanvasEditor: React.FC<CanvasEditorProps> = ({
     value,
     onChange,
@@ -358,7 +365,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({
             activeStrokeRef.current = [pos];
             setIsDrawing(true);
             setActiveStroke([pos]);
-            
+
             // Set up overlay canvas
             const overlay = overlayCanvasRef.current;
             if (overlay) {
@@ -411,7 +418,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
             // Update ref immediately for next RAF
             activeStrokeRef.current = [...activeStrokeRef.current, pos];
-            
+
             // Ensure pages exist
             setDoc((prevDoc) => ensurePagesThroughY(prevDoc, pos.y));
 
@@ -419,7 +426,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({
             if (pendingRAFRef.current !== null) {
                 cancelAnimationFrame(pendingRAFRef.current);
             }
-            
+
             pendingRAFRef.current = requestAnimationFrame(() => {
                 pendingRAFRef.current = null;
                 setActiveStroke([...activeStrokeRef.current]);
@@ -441,7 +448,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({
             cancelAnimationFrame(pendingRAFRef.current);
             pendingRAFRef.current = null;
         }
-        
+
         // Clear overlay
         const overlay = overlayCanvasRef.current;
         if (overlay) {

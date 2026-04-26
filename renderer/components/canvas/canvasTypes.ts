@@ -26,6 +26,7 @@
  * - what the persisted multi-page document looks like
  * - what the legacy single-page document looked like
  * - what a temporary global drawing point looks like during active drawing
+ * Git-history contributors: Malek Kchaou
  */
 
 /**

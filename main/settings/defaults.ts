@@ -5,6 +5,7 @@
  * when the user hasn't explicitly changed it. The settings manager deep-merges
  * the user's sparse overrides on top of these defaults.
  *
+ * Git-history contributors: Wesley McDougal; Abdulaziz Ali; Shaun; Malek Kchaou
  * Revision History:
  *  • Wesley McDougal - 29MAR2026 - Default customThemes object and schema version bump to number 2
  *  • Wesley McDougal - 05APR2026 - Added sidebar layout defaults and updated schema version for sidebar layout persistence

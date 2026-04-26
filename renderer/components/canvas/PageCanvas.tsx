@@ -24,6 +24,7 @@
  * - paint the page background
  * - redraw all persisted strokes for that page
  * - forward pointer-down events back to the editor for drawing orchestration
+ * Git-history contributors: Malek Kchaou
  */
 
 import React, { useEffect, useRef } from "react";
@@ -50,6 +51,12 @@ interface PageCanvasProps {
  * PageCanvas is a pure page renderer.
  * It does not know about the whole notebook or persistence.
  * It simply redraws the page whenever its page-level drawing inputs change.
+ */
+/**
+ * Functionality: PageCanvasComponent performs the page canvas component workflow used by renderer/components/canvas/PageCanvas.tsx.
+ * Parameters: { page, width, height, background, onPointerDown, } (PageCanvasProps).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call PageCanvasComponent from the owning module or component when this behavior is required.
  */
 function PageCanvasComponent({
     page,

@@ -4,6 +4,7 @@
  * Full-screen modal dialog for managing global settings.
  * Contains three tabs: Appearance, Editor, and Keybindings.
  *
+ * Git-history contributors: Wesley McDougal; Abdulaziz Ali; Shaun
  * Revision History:
  *  • Wesley McDougal - 29 MAR 2026 - Updated Appearance tab to include custom themes in dropdown
  *  • Wesley McDougal - 05APR2026 - Added Sidebar tab controls for layout scope, panel position, and layout reset
@@ -51,6 +52,12 @@ interface SettingsDialogProps {
 // Main component
 // ---------------------------------------------------------------------------
 
+/**
+ * Functionality: SettingsDialog performs the settings dialog workflow used by renderer/components/SettingsDialog.tsx.
+ * Parameters: { isOpen, onClose, defaultTab = "appearance", sidebarLayout, layoutScope, isProjectScopeAvailable, onSidebarPositionChange, onSidebarScopeChange, onResetSidebarLayout, } (SettingsDialogProps).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SettingsDialog from the owning module or component when this behavior is required.
+ */
 export default function SettingsDialog({
   isOpen,
   onClose,
@@ -124,6 +131,12 @@ export default function SettingsDialog({
   );
 }
 
+/**
+ * Functionality: SidebarTab performs the sidebar tab workflow used by renderer/components/SettingsDialog.tsx.
+ * Parameters: { sidebarLayout, layoutScope, isProjectScopeAvailable, onSidebarPositionChange, onSidebarScopeChange, onResetSidebarLayout, } ({ sidebarLayout: SidebarLayoutSettings; layoutScope: SidebarLayoutScope; isProjectScopeAvailable: boolean; onSidebarPositionChange: (position: SidebarPosition) => void; onSidebarScopeChange: (scope: SidebarLayoutScope) => void; onResetSidebarLayout: () => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarTab from the owning module or component when this behavior is required.
+ */
 function SidebarTab({
   sidebarLayout,
   layoutScope,
@@ -215,6 +228,12 @@ function SidebarTab({
 // Tab trigger helper
 // ---------------------------------------------------------------------------
 
+/**
+ * Functionality: TabTrigger performs the tab trigger workflow used by renderer/components/SettingsDialog.tsx.
+ * Parameters: { value, children } ({ value: string; children: React.ReactNode }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call TabTrigger from the owning module or component when this behavior is required.
+ */
 function TabTrigger({ value, children }: { value: string; children: React.ReactNode }) {
   return (
     <Tabs.Trigger
@@ -230,6 +249,12 @@ function TabTrigger({ value, children }: { value: string; children: React.ReactN
 // Appearance tab
 // ---------------------------------------------------------------------------
 
+/**
+ * Functionality: AppearanceTab performs the appearance tab workflow used by renderer/components/SettingsDialog.tsx.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call AppearanceTab from the owning module or component when this behavior is required.
+ */
 function AppearanceTab() {
   const { theme, setTheme } = useTheme();
   const globalSettings = useBoundStore((s) => s.settings.global);
@@ -306,6 +331,12 @@ function AppearanceTab() {
 // Editor tab
 // ---------------------------------------------------------------------------
 
+/**
+ * Functionality: EditorTab performs the editor tab workflow used by renderer/components/SettingsDialog.tsx.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call EditorTab from the owning module or component when this behavior is required.
+ */
 function EditorTab() {
   const globalSettings = useBoundStore((s) => s.settings.global);
   const setGlobal = useBoundStore((s) => s.settings.setGlobal);
@@ -388,6 +419,12 @@ function EditorTab() {
 // Keybindings tab
 // ---------------------------------------------------------------------------
 
+/**
+ * Functionality: KeybindingsTab performs the keybindings tab workflow used by renderer/components/SettingsDialog.tsx.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call KeybindingsTab from the owning module or component when this behavior is required.
+ */
 function KeybindingsTab() {
   const keybindingActions = useBoundStore((s) => s.settings.keybindingActions);
   const keybindings = useBoundStore((s) => s.settings.global.keybindings);
@@ -417,7 +454,13 @@ function KeybindingsTab() {
   }, [keybindingActions, keybindings]);
 
   /** Return the label of the OTHER action that conflicts, or null. */
-  const getConflict = (actionId: string): string | null => {
+    /**
+   * Functionality: getConflict performs the get conflict workflow used by renderer/components/SettingsDialog.tsx.
+   * Parameters: actionId (string).
+   * Returns: Returns string | null.
+   * Usage: Call getConflict from the owning module or component when this behavior is required.
+   */
+const getConflict = (actionId: string): string | null => {
     const accel = (keybindings[actionId] ?? keybindingActions.find((a) => a.id === actionId)?.defaultAccelerator ?? "").toLowerCase();
     if (!accel) return null;
     const siblings = accelToActions[accel];
@@ -469,7 +512,13 @@ function KeybindingsTab() {
   useEffect(() => {
     if (!rebindingId) return;
 
-    const handler = (e: KeyboardEvent) => {
+        /**
+     * Functionality: handler performs the handle r workflow used by renderer/components/SettingsDialog.tsx.
+     * Parameters: e (KeyboardEvent).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handler from the owning module or component when this behavior is required.
+     */
+const handler = (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopPropagation();
 
@@ -485,7 +534,13 @@ function KeybindingsTab() {
   }, [rebindingId, eventToAccelerator, setGlobal]);
 
   /** Format accelerator for display. */
-  const displayAccelerator = (accel: unknown): string => {
+    /**
+   * Functionality: displayAccelerator performs the display accelerator workflow used by renderer/components/SettingsDialog.tsx.
+   * Parameters: accel (unknown).
+   * Returns: Returns string.
+   * Usage: Call displayAccelerator from the owning module or component when this behavior is required.
+   */
+const displayAccelerator = (accel: unknown): string => {
     if (!accel || typeof accel !== "string") return "—";
     return accel
       .replace(/CommandOrControl/g, isMac ? "Cmd" : "Ctrl")
@@ -594,6 +649,12 @@ function KeybindingsTab() {
 // AI tab
 // ---------------------------------------------------------------------------
 
+/**
+ * Functionality: AiTab performs the ai tab workflow used by renderer/components/SettingsDialog.tsx.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call AiTab from the owning module or component when this behavior is required.
+ */
 function AiTab() {
   const aiSettings = useBoundStore((s) => s.settings.global.ai);
   const setGlobal = useBoundStore((s) => s.settings.setGlobal);
@@ -610,7 +671,13 @@ function AiTab() {
 
   const modelIds = aiSettings?.customModels?.map(m => m.id) || [];
 
-  const getCaps = (modelId: string): ModelCapabilities => {
+    /**
+   * Functionality: getCaps performs the get caps workflow used by renderer/components/SettingsDialog.tsx.
+   * Parameters: modelId (string).
+   * Returns: Returns ModelCapabilities.
+   * Usage: Call getCaps from the owning module or component when this behavior is required.
+   */
+const getCaps = (modelId: string): ModelCapabilities => {
     return (
       aiSettings?.modelConfigs?.[modelId]?.capabilities ??
       aiSettings?.customModels?.find(m => m.id === modelId)?.capabilities ??
@@ -618,7 +685,13 @@ function AiTab() {
     );
   };
 
-  const toggleCap = (modelId: string, cap: keyof ModelCapabilities, val: boolean) => {
+    /**
+   * Functionality: toggleCap performs the toggle cap workflow used by renderer/components/SettingsDialog.tsx.
+   * Parameters: modelId (string); cap (keyof ModelCapabilities); val (boolean).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call toggleCap from the owning module or component when this behavior is required.
+   */
+const toggleCap = (modelId: string, cap: keyof ModelCapabilities, val: boolean) => {
     const currentCaps = getCaps(modelId);
     const updatedConfigs = {
       ...(aiSettings?.modelConfigs ?? {}),
@@ -790,6 +863,12 @@ function AiTab() {
 // Shared layout helper
 // ---------------------------------------------------------------------------
 
+/**
+ * Functionality: SettingRow performs the setting row workflow used by renderer/components/SettingsDialog.tsx.
+ * Parameters: { label, description, children, } ({ label: string; description: string; children: React.ReactNode; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SettingRow from the owning module or component when this behavior is required.
+ */
 function SettingRow({
   label,
   description,

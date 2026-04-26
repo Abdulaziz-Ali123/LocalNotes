@@ -5,9 +5,10 @@
  * - Added central IPC handler for renderer error reporting.
  * - Added process-level fallback logging for uncaught exceptions and unhandled rejections.
  * Author: Malek Kchaou (add your name if you made changes here)
+ * Git-history contributors: a157p624; Abdulaziz-Ali123; Abdulaziz Ali; Malek Kchaou; Wesley McDougal; Shaun; m518n748
  * Update Log:
  *  - 2026-04-12: Atharva Patil - Added code for quiz integration.
- * Date Created: 
+ * Date Created:
  * Last Updated: 2026-04-12
  */
 
@@ -45,11 +46,11 @@ import { getQueue } from "./fsQueue";
 import { withRetry } from "./fsRetry";
 import { debouncedWriter } from "./helpers/debounced-writer";
 import { closeDB, initializeDB } from "./database/sqllite";
-import { 
-    addDirectory, 
-    updateDirectory, 
-    deleteDirectory, 
-    getDirectory, 
+import {
+    addDirectory,
+    updateDirectory,
+    deleteDirectory,
+    getDirectory,
     getAllDirectories,
     addFile,
     updateFileHash,
@@ -85,6 +86,12 @@ interface TabData {
   content: string;
 }
 
+/**
+ * Class functionality: Defines the TabManager class used by main/background.ts.
+ * Parameters: Constructor parameters are documented on the constructor when applicable.
+ * Returns: Returns the class constructor for creating or organizing related behavior.
+ * Usage: Instantiate or reference TabManager from modules that need this grouped behavior.
+ */
 class TabManager {
   private tabs: TabData[] = [
     {
@@ -96,45 +103,93 @@ class TabManager {
   private selectedTabId: number = 0;
   private nextTabId: number = 1;
 
-  getAllTabIds(): number[] {
+    /**
+   * Functionality: getAllTabIds performs the get all tab ids workflow used by main/background.ts.
+   * Parameters: None.
+   * Returns: Returns number[].
+   * Usage: Call getAllTabIds from the owning module or component when this behavior is required.
+   */
+getAllTabIds(): number[] {
     return this.tabs.map((tab) => tab.id);
   }
 
-  getSelectedTabId(): number {
+    /**
+   * Functionality: getSelectedTabId performs the get selected tab id workflow used by main/background.ts.
+   * Parameters: None.
+   * Returns: Returns number.
+   * Usage: Call getSelectedTabId from the owning module or component when this behavior is required.
+   */
+getSelectedTabId(): number {
     return this.selectedTabId;
   }
 
-  getTabContent(id: number): string {
+    /**
+   * Functionality: getTabContent performs the get tab content workflow used by main/background.ts.
+   * Parameters: id (number).
+   * Returns: Returns string.
+   * Usage: Call getTabContent from the owning module or component when this behavior is required.
+   */
+getTabContent(id: number): string {
     const tab = this.tabs.find((t) => t.id === id);
     return tab ? tab.content : "";
   }
 
-  getTabFilePath(id: number): string | null {
+    /**
+   * Functionality: getTabFilePath performs the get tab file path workflow used by main/background.ts.
+   * Parameters: id (number).
+   * Returns: Returns string | null.
+   * Usage: Call getTabFilePath from the owning module or component when this behavior is required.
+   */
+getTabFilePath(id: number): string | null {
     const tab = this.tabs.find((t) => t.id === id);
     return tab ? tab.filePath : null;
   }
 
-  setTabContent(id: number, content: string): void {
+    /**
+   * Functionality: setTabContent performs the set tab content workflow used by main/background.ts.
+   * Parameters: id (number); content (string).
+   * Returns: Returns void.
+   * Usage: Call setTabContent from the owning module or component when this behavior is required.
+   */
+setTabContent(id: number, content: string): void {
     const tab = this.tabs.find((t) => t.id === id);
     if (tab) {
       tab.content = content;
     }
   }
 
-  setTabFilePath(id: number, filePath: string | null): void {
+    /**
+   * Functionality: setTabFilePath performs the set tab file path workflow used by main/background.ts.
+   * Parameters: id (number); filePath (string | null).
+   * Returns: Returns void.
+   * Usage: Call setTabFilePath from the owning module or component when this behavior is required.
+   */
+setTabFilePath(id: number, filePath: string | null): void {
     const tab = this.tabs.find((t) => t.id === id);
     if (tab) {
       tab.filePath = filePath;
     }
   }
 
-  select(id: number): void {
+    /**
+   * Functionality: select performs the select workflow used by main/background.ts.
+   * Parameters: id (number).
+   * Returns: Returns void.
+   * Usage: Call select from the owning module or component when this behavior is required.
+   */
+select(id: number): void {
     if (this.tabs.some((tab) => tab.id === id)) {
       this.selectedTabId = id;
     }
   }
 
-  close(id: number): void {
+    /**
+   * Functionality: close performs the close workflow used by main/background.ts.
+   * Parameters: id (number).
+   * Returns: Returns void.
+   * Usage: Call close from the owning module or component when this behavior is required.
+   */
+close(id: number): void {
     const index = this.tabs.findIndex((tab) => tab.id === id);
     if (index !== -1) {
       this.tabs.splice(index, 1);
@@ -152,7 +207,13 @@ class TabManager {
     }
   }
 
-  new(): number {
+    /**
+   * Functionality: new performs the new workflow used by main/background.ts.
+   * Parameters: None.
+   * Returns: Returns number.
+   * Usage: Call new from the owning module or component when this behavior is required.
+   */
+new(): number {
     const newId = this.nextTabId++;
     this.tabs.push({
       id: newId,
@@ -163,7 +224,13 @@ class TabManager {
     return newId;
   }
 
-  reorder(ids: number[]): void {
+    /**
+   * Functionality: reorder performs the reorder workflow used by main/background.ts.
+   * Parameters: ids (number[]).
+   * Returns: Returns void.
+   * Usage: Call reorder from the owning module or component when this behavior is required.
+   */
+reorder(ids: number[]): void {
     if (
       ids.length === this.tabs.length &&
       ids.every((id) => this.tabs.some((tab) => tab.id === id))
@@ -200,6 +267,12 @@ if (isProd) {
 /**
  * Adds top-level safety nets so catastrophic main-process issues
  * still get written to the same log file.
+ */
+/**
+ * Functionality: registerProcessLevelErrorHandlers performs the register process level error handlers workflow used by main/background.ts.
+ * Parameters: None.
+ * Returns: Returns void.
+ * Usage: Call registerProcessLevelErrorHandlers from the owning module or component when this behavior is required.
  */
 function registerProcessLevelErrorHandlers(): void {
     process.on("uncaughtException", (error) => {
@@ -294,7 +367,13 @@ const quizWebSocketServer = new QuizWebSocketServer(quizSessionManager, 9898);
   Menu.setApplicationMenu(menu);
 
   if (process.platform === "win32") {
-    const keepMenuBarVisible = () => {
+        /**
+     * Functionality: keepMenuBarVisible performs the keep menu bar visible workflow used by main/background.ts.
+     * Parameters: None.
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call keepMenuBarVisible from the owning module or component when this behavior is required.
+     */
+const keepMenuBarVisible = () => {
       if (mainWindow.isDestroyed() || mainWindow.isMenuBarAutoHide()) {
         return;
       }
@@ -720,7 +799,13 @@ ipcMain.handle("fs:importFolder", async (event, sourcePath: string, targetPath: 
         }
 
         // Recursively copy folder contents
-        const copyFolderRecursive = async (src: string, dest: string) => {
+                /**
+         * Functionality: copyFolderRecursive performs the copy folder recursive workflow used by main/background.ts.
+         * Parameters: src (string); dest (string).
+         * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+         * Usage: Call copyFolderRecursive from the owning module or component when this behavior is required.
+         */
+const copyFolderRecursive = async (src: string, dest: string) => {
             // Create destination directory if it doesn't exist
             if (!fsSync.existsSync(dest)) {
                 await fs.mkdir(dest, { recursive: true });
@@ -783,7 +868,13 @@ ipcMain.handle("fs:exportFolder", async (_, sourceFolder: string, targetFolder: 
         const folderName = path.basename(sourceFolder);
         const destination = path.join(targetFolder, folderName);
 
-        const copyFolderRecursiveSync = (src: string, dest: string) => {
+                /**
+         * Functionality: copyFolderRecursiveSync performs the copy folder recursive sync workflow used by main/background.ts.
+         * Parameters: src (string); dest (string).
+         * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+         * Usage: Call copyFolderRecursiveSync from the owning module or component when this behavior is required.
+         */
+const copyFolderRecursiveSync = (src: string, dest: string) => {
             // Create destination folder if missing
             if (!fsSync.existsSync(dest)) {
                 fsSync.mkdirSync(dest, { recursive: true });
@@ -1028,7 +1119,7 @@ ipcMain.handle("indexer:indexDirectory", async (_, directoryId: string, director
     if (!isWatching(directoryId)) {
       startWatching(directoryId, directoryPath);
     }
-        
+
         const stats = await chunkAndStoreDirectory(directoryId, directoryPath, config);
         return { success: true, data: stats };
     } catch (error) {

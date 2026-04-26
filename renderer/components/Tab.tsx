@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/components/Tab.tsx
+ * Brief description: Defines a renderer component that implements part of the LocalNotes user interface.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Abdulaziz-Ali123; Wesley McDougal; Malek Kchaou
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import { TabInfo } from "@/renderer/types/tabs";
 import { motion, Reorder } from "framer-motion";
 import { cn } from "@/renderer/lib/util";
@@ -11,6 +22,12 @@ interface Props {
   onRemove: () => void;
 }
 
+/**
+ * Functionality: Tab performs the tab workflow used by renderer/components/Tab.tsx.
+ * Parameters: { item, onClick, onRemove, isSelected, showSeperator } (Props).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call Tab from the owning module or component when this behavior is required.
+ */
 export const Tab = ({ item, onClick, onRemove, isSelected, showSeperator }: Props) => {
   return (
     <Reorder.Item

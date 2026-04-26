@@ -7,6 +7,7 @@
  * 
  • Brief description of each revision & author:
       Wesley McDougal - 29MAR2026 - Added menu command dispatch and auto-hide toggle
+ * Git-history contributors: Wesley McDougal; Shaun
  */
 
 import { app, dialog, shell, BrowserWindow, MenuItemConstructorOptions } from "electron";

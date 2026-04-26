@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/components/InputDialog.tsx
+ * Brief description: Defines a renderer component that implements part of the LocalNotes user interface.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Wesley McDougal; Shaun
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "./ui/button";
 
@@ -10,6 +21,12 @@ interface InputDialogProps {
   onCancel: () => void;
 }
 
+/**
+ * Functionality: InputDialog performs the input dialog workflow used by renderer/components/InputDialog.tsx.
+ * Parameters: { isOpen, title, placeholder = "", defaultValue = "", onConfirm, onCancel, } (InputDialogProps).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call InputDialog from the owning module or component when this behavior is required.
+ */
 export default function InputDialog({
   isOpen,
   title,
@@ -34,14 +51,26 @@ export default function InputDialog({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+    /**
+   * Functionality: handleSubmit performs the handle submit workflow used by renderer/components/InputDialog.tsx.
+   * Parameters: e (React.FormEvent).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleSubmit from the owning module or component when this behavior is required.
+   */
+const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (value.trim()) {
       onConfirm(value.trim());
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+    /**
+   * Functionality: handleKeyDown performs the handle key down workflow used by renderer/components/InputDialog.tsx.
+   * Parameters: e (React.KeyboardEvent).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleKeyDown from the owning module or component when this behavior is required.
+   */
+const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       onCancel();
     }

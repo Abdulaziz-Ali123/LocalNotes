@@ -14,6 +14,7 @@
  * Removed an accidentally duplicated JSX block that appeared after the main
  * return statement and caused a syntax error. Kept the bounded layout chain
  * required for the multi-page canvas editor to scroll correctly.
+ * Git-history contributors: Shaun; Malek Kchaou; Wesley McDougal; Abdulaziz-Ali123
  */
 
 /**
@@ -62,6 +63,12 @@ export interface EditorSpaceProps {
     saveMessage: string | null;
 }
 
+/**
+ * Functionality: EditorSpace performs the editor space workflow used by renderer/pages/editorSpace.tsx.
+ * Parameters: { selectedFile, previewMode, livePreview, fileContent, isSaving, handleSave, setPreviewMode, setLivePreview, setFileContent, saveMessage } (EditorSpaceProps).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call EditorSpace from the owning module or component when this behavior is required.
+ */
 export default function EditorSpace({ selectedFile, previewMode, livePreview, fileContent, isSaving, handleSave, setPreviewMode, setLivePreview, setFileContent, saveMessage }: EditorSpaceProps) {
   const markdownBaseDir = selectedFile ? window.fs.dirname(selectedFile) : null;
   return (

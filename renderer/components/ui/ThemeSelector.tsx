@@ -13,6 +13,7 @@
  * 9. Live preview - useEffect monitors isEditorOpen/draftTokens, applies theme overrides, reverts on cancel
  * 10. Dual color input pattern - visual picker + hex text field for both design and power user workflows
  *
+ * Git-history contributors: Wesley McDougal; Shaun; m518n748
  * Revision History:
  * - 29 MAR 2026: Wesley McDougal - Complete replacement with custom theme editor, live preview, CRUD operations, hex/color picker input
  */
@@ -71,6 +72,12 @@ const CSS_VAR_TO_TOKEN: Record<string, keyof CustomThemeTokens> = {
   "--sidebar-border": "sidebarBorder",
 };
 
+/**
+ * Functionality: toHex performs the to hex workflow used by renderer/components/ui/ThemeSelector.tsx.
+ * Parameters: value (number).
+ * Returns: Returns string.
+ * Usage: Call toHex from the owning module or component when this behavior is required.
+ */
 function toHex(value: number): string {
   return value.toString(16).padStart(2, "0");
 }
@@ -114,6 +121,12 @@ function normalizeColorForInput(rawColor: string): string {
  * Falls back to DEFAULT_CUSTOM_THEME_TOKENS if window is undefined.
  * Used when opening editor to read current system theme into draft state.
  */
+/**
+ * Functionality: readCurrentThemeTokens performs the read current theme tokens workflow used by renderer/components/ui/ThemeSelector.tsx.
+ * Parameters: None.
+ * Returns: Returns CustomThemeTokens.
+ * Usage: Call readCurrentThemeTokens from the owning module or component when this behavior is required.
+ */
 function readCurrentThemeTokens(): CustomThemeTokens {
   if (typeof document === "undefined") {
     return { ...DEFAULT_CUSTOM_THEME_TOKENS };
@@ -132,10 +145,22 @@ function readCurrentThemeTokens(): CustomThemeTokens {
   return next;
 }
 
+/**
+ * Functionality: ratioLabel performs the ratio label workflow used by renderer/components/ui/ThemeSelector.tsx.
+ * Parameters: ratio (number).
+ * Returns: Returns string.
+ * Usage: Call ratioLabel from the owning module or component when this behavior is required.
+ */
 function ratioLabel(ratio: number): string {
   return ratio.toFixed(2);
 }
 
+/**
+ * Functionality: ThemeSelector performs the theme selector workflow used by renderer/components/ui/ThemeSelector.tsx.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call ThemeSelector from the owning module or component when this behavior is required.
+ */
 export default function ThemeSelector() {
   const { theme, customThemes, setTheme } = useTheme();
   const setGlobal = useBoundStore((s) => s.settings.setGlobal);
@@ -204,7 +229,13 @@ export default function ThemeSelector() {
    * If a built-in theme is selected, delegates to openEditorForNew.
    * If a custom theme is selected, loads its name and tokens into draft state.
    */
-  const openEditorForSelected = () => {
+    /**
+   * Functionality: openEditorForSelected performs the open editor for selected workflow used by renderer/components/ui/ThemeSelector.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call openEditorForSelected from the owning module or component when this behavior is required.
+   */
+const openEditorForSelected = () => {
     if (!theme || isBuiltInTheme(theme) || !customThemes[theme]) {
       openEditorForNew();
       return;
@@ -248,7 +279,13 @@ export default function ThemeSelector() {
    * Falls back to DEFAULT_THEME if deleted theme is currently active.
    * Closes editor modal after deletion.
    */
-  const deleteCurrentTheme = async () => {
+    /**
+   * Functionality: deleteCurrentTheme performs the delete current theme workflow used by renderer/components/ui/ThemeSelector.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call deleteCurrentTheme from the owning module or component when this behavior is required.
+   */
+const deleteCurrentTheme = async () => {
     if (!editingThemeId || !customThemes[editingThemeId]) {
       return;
     }

@@ -1,9 +1,26 @@
+/**
+ * Name of code artifact: renderer/components/TabBar.tsx
+ * Brief description: Defines a renderer component that implements part of the LocalNotes user interface.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Wesley McDougal; Malek Kchaou; Abdulaziz-Ali123
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import React from "react";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { AnimatePresence, motion, Reorder } from "framer-motion";
 import { Plus } from "lucide-react";
 import { Tab } from "./Tab";
 
+/**
+ * Functionality: TabBar performs the tab bar workflow used by renderer/components/TabBar.tsx.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call TabBar from the owning module or component when this behavior is required.
+ */
 export default function TabBar() {
   const tabs = useBoundStore((state) => state.tabs.items);
   const setSelectedTab = useBoundStore((state) => state.tabs.setSelectedTab);

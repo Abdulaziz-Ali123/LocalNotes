@@ -1,3 +1,7 @@
+/**
+ * Git-history contributors: a157p624; Abdulaziz-Ali123; Malek Kchaou; Wesley McDougal; m518n748
+ */
+
 // Create this file as: renderer/types/window.d.ts
 
 import type { DirectoryChunkResult, DirectoryChunkerConfig, Chunk } from "../../main/indexing/DirectoryChuncker";

@@ -1,6 +1,7 @@
 /**
  * File: renderer/pages/quiz/join.tsx
  * Author: Atharva Patil
+ * Git-history contributors: a157p624
  * Sprint: 5
  * Purpose: Player join-and-play UI over local WebSocket transport.
  * Notes: Handles join, answer submission, and live snapshot rendering.
@@ -28,6 +29,12 @@ type Snapshot = {
 };
 
 // Player page for joining and participating in a live quiz session.
+/**
+ * Functionality: QuizJoinPage performs the quiz join page workflow used by renderer/pages/quiz/join.tsx.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call QuizJoinPage from the owning module or component when this behavior is required.
+ */
 export default function QuizJoinPage() {
   const router = useRouter();
   const wsRef = useRef<WebSocket | null>(null);
@@ -57,7 +64,13 @@ export default function QuizJoinPage() {
       return;
     }
 
-    const tick = () => {
+        /**
+     * Functionality: tick performs the tick workflow used by renderer/pages/quiz/join.tsx.
+     * Parameters: None.
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call tick from the owning module or component when this behavior is required.
+     */
+const tick = () => {
       const remaining = Math.max(0, Math.ceil((snapshot.currentQuestionEndsAt! - Date.now()) / 1000));
       setSecondsLeft(remaining);
     };
@@ -68,7 +81,13 @@ export default function QuizJoinPage() {
   }, [snapshot?.currentQuestionEndsAt]);
 
   // Opens a WebSocket connection and attempts to join the selected session.
-  const joinSession = () => {
+    /**
+   * Functionality: joinSession performs the join session workflow used by renderer/pages/quiz/join.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call joinSession from the owning module or component when this behavior is required.
+   */
+const joinSession = () => {
     setError("");
     setSelectedAnswer("");
 
@@ -114,7 +133,13 @@ export default function QuizJoinPage() {
   };
 
   // Sends the player's selected answer for the current question.
-  const submitAnswer = (answer: string) => {
+    /**
+   * Functionality: submitAnswer performs the submit answer workflow used by renderer/pages/quiz/join.tsx.
+   * Parameters: answer (string).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call submitAnswer from the owning module or component when this behavior is required.
+   */
+const submitAnswer = (answer: string) => {
     if (!wsRef.current || !playerId || !snapshot) return;
     setSelectedAnswer(answer);
     wsRef.current.send(

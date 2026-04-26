@@ -4,6 +4,7 @@
  * Loads settings from the main process on init and keeps them in sync.
  * Exposes setter helpers that persist changes via IPC and update local state.
  *
+ * Git-history contributors: Wesley McDougal; Abdulaziz Ali; Shaun
  * Revision History:
  *  • Wesley McDougal - 29MAR2026 - Custom theme types and initial state
  *  • Wesley McDougal - 05APR2026 - Added sidebar layout types/defaults and persisted appearance layout state
@@ -267,6 +268,12 @@ const INITIAL_GLOBAL: GlobalSettings = {
 // Slice creator
 // ---------------------------------------------------------------------------
 
+/**
+ * Functionality: createSettingsSlice performs the create settings slice workflow used by renderer/store/settings-slice.ts.
+ * Parameters: set (inferred).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call createSettingsSlice from the owning module or component when this behavior is required.
+ */
 export const createSettingsSlice: StateCreator<
   SettingsSlice,
   [],

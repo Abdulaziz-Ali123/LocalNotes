@@ -5,6 +5,7 @@
  * - Added one mixed quiz payload covering all supported quiz item types.
  * - Added one flashcard payload so the page can also handle "flashcards" root responses.
  * Author: Malek Kchaou
+ * Git-history contributors: Malek Kchaou
  * Date: 2026-04-12
  * Note: This file is intentionally local-only for the first low-overhead implementation pass.
  */

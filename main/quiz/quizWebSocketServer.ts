@@ -1,6 +1,7 @@
 /**
  * File: main/quiz/quizWebSocketServer.ts
  * Author: Atharva Patil
+ * Git-history contributors: a157p624
  * Sprint: 5
  * Purpose: LAN-accessible HTTP/WebSocket transport for quiz player connections.
  * Notes: Bridges socket events to QuizSessionManager and broadcasts snapshot updates.
@@ -21,6 +22,12 @@ interface SocketClient {
 }
 
 // Finds a non-internal IPv4 LAN address for sharing join links.
+/**
+ * Functionality: getLanAddress performs the get lan address workflow used by main/quiz/quizWebSocketServer.ts.
+ * Parameters: None.
+ * Returns: Returns string.
+ * Usage: Call getLanAddress from the owning module or component when this behavior is required.
+ */
 function getLanAddress(): string {
   const interfaces = os.networkInterfaces();
   for (const iface of Object.values(interfaces)) {
@@ -35,6 +42,12 @@ function getLanAddress(): string {
 }
 
 // Returns a lightweight HTML page used by players joining from a browser.
+/**
+ * Functionality: playerPageHtml performs the player page html workflow used by main/quiz/quizWebSocketServer.ts.
+ * Parameters: None.
+ * Returns: Returns string.
+ * Usage: Call playerPageHtml from the owning module or component when this behavior is required.
+ */
 function playerPageHtml(): string {
   return `<!doctype html>
 <html>
@@ -189,6 +202,12 @@ function playerPageHtml(): string {
 </html>`;
 }
 
+/**
+ * Class functionality: Defines the QuizWebSocketServer class used by main/quiz/quizWebSocketServer.ts.
+ * Parameters: Constructor parameters are documented on the constructor when applicable.
+ * Returns: Returns the class constructor for creating or organizing related behavior.
+ * Usage: Instantiate or reference QuizWebSocketServer from modules that need this grouped behavior.
+ */
 export class QuizWebSocketServer {
   private readonly manager: QuizSessionManager;
   private readonly port: number;
@@ -197,13 +216,25 @@ export class QuizWebSocketServer {
   private clients = new Map<string, SocketClient>();
 
   // Stores dependencies and server port configuration.
-  constructor(manager: QuizSessionManager, port: number = 9898) {
+    /**
+   * Constructor functionality: Initializes constructor state and dependencies for its class.
+   * Parameters: manager (QuizSessionManager); port (number).
+   * Returns: Returns a configured class instance through normal construction.
+   * Usage: Call constructor from the owning module or component when this behavior is required.
+   */
+constructor(manager: QuizSessionManager, port: number = 9898) {
     this.manager = manager;
     this.port = port;
   }
 
   // Starts HTTP and WebSocket listeners and wires message handlers.
-  async start(): Promise<void> {
+    /**
+   * Functionality: start performs the start workflow used by main/quiz/quizWebSocketServer.ts.
+   * Parameters: None.
+   * Returns: Returns Promise<void>.
+   * Usage: Call start from the owning module or component when this behavior is required.
+   */
+async start(): Promise<void> {
     if (this.server) return;
 
     this.server = http.createServer((req: IncomingMessage, res: ServerResponse) => {
@@ -270,7 +301,13 @@ export class QuizWebSocketServer {
   }
 
   // Stops socket connections and shuts down the HTTP/WebSocket server.
-  stop(): void {
+    /**
+   * Functionality: stop performs the stop workflow used by main/quiz/quizWebSocketServer.ts.
+   * Parameters: None.
+   * Returns: Returns void.
+   * Usage: Call stop from the owning module or component when this behavior is required.
+   */
+stop(): void {
     this.clients.forEach((client) => client.socket.close());
     this.clients.clear();
     this.wss?.close();
@@ -280,23 +317,47 @@ export class QuizWebSocketServer {
   }
 
   // Returns the configured server port.
-  getPort(): number {
+    /**
+   * Functionality: getPort performs the get port workflow used by main/quiz/quizWebSocketServer.ts.
+   * Parameters: None.
+   * Returns: Returns number.
+   * Usage: Call getPort from the owning module or component when this behavior is required.
+   */
+getPort(): number {
     return this.port;
   }
 
   // Builds the LAN join URL with a prefilled game code.
-  getJoinUrl(code: string): string {
+    /**
+   * Functionality: getJoinUrl performs the get join url workflow used by main/quiz/quizWebSocketServer.ts.
+   * Parameters: code (string).
+   * Returns: Returns string.
+   * Usage: Call getJoinUrl from the owning module or component when this behavior is required.
+   */
+getJoinUrl(code: string): string {
     const host = getLanAddress();
     return `http://${host}:${this.port}/join?code=${encodeURIComponent(code.toUpperCase())}`;
   }
 
   // Generates a QR data URL for the session join link.
-  async getJoinQrDataUrl(code: string): Promise<string> {
+    /**
+   * Functionality: getJoinQrDataUrl performs the get join qr data url workflow used by main/quiz/quizWebSocketServer.ts.
+   * Parameters: code (string).
+   * Returns: Returns Promise<string>.
+   * Usage: Call getJoinQrDataUrl from the owning module or component when this behavior is required.
+   */
+async getJoinQrDataUrl(code: string): Promise<string> {
     return QRCode.toDataURL(this.getJoinUrl(code), { margin: 1, width: 320 });
   }
 
   // Handles player join messages and registers connected clients.
-  private handleJoin(socketId: string, socket: WebSocket, code: string, name: string): void {
+    /**
+   * Functionality: handleJoin performs the handle join workflow used by main/quiz/quizWebSocketServer.ts.
+   * Parameters: socketId (string); socket (WebSocket); code (string); name (string).
+   * Returns: Returns void.
+   * Usage: Call handleJoin from the owning module or component when this behavior is required.
+   */
+private handleJoin(socketId: string, socket: WebSocket, code: string, name: string): void {
     const joinResult = this.manager.joinSession(code, name);
     if (!joinResult.ok || !joinResult.playerId || !joinResult.snapshot) {
       socket.send(

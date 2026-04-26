@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/components/canvas/strokeSplit.ts
+ * Brief description: Supports the multi-page canvas editor data model, page math, rendering, or stroke processing.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Malek Kchaou
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import type {
   CanvasDocV1,
   CanvasPoint,
@@ -16,7 +27,7 @@ import { getLocalYForGlobalY, getPageIndexForGlobalY } from "./pageMath";
  *
  * Date Created: 03/14/2026
  * Last Updated: 03/15/2026
- * 
+ *
  * Purpose:
  * Converts one continuous in-progress stroke captured in notebook/global coordinates
  * into one or more page-local stroke fragments.
@@ -49,6 +60,12 @@ import { getLocalYForGlobalY, getPageIndexForGlobalY } from "./pageMath";
  *
  * This is the core logic that allows the notebook to feel continuous while still
  * storing pages as separate structured units.
+ */
+/**
+ * Functionality: splitStrokeAcrossPages performs the split stroke across pages workflow used by renderer/components/canvas/strokeSplit.ts.
+ * Parameters: doc (CanvasDocV1); points (GlobalCanvasPoint[]); color (string); size (number).
+ * Returns: Returns Array<{ pageIndex: number; stroke: PageStroke }>.
+ * Usage: Call splitStrokeAcrossPages from the owning module or component when this behavior is required.
  */
 export function splitStrokeAcrossPages(
   doc: CanvasDocV1,

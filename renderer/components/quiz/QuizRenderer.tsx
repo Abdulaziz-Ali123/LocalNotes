@@ -8,6 +8,7 @@
  *   card-based interaction flow, and a results summary.
  * - Uses only existing project UI primitives and native browser drag-and-drop.
  * Author: Malek Kchaou
+ * Git-history contributors: Malek Kchaou
  * Date: 2026-04-12
  * Note: This implementation is intentionally self-contained for the first pass.
  */
@@ -41,6 +42,12 @@ import {
  * Small utility used to compare strings in a forgiving way for quiz checking.
  * This helps avoid false negatives due to casing or accidental spacing.
  */
+/**
+ * Functionality: normalizeText performs the normalize text workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: value (string).
+ * Returns: Returns string.
+ * Usage: Call normalizeText from the owning module or component when this behavior is required.
+ */
 function normalizeText(value: string): string {
     return value.trim().replace(/\s+/g, " ").toLowerCase();
 }
@@ -54,6 +61,12 @@ interface QuizRendererProps {
 /**
  * Top-level renderer that delegates to either quiz mode or flashcards mode.
  */
+/**
+ * Functionality: QuizRenderer performs the quiz renderer workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { payload } (QuizRendererProps).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call QuizRenderer from the owning module or component when this behavior is required.
+ */
 export default function QuizRenderer({ payload }: QuizRendererProps) {
     if (payload.type === "flashcards") {
         return <FlashcardsView payload={payload} />;
@@ -65,6 +78,12 @@ export default function QuizRenderer({ payload }: QuizRendererProps) {
 /**
  * Flashcards mode.
  * This keeps the page flexible because the LLM contract allows either "quiz" or "flashcards".
+ */
+/**
+ * Functionality: FlashcardsView performs the flashcards view workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { payload } ({ payload: FlashcardsDocument }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call FlashcardsView from the owning module or component when this behavior is required.
  */
 function FlashcardsView({ payload }: { payload: FlashcardsDocument }) {
     const [index, setIndex] = useState(0);
@@ -144,6 +163,12 @@ function FlashcardsView({ payload }: { payload: FlashcardsDocument }) {
  * Main quiz mode with one-question-at-a-time interaction, immediate feedback,
  * progress tracking, and an end-of-quiz summary.
  */
+/**
+ * Functionality: QuizView performs the quiz view workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { payload } ({ payload: QuizDocument }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call QuizView from the owning module or component when this behavior is required.
+ */
 function QuizView({ payload }: { payload: QuizDocument }) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [statusMap, setStatusMap] = useState<Record<number, ItemStatus>>({});
@@ -170,7 +195,13 @@ function QuizView({ payload }: { payload: QuizDocument }) {
      * Central answer submission handler.
      * Each question subcomponent computes correctness and passes its answer payload upward.
      */
-    const handleSubmit = (itemId: number, answerValue: unknown, isCorrect: boolean) => {
+        /**
+     * Functionality: handleSubmit performs the handle submit workflow used by renderer/components/quiz/QuizRenderer.tsx.
+     * Parameters: itemId (number); answerValue (unknown); isCorrect (boolean).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleSubmit from the owning module or component when this behavior is required.
+     */
+const handleSubmit = (itemId: number, answerValue: unknown, isCorrect: boolean) => {
         setSelectedAnswers((prev) => ({ ...prev, [itemId]: answerValue }));
         setStatusMap((prev) => ({
             ...prev,
@@ -182,7 +213,13 @@ function QuizView({ payload }: { payload: QuizDocument }) {
     /**
      * Allows retrying the current question by clearing only its local state.
      */
-    const handleRetryCurrent = () => {
+        /**
+     * Functionality: handleRetryCurrent performs the handle retry current workflow used by renderer/components/quiz/QuizRenderer.tsx.
+     * Parameters: None.
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleRetryCurrent from the owning module or component when this behavior is required.
+     */
+const handleRetryCurrent = () => {
         setStatusMap((prev) => ({ ...prev, [currentItem.id]: "unanswered" }));
         setLockedMap((prev) => ({ ...prev, [currentItem.id]: false }));
         setSelectedAnswers((prev) => {
@@ -195,7 +232,13 @@ function QuizView({ payload }: { payload: QuizDocument }) {
     /**
      * Resets the entire quiz session without touching any global app state.
      */
-    const handleRestart = () => {
+        /**
+     * Functionality: handleRestart performs the handle restart workflow used by renderer/components/quiz/QuizRenderer.tsx.
+     * Parameters: None.
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleRestart from the owning module or component when this behavior is required.
+     */
+const handleRestart = () => {
         setCurrentIndex(0);
         setStatusMap({});
         setLockedMap({});
@@ -399,6 +442,12 @@ function QuizView({ payload }: { payload: QuizDocument }) {
 /**
  * Shared header used by both quiz mode and flashcard mode.
  */
+/**
+ * Functionality: QuizHeader performs the quiz header workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { title, subtitle, progressLabel, progressPercent, } ({ title: string; subtitle: string; progressLabel: string; progressPercent: number; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call QuizHeader from the owning module or component when this behavior is required.
+ */
 function QuizHeader({
     title,
     subtitle,
@@ -437,6 +486,12 @@ function QuizHeader({
 /**
  * Compact status badge.
  */
+/**
+ * Functionality: StatusPill performs the status pill workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { status } ({ status: ItemStatus }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call StatusPill from the owning module or component when this behavior is required.
+ */
 function StatusPill({ status }: { status: ItemStatus }) {
     const label =
         status === "correct"
@@ -461,6 +516,12 @@ function StatusPill({ status }: { status: ItemStatus }) {
 
 /**
  * Generic wrapper that routes each quiz item to the correct interaction component.
+ */
+/**
+ * Functionality: QuestionBody performs the question body workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { item, locked, savedAnswer, onSubmit, } ({ item: QuizItem; locked: boolean; savedAnswer: unknown; onSubmit: (itemId: number, answerValue: unknown, isCorrect: boolean) => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call QuestionBody from the owning module or component when this behavior is required.
  */
 function QuestionBody({
     item,
@@ -536,6 +597,12 @@ function QuestionBody({
 /**
  * Multiple choice with immediate correctness checking.
  */
+/**
+ * Functionality: MultipleChoiceQuestion performs the multiple choice question workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { item, locked, savedAnswer, onSubmit, } ({ item: Extract<QuizItem, { kind: "multiple_choice" }>; locked: boolean; savedAnswer?: string; onSubmit: (itemId: number, answerValue: unknown, isCorrect: boolean) => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call MultipleChoiceQuestion from the owning module or component when this behavior is required.
+ */
 function MultipleChoiceQuestion({
     item,
     locked,
@@ -595,6 +662,12 @@ function MultipleChoiceQuestion({
 
 /**
  * True/false question using the same immediate feedback pattern.
+ */
+/**
+ * Functionality: TrueFalseQuestion performs the true false question workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { item, locked, savedAnswer, onSubmit, } ({ item: Extract<QuizItem, { kind: "true_false" }>; locked: boolean; savedAnswer?: boolean; onSubmit: (itemId: number, answerValue: unknown, isCorrect: boolean) => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call TrueFalseQuestion from the owning module or component when this behavior is required.
  */
 function TrueFalseQuestion({
     item,
@@ -656,6 +729,12 @@ function TrueFalseQuestion({
  * Fill-in-the-blank question.
  * Because the schema provides correct words in order but not explicit placeholder markers,
  * the UI renders one input per expected blank.
+ */
+/**
+ * Functionality: FillInBlankQuestion performs the fill in blank question workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { item, locked, savedAnswer, onSubmit, } ({ item: FillInBlankItem; locked: boolean; savedAnswer?: string[]; onSubmit: (itemId: number, answerValue: unknown, isCorrect: boolean) => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call FillInBlankQuestion from the owning module or component when this behavior is required.
  */
 function FillInBlankQuestion({
     item,
@@ -720,6 +799,12 @@ function FillInBlankQuestion({
  * Native drag-and-drop ordering interaction.
  * Users drag tokens from the bank into ordered slots. They can also move tokens back.
  */
+/**
+ * Functionality: DragAndDropQuestion performs the drag and drop question workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { item, locked, savedAnswer, onSubmit, } ({ item: DragAndDropItem; locked: boolean; savedAnswer?: string[]; onSubmit: (itemId: number, answerValue: unknown, isCorrect: boolean) => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call DragAndDropQuestion from the owning module or component when this behavior is required.
+ */
 function DragAndDropQuestion({
     item,
     locked,
@@ -736,7 +821,13 @@ function DragAndDropQuestion({
 
     const availableBank = item.items.filter((token) => !slots.includes(token));
 
-    const handleDropIntoSlot = (targetIndex: number, token: string) => {
+        /**
+     * Functionality: handleDropIntoSlot performs the handle drop into slot workflow used by renderer/components/quiz/QuizRenderer.tsx.
+     * Parameters: targetIndex (number); token (string).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleDropIntoSlot from the owning module or component when this behavior is required.
+     */
+const handleDropIntoSlot = (targetIndex: number, token: string) => {
         if (locked) return;
 
         setSlots((prev) => {
@@ -753,7 +844,13 @@ function DragAndDropQuestion({
         });
     };
 
-    const handleClearSlot = (targetIndex: number) => {
+        /**
+     * Functionality: handleClearSlot performs the handle clear slot workflow used by renderer/components/quiz/QuizRenderer.tsx.
+     * Parameters: targetIndex (number).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleClearSlot from the owning module or component when this behavior is required.
+     */
+const handleClearSlot = (targetIndex: number) => {
         if (locked) return;
         setSlots((prev) => {
             const next = [...prev];
@@ -815,6 +912,12 @@ function DragAndDropQuestion({
 /**
  * Matching question using lightweight select elements.
  * This is intentionally low-overhead while still being interactive and clear.
+ */
+/**
+ * Functionality: MatchingQuestion performs the matching question workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { item, locked, savedAnswer, onSubmit, } ({ item: MatchingItem; locked: boolean; savedAnswer?: Record<string, string>; onSubmit: (itemId: number, answerValue: unknown, isCorrect: boolean) => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call MatchingQuestion from the owning module or component when this behavior is required.
  */
 function MatchingQuestion({
     item,
@@ -880,6 +983,12 @@ function MatchingQuestion({
 /**
  * Free-response question with rubric reveal and self-evaluation.
  * The current schema does not provide a canonical answer, so this uses self-check.
+ */
+/**
+ * Functionality: FreeResponseQuestion performs the free response question workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { item, locked, savedAnswer, onSubmit, } ({ item: FreeResponseItem; locked: boolean; savedAnswer?: { response: string; selfScore: boolean }; onSubmit: (itemId: number, answerValue: unknown, isCorrect: boolean) => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call FreeResponseQuestion from the owning module or component when this behavior is required.
  */
 function FreeResponseQuestion({
     item,
@@ -962,6 +1071,12 @@ function FreeResponseQuestion({
 /**
  * Small draggable chip used by the drag-and-drop question.
  */
+/**
+ * Functionality: DragToken performs the drag token workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { token, disabled } ({ token: string; disabled?: boolean }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call DragToken from the owning module or component when this behavior is required.
+ */
 function DragToken({ token, disabled }: { token: string; disabled?: boolean }) {
     return (
         <div
@@ -983,6 +1098,12 @@ function DragToken({ token, disabled }: { token: string; disabled?: boolean }) {
 /**
  * Drop target for each ordered slot.
  * It accepts native drag-and-drop text payloads and allows quick clearing.
+ */
+/**
+ * Functionality: DropSlot performs the drop slot workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { index, value, expected, locked, onDropToken, onClear, } ({ index: number; value: string; expected?: string; locked: boolean; onDropToken: (token: string) => void; onClear: () => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call DropSlot from the owning module or component when this behavior is required.
  */
 function DropSlot({
     index,
@@ -1051,6 +1172,12 @@ function DropSlot({
 
 /**
  * Summary card stat for the end-screen.
+ */
+/**
+ * Functionality: SummaryStat performs the summary stat workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { label, value } ({ label: string; value: string }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SummaryStat from the owning module or component when this behavior is required.
  */
 function SummaryStat({ label, value }: { label: string; value: string }) {
     return (

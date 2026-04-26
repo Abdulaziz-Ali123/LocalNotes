@@ -1,6 +1,7 @@
 /**
  * File: main/quiz/quizSessionManager.ts
  * Author: Atharva Patil
+ * Git-history contributors: a157p624
  * Sprint: 5
  * Purpose: In-memory quiz session lifecycle and scoring engine.
  * Notes: Emits session snapshots on every state transition; no persistent session recovery.
@@ -24,11 +25,23 @@ const BASE_CORRECT_POINTS = 1000;
 const MAX_SPEED_BONUS = 500;
 
 // Normalizes player names for case-insensitive uniqueness checks.
+/**
+ * Functionality: normalizeName performs the normalize name workflow used by main/quiz/quizSessionManager.ts.
+ * Parameters: name (string).
+ * Returns: Returns string.
+ * Usage: Call normalizeName from the owning module or component when this behavior is required.
+ */
 function normalizeName(name: string): string {
   return name.trim().toLowerCase();
 }
 
 // Generates a unique 6-character game code that is not already in use.
+/**
+ * Functionality: createCode performs the create code workflow used by main/quiz/quizSessionManager.ts.
+ * Parameters: used (Set<string>).
+ * Returns: Returns string.
+ * Usage: Call createCode from the owning module or component when this behavior is required.
+ */
 function createCode(used: Set<string>): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -41,6 +54,12 @@ function createCode(used: Set<string>): string {
 }
 
 // Sorts players into leaderboard order and maps to leaderboard entries.
+/**
+ * Functionality: rankPlayers performs the rank players workflow used by main/quiz/quizSessionManager.ts.
+ * Parameters: players (QuizPlayer[]).
+ * Returns: Returns LeaderboardEntry[].
+ * Usage: Call rankPlayers from the owning module or component when this behavior is required.
+ */
 function rankPlayers(players: QuizPlayer[]): LeaderboardEntry[] {
   return [...players]
     .sort((a, b) => {
@@ -57,19 +76,37 @@ function rankPlayers(players: QuizPlayer[]): LeaderboardEntry[] {
     }));
 }
 
+/**
+ * Class functionality: Defines the QuizSessionManager class used by main/quiz/quizSessionManager.ts.
+ * Parameters: Constructor parameters are documented on the constructor when applicable.
+ * Returns: Returns the class constructor for creating or organizing related behavior.
+ * Usage: Instantiate or reference QuizSessionManager from modules that need this grouped behavior.
+ */
 export class QuizSessionManager extends EventEmitter {
   private sessions = new Map<string, QuizSession>();
   private roundTimers = new Map<string, NodeJS.Timeout>();
   private gcTimer: NodeJS.Timeout;
 
   // Starts the manager and periodic stale-session cleanup.
-  constructor() {
+    /**
+   * Constructor functionality: Initializes constructor state and dependencies for its class.
+   * Parameters: None.
+   * Returns: Returns a configured class instance through normal construction.
+   * Usage: Call constructor from the owning module or component when this behavior is required.
+   */
+constructor() {
     super();
     this.gcTimer = setInterval(() => this.cleanupStaleSessions(), 60_000);
   }
 
   // Stops timers and clears all in-memory quiz data.
-  shutdown(): void {
+    /**
+   * Functionality: shutdown performs the shutdown workflow used by main/quiz/quizSessionManager.ts.
+   * Parameters: None.
+   * Returns: Returns void.
+   * Usage: Call shutdown from the owning module or component when this behavior is required.
+   */
+shutdown(): void {
     this.roundTimers.forEach((timer) => clearTimeout(timer));
     this.roundTimers.clear();
     clearInterval(this.gcTimer);
@@ -77,7 +114,13 @@ export class QuizSessionManager extends EventEmitter {
   }
 
   // Creates a new quiz session and returns host/session details.
-  createSession(input: CreateSessionInput): { code: string; hostId: string; snapshot: SessionSnapshot } {
+    /**
+   * Functionality: createSession performs the create session workflow used by main/quiz/quizSessionManager.ts.
+   * Parameters: input (CreateSessionInput).
+   * Returns: Returns { code: string; hostId: string; snapshot: SessionSnapshot }.
+   * Usage: Call createSession from the owning module or component when this behavior is required.
+   */
+createSession(input: CreateSessionInput): { code: string; hostId: string; snapshot: SessionSnapshot } {
     const used = new Set(this.sessions.keys());
     const code = createCode(used);
     const hostId = randomUUID();
@@ -114,12 +157,24 @@ export class QuizSessionManager extends EventEmitter {
   }
 
   // Gets the raw in-memory session by code.
-  getSession(code: string): QuizSession | undefined {
+    /**
+   * Functionality: getSession performs the get session workflow used by main/quiz/quizSessionManager.ts.
+   * Parameters: code (string).
+   * Returns: Returns QuizSession | undefined.
+   * Usage: Call getSession from the owning module or component when this behavior is required.
+   */
+getSession(code: string): QuizSession | undefined {
     return this.sessions.get(code.toUpperCase());
   }
 
   // Builds a renderer-safe snapshot of current session state.
-  getSnapshot(code: string): SessionSnapshot {
+    /**
+   * Functionality: getSnapshot performs the get snapshot workflow used by main/quiz/quizSessionManager.ts.
+   * Parameters: code (string).
+   * Returns: Returns SessionSnapshot.
+   * Usage: Call getSnapshot from the owning module or component when this behavior is required.
+   */
+getSnapshot(code: string): SessionSnapshot {
     const session = this.mustGet(code);
     const currentQuestion =
       session.currentQuestionIndex >= 0 && session.currentQuestionIndex < session.questions.length
@@ -151,7 +206,13 @@ export class QuizSessionManager extends EventEmitter {
   }
 
   // Adds a player to a session after validating code and unique name.
-  joinSession(code: string, playerName: string): JoinResult {
+    /**
+   * Functionality: joinSession performs the join session workflow used by main/quiz/quizSessionManager.ts.
+   * Parameters: code (string); playerName (string).
+   * Returns: Returns JoinResult.
+   * Usage: Call joinSession from the owning module or component when this behavior is required.
+   */
+joinSession(code: string, playerName: string): JoinResult {
     const normalizedCode = code.trim().toUpperCase();
     if (!normalizedCode) return { ok: false, error: "Game code is required." };
 
@@ -185,7 +246,13 @@ export class QuizSessionManager extends EventEmitter {
   }
 
   // Starts the quiz by advancing from lobby to the first question.
-  startQuiz(code: string): SubmitResult {
+    /**
+   * Functionality: startQuiz performs the start quiz workflow used by main/quiz/quizSessionManager.ts.
+   * Parameters: code (string).
+   * Returns: Returns SubmitResult.
+   * Usage: Call startQuiz from the owning module or component when this behavior is required.
+   */
+startQuiz(code: string): SubmitResult {
     const session = this.mustGet(code);
     if (session.questions.length === 0) {
       return { ok: false, error: "No questions in session." };
@@ -199,7 +266,13 @@ export class QuizSessionManager extends EventEmitter {
   }
 
   // Advances to the next question after a round result.
-  nextQuestion(code: string): SubmitResult {
+    /**
+   * Functionality: nextQuestion performs the next question workflow used by main/quiz/quizSessionManager.ts.
+   * Parameters: code (string).
+   * Returns: Returns SubmitResult.
+   * Usage: Call nextQuestion from the owning module or component when this behavior is required.
+   */
+nextQuestion(code: string): SubmitResult {
     const session = this.mustGet(code);
     if (session.state !== "round_result") {
       return { ok: false, error: "Wait for the current round to finish." };
@@ -209,7 +282,13 @@ export class QuizSessionManager extends EventEmitter {
   }
 
   // Ends the quiz immediately and publishes a final session update.
-  endQuiz(code: string): SubmitResult {
+    /**
+   * Functionality: endQuiz performs the end quiz workflow used by main/quiz/quizSessionManager.ts.
+   * Parameters: code (string).
+   * Returns: Returns SubmitResult.
+   * Usage: Call endQuiz from the owning module or component when this behavior is required.
+   */
+endQuiz(code: string): SubmitResult {
     const session = this.mustGet(code);
     session.state = "ended";
     session.currentQuestionEndsAt = null;
@@ -220,7 +299,13 @@ export class QuizSessionManager extends EventEmitter {
   }
 
   // Records one player's answer for the active question.
-  submitAnswer(code: string, playerId: string, answer: string): SubmitResult {
+    /**
+   * Functionality: submitAnswer performs the submit answer workflow used by main/quiz/quizSessionManager.ts.
+   * Parameters: code (string); playerId (string); answer (string).
+   * Returns: Returns SubmitResult.
+   * Usage: Call submitAnswer from the owning module or component when this behavior is required.
+   */
+submitAnswer(code: string, playerId: string, answer: string): SubmitResult {
     const session = this.mustGet(code);
     if (session.state !== "question") {
       return { ok: false, error: "Question is not active." };
@@ -255,7 +340,13 @@ export class QuizSessionManager extends EventEmitter {
   }
 
   // Moves session state to the next question or ends quiz if complete.
-  private advanceQuestion(code: string): SubmitResult {
+    /**
+   * Functionality: advanceQuestion performs the advance question workflow used by main/quiz/quizSessionManager.ts.
+   * Parameters: code (string).
+   * Returns: Returns SubmitResult.
+   * Usage: Call advanceQuestion from the owning module or component when this behavior is required.
+   */
+private advanceQuestion(code: string): SubmitResult {
     const session = this.mustGet(code);
     this.clearRoundTimer(code);
 
@@ -292,7 +383,13 @@ export class QuizSessionManager extends EventEmitter {
   }
 
   // Finalizes scoring for the current question and computes round leaderboard.
-  private finalizeRound(code: string): void {
+    /**
+   * Functionality: finalizeRound performs the finalize round workflow used by main/quiz/quizSessionManager.ts.
+   * Parameters: code (string).
+   * Returns: Returns void.
+   * Usage: Call finalizeRound from the owning module or component when this behavior is required.
+   */
+private finalizeRound(code: string): void {
     const session = this.mustGet(code);
     if (session.state !== "question") return;
 
@@ -335,7 +432,13 @@ export class QuizSessionManager extends EventEmitter {
   }
 
   // Gets a session by code or throws if it does not exist.
-  private mustGet(code: string): QuizSession {
+    /**
+   * Functionality: mustGet performs the must get workflow used by main/quiz/quizSessionManager.ts.
+   * Parameters: code (string).
+   * Returns: Returns QuizSession.
+   * Usage: Call mustGet from the owning module or component when this behavior is required.
+   */
+private mustGet(code: string): QuizSession {
     const normalizedCode = code.trim().toUpperCase();
     const session = this.sessions.get(normalizedCode);
     if (!session) {
@@ -345,7 +448,13 @@ export class QuizSessionManager extends EventEmitter {
   }
 
   // Clears the active timer for a session's current round.
-  private clearRoundTimer(code: string): void {
+    /**
+   * Functionality: clearRoundTimer performs the clear round timer workflow used by main/quiz/quizSessionManager.ts.
+   * Parameters: code (string).
+   * Returns: Returns void.
+   * Usage: Call clearRoundTimer from the owning module or component when this behavior is required.
+   */
+private clearRoundTimer(code: string): void {
     const normalizedCode = code.trim().toUpperCase();
     const timer = this.roundTimers.get(normalizedCode);
     if (timer) {
@@ -355,14 +464,26 @@ export class QuizSessionManager extends EventEmitter {
   }
 
   // Emits a session snapshot update event for subscribers.
-  private emitUpdate(code: string): void {
+    /**
+   * Functionality: emitUpdate performs the emit update workflow used by main/quiz/quizSessionManager.ts.
+   * Parameters: code (string).
+   * Returns: Returns void.
+   * Usage: Call emitUpdate from the owning module or component when this behavior is required.
+   */
+private emitUpdate(code: string): void {
     const normalizedCode = code.trim().toUpperCase();
     const snapshot = this.getSnapshot(normalizedCode);
     this.emit("sessionUpdated", { code: normalizedCode, snapshot });
   }
 
   // Removes expired or finished sessions from memory.
-  private cleanupStaleSessions(): void {
+    /**
+   * Functionality: cleanupStaleSessions performs the cleanup stale sessions workflow used by main/quiz/quizSessionManager.ts.
+   * Parameters: None.
+   * Returns: Returns void.
+   * Usage: Call cleanupStaleSessions from the owning module or component when this behavior is required.
+   */
+private cleanupStaleSessions(): void {
     const cutoff = Date.now() - SESSION_TTL_MS;
     const toDelete: string[] = [];
     this.sessions.forEach((session, code) => {

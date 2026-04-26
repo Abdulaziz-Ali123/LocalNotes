@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/components/FileSystemTree.tsx
+ * Brief description: Defines a renderer component that implements part of the LocalNotes user interface.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Malek Kchaou; m518n748; Abdulaziz-Ali123; Wesley McDougal; Shaun
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import React, { useState, useEffect, useMemo, useImperativeHandle, forwardRef } from "react";
 import { File, Folder, Tree, type TreeViewElement } from "./ui/file-tree";
 import { Button } from "./ui/button";
@@ -91,7 +102,13 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
     }));
 
     // Search through file contents
-    const searchFileContents = async (dirPath: string, query: string): Promise<SearchResult[]> => {
+        /**
+     * Functionality: searchFileContents performs the search file contents workflow used by renderer/components/FileSystemTree.tsx.
+     * Parameters: dirPath (string); query (string).
+     * Returns: Returns Promise<SearchResult[]>.
+     * Usage: Call searchFileContents from the owning module or component when this behavior is required.
+     */
+const searchFileContents = async (dirPath: string, query: string): Promise<SearchResult[]> => {
       const results: SearchResult[] = [];
 
       try {
@@ -151,7 +168,13 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
     };
 
     // Trigger search
-        const handleSearch = async () => {
+                /**
+         * Functionality: handleSearch performs the handle search workflow used by renderer/components/FileSystemTree.tsx.
+         * Parameters: None.
+         * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+         * Usage: Call handleSearch from the owning module or component when this behavior is required.
+         */
+const handleSearch = async () => {
             if (!searchQuery.trim() || !rootPath) return;
 
             setIsSearching(true);
@@ -184,13 +207,25 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
         }
 
     // Clear search
-    const clearSearch = () => {
+        /**
+     * Functionality: clearSearch performs the clear search workflow used by renderer/components/FileSystemTree.tsx.
+     * Parameters: None.
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call clearSearch from the owning module or component when this behavior is required.
+     */
+const clearSearch = () => {
       setSearchQuery("");
       setSearchResults(new Set());
     };
 
     // Filter tree based on search results
-    const filterTreeByResults = (
+        /**
+     * Functionality: filterTreeByResults performs the filter tree by results workflow used by renderer/components/FileSystemTree.tsx.
+     * Parameters: elements (TreeViewElement[]); results (Set<string>).
+     * Returns: Returns TreeViewElement[].
+     * Usage: Call filterTreeByResults from the owning module or component when this behavior is required.
+     */
+const filterTreeByResults = (
       elements: TreeViewElement[],
       results: Set<string>
     ): TreeViewElement[] => {
@@ -226,7 +261,13 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
       return filterTreeByResults(treeElements, searchResults);
     }, [treeElements, searchResults]);
 
-    const openFolder = async () => {
+        /**
+     * Functionality: openFolder performs the open folder workflow used by renderer/components/FileSystemTree.tsx.
+     * Parameters: None.
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call openFolder from the owning module or component when this behavior is required.
+     */
+const openFolder = async () => {
       const result = await window.fs.openFolderDialog();
       if (result.success && result.data) {
         setRootPath(result.data);
@@ -278,7 +319,13 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
 
     // Listen for tag file updates so we can reload assignments immediately
     useEffect(() => {
-      const onTagsUpdated = () => {
+            /**
+       * Functionality: onTagsUpdated performs the on tags updated workflow used by renderer/components/FileSystemTree.tsx.
+       * Parameters: None.
+       * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+       * Usage: Call onTagsUpdated from the owning module or component when this behavior is required.
+       */
+const onTagsUpdated = () => {
         if (rootPath) loadTagAssignments(rootPath);
       };
       window.addEventListener("tags-updated", onTagsUpdated);
@@ -286,7 +333,13 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
     }, [rootPath]);
 
     // Load tag assignments from file and normalize keys to forward slashes
-    const loadTagAssignments = async (dirPath: string) => {
+        /**
+     * Functionality: loadTagAssignments performs the load tag assignments workflow used by renderer/components/FileSystemTree.tsx.
+     * Parameters: dirPath (string).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call loadTagAssignments from the owning module or component when this behavior is required.
+     */
+const loadTagAssignments = async (dirPath: string) => {
       try {
         const tagsFilePath = window.fs.join(dirPath, ".notepad-tags.json");
         const result = await window.fs.readFile(tagsFilePath);
@@ -312,7 +365,13 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
       }
     };
 
-    const loadDirectory = async (dirPath: string, parentId?: string) => {
+        /**
+     * Functionality: loadDirectory performs the load directory workflow used by renderer/components/FileSystemTree.tsx.
+     * Parameters: dirPath (string); parentId (string).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call loadDirectory from the owning module or component when this behavior is required.
+     */
+const loadDirectory = async (dirPath: string, parentId?: string) => {
       const result = await window.fs.readDirectory(dirPath);
       if (!result.success || !result.data) return;
 
@@ -331,7 +390,13 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
 
       if (parentId) {
         setTreeElements((prev) => {
-          const updateNode = (tree: TreeViewElement[]): TreeViewElement[] => {
+                    /**
+           * Functionality: updateNode performs the update node workflow used by renderer/components/FileSystemTree.tsx.
+           * Parameters: tree (TreeViewElement[]).
+           * Returns: Returns TreeViewElement[].
+           * Usage: Call updateNode from the owning module or component when this behavior is required.
+           */
+const updateNode = (tree: TreeViewElement[]): TreeViewElement[] => {
             return tree.map((node) => {
               if (node.id === parentId) {
                 const existingChildrenMap = new Map(node.children?.map((c) => [c.id, c]) || []);
@@ -364,7 +429,13 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
       }
     };
 
-    const updateTreeChildren = (
+        /**
+     * Functionality: updateTreeChildren performs the update tree children workflow used by renderer/components/FileSystemTree.tsx.
+     * Parameters: tree (TreeViewElement[]); targetId (string); newChildren (TreeViewElement[]).
+     * Returns: Returns TreeViewElement[].
+     * Usage: Call updateTreeChildren from the owning module or component when this behavior is required.
+     */
+const updateTreeChildren = (
       tree: TreeViewElement[],
       targetId: string,
       newChildren: TreeViewElement[]
@@ -383,14 +454,26 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
       });
     };
 
-    const handleFileSelect = (fileId: string) => {
+        /**
+     * Functionality: handleFileSelect performs the handle file select workflow used by renderer/components/FileSystemTree.tsx.
+     * Parameters: fileId (string).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleFileSelect from the owning module or component when this behavior is required.
+     */
+const handleFileSelect = (fileId: string) => {
       setSelectedId(fileId);
       if (onFileSelect) {
         onFileSelect(fileId);
       }
     };
 
-    const createNewFolder = async (parentPath: string) => {
+        /**
+     * Functionality: createNewFolder performs the create new folder workflow used by renderer/components/FileSystemTree.tsx.
+     * Parameters: parentPath (string).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call createNewFolder from the owning module or component when this behavior is required.
+     */
+const createNewFolder = async (parentPath: string) => {
       setInputDialog({
         isOpen: true,
         title: "Create New Folder",
@@ -419,7 +502,13 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
       });
     };
 
-    const createNewFile = async (parentPath: string) => {
+        /**
+     * Functionality: createNewFile performs the create new file workflow used by renderer/components/FileSystemTree.tsx.
+     * Parameters: parentPath (string).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call createNewFile from the owning module or component when this behavior is required.
+     */
+const createNewFile = async (parentPath: string) => {
         setInputDialog({
             isOpen: true,
             title: "Create New File",
@@ -489,12 +578,24 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
         });
     };
 
-    const openTagModal = (itemPath: string) => {
+        /**
+     * Functionality: openTagModal performs the open tag modal workflow used by renderer/components/FileSystemTree.tsx.
+     * Parameters: itemPath (string).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call openTagModal from the owning module or component when this behavior is required.
+     */
+const openTagModal = (itemPath: string) => {
       setSelectedItemForTags(itemPath);
       setTagModalOpen(true);
     };
 
-    const deleteItem = async (itemPath: string) => {
+        /**
+     * Functionality: deleteItem performs the delete item workflow used by renderer/components/FileSystemTree.tsx.
+     * Parameters: itemPath (string).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call deleteItem from the owning module or component when this behavior is required.
+     */
+const deleteItem = async (itemPath: string) => {
       const confirmed = confirm(`Are you sure you want to delete this item?`);
       if (confirmed) {
         const result = await window.fs.deleteItem(itemPath);
@@ -518,7 +619,13 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
       }
     };
 
-    const renameItem = async (oldPath: string) => {
+        /**
+     * Functionality: renameItem performs the rename item workflow used by renderer/components/FileSystemTree.tsx.
+     * Parameters: oldPath (string).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call renameItem from the owning module or component when this behavior is required.
+     */
+const renameItem = async (oldPath: string) => {
       const oldName = window.fs.basename(oldPath);
       const parentPath = window.fs.dirname(oldPath);
 
@@ -569,7 +676,13 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
       });
     };
 
-    const handleFolderClick = async (folderId: string, e?: React.MouseEvent) => {
+        /**
+     * Functionality: handleFolderClick performs the handle folder click workflow used by renderer/components/FileSystemTree.tsx.
+     * Parameters: folderId (string); e (React.MouseEvent).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleFolderClick from the owning module or component when this behavior is required.
+     */
+const handleFolderClick = async (folderId: string, e?: React.MouseEvent) => {
       setSelectedFolderPath(folderId);
 
       if (!loadedFolders.has(folderId)) {
@@ -577,18 +690,36 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
       }
     };
 
-    const handleDragStart = (e: React.DragEvent<HTMLDivElement>, sourcePath: string) => {
+        /**
+     * Functionality: handleDragStart performs the handle drag start workflow used by renderer/components/FileSystemTree.tsx.
+     * Parameters: e (React.DragEvent<HTMLDivElement>); sourcePath (string).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleDragStart from the owning module or component when this behavior is required.
+     */
+const handleDragStart = (e: React.DragEvent<HTMLDivElement>, sourcePath: string) => {
       e.stopPropagation();
       e.dataTransfer.setData("text/plain", sourcePath);
       console.log("Dragging:", sourcePath);
     };
 
-    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        /**
+     * Functionality: handleDragOver performs the handle drag over workflow used by renderer/components/FileSystemTree.tsx.
+     * Parameters: e (React.DragEvent<HTMLDivElement>).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleDragOver from the owning module or component when this behavior is required.
+     */
+const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.stopPropagation();
     };
 
-    const handleDrop = async (
+        /**
+     * Functionality: handleDrop performs the handle drop workflow used by renderer/components/FileSystemTree.tsx.
+     * Parameters: e (React.DragEvent<HTMLDivElement>); targetPath (string); isTargetFolder (boolean).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleDrop from the owning module or component when this behavior is required.
+     */
+const handleDrop = async (
       e: React.DragEvent<HTMLDivElement>,
       targetPath: string,
       isTargetFolder: boolean
@@ -656,7 +787,13 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
     // The FileSystemTree displays the full tree (treeElements) and does not
     // filter items here so the Files sidebar remains unchanged.
 
-    const renderTree = (elements: TreeViewElement[]): React.ReactNode => {
+        /**
+     * Functionality: renderTree performs the render tree workflow used by renderer/components/FileSystemTree.tsx.
+     * Parameters: elements (TreeViewElement[]).
+     * Returns: Returns React.ReactNode.
+     * Usage: Call renderTree from the owning module or component when this behavior is required.
+     */
+const renderTree = (elements: TreeViewElement[]): React.ReactNode => {
       return elements.map((element) => {
         const isFolder = element.children !== undefined;
         const isSelected = selectedFolderPath === element.id;
@@ -721,12 +858,24 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
     const visibleElements = treeElements;
 
     useEffect(() => {
-      const handleClick = () => setContextMenu(null);
+            /**
+       * Functionality: handleClick performs the handle click workflow used by renderer/components/FileSystemTree.tsx.
+       * Parameters: None.
+       * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+       * Usage: Call handleClick from the owning module or component when this behavior is required.
+       */
+const handleClick = () => setContextMenu(null);
       document.addEventListener("click", handleClick);
       return () => document.removeEventListener("click", handleClick);
     }, []);
 
-    const createNewFolderPrompt = async () => {
+        /**
+     * Functionality: createNewFolderPrompt performs the create new folder prompt workflow used by renderer/components/FileSystemTree.tsx.
+     * Parameters: None.
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call createNewFolderPrompt from the owning module or component when this behavior is required.
+     */
+const createNewFolderPrompt = async () => {
       setInputDialog({
         isOpen: true,
         title: "Create New Folder",

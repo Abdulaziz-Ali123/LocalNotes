@@ -1,6 +1,7 @@
 /**
  * File: renderer/pages/quiz/host.tsx
  * Author: Atharva Patil
+ * Git-history contributors: a157p624
  * Sprint: 5
  * Purpose: Host control console for creating and running LAN quiz sessions.
  * Notes: Consumes `window.quiz` IPC bridge and reacts to live session update events.
@@ -52,6 +53,12 @@ const DEFAULT_QUESTIONS = JSON.stringify(
 );
 
 // Host page for creating and controlling a live quiz session.
+/**
+ * Functionality: QuizHostPage performs the quiz host page workflow used by renderer/pages/quiz/host.tsx.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call QuizHostPage from the owning module or component when this behavior is required.
+ */
 export default function QuizHostPage() {
   const router = useRouter();
   const [hostName, setHostName] = useState("Host");
@@ -83,7 +90,13 @@ export default function QuizHostPage() {
       return;
     }
 
-    const tick = () => {
+        /**
+     * Functionality: tick performs the tick workflow used by renderer/pages/quiz/host.tsx.
+     * Parameters: None.
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call tick from the owning module or component when this behavior is required.
+     */
+const tick = () => {
       const remaining = Math.max(0, Math.ceil((snapshot.currentQuestionEndsAt! - Date.now()) / 1000));
       setSecondsLeft(remaining);
     };
@@ -94,7 +107,13 @@ export default function QuizHostPage() {
   }, [snapshot?.currentQuestionEndsAt]);
 
   // Creates a new quiz session from host form values.
-  const createSession = async () => {
+    /**
+   * Functionality: createSession performs the create session workflow used by renderer/pages/quiz/host.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call createSession from the owning module or component when this behavior is required.
+   */
+const createSession = async () => {
     try {
       setError("");
       const questions = JSON.parse(questionsJson);
@@ -114,21 +133,39 @@ export default function QuizHostPage() {
   };
 
   // Starts the current session and moves to the first question.
-  const startQuiz = async () => {
+    /**
+   * Functionality: startQuiz performs the start quiz workflow used by renderer/pages/quiz/host.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call startQuiz from the owning module or component when this behavior is required.
+   */
+const startQuiz = async () => {
     if (!code) return;
     const result = await window.quiz.startQuiz(code);
     if (!result.success) setError(result.error || "Unable to start quiz.");
   };
 
   // Moves from round results to the next question.
-  const nextQuestion = async () => {
+    /**
+   * Functionality: nextQuestion performs the next question workflow used by renderer/pages/quiz/host.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call nextQuestion from the owning module or component when this behavior is required.
+   */
+const nextQuestion = async () => {
     if (!code) return;
     const result = await window.quiz.nextQuestion(code);
     if (!result.success) setError(result.error || "Unable to advance question.");
   };
 
   // Ends the quiz and shows the final leaderboard.
-  const endQuiz = async () => {
+    /**
+   * Functionality: endQuiz performs the end quiz workflow used by renderer/pages/quiz/host.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call endQuiz from the owning module or component when this behavior is required.
+   */
+const endQuiz = async () => {
     if (!code) return;
     const result = await window.quiz.endQuiz(code);
     if (!result.success) setError(result.error || "Unable to end quiz.");

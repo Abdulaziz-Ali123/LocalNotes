@@ -1,6 +1,7 @@
 /**
  * File: main/quiz/ipc-handlers.ts
  * Author: Atharva Patil
+ * Git-history contributors: a157p624
  * Sprint: 5
  * Purpose: Registers Electron IPC handlers for host quiz controls and snapshot events.
  * Notes: Validates/sanitizes question payloads before session creation.
@@ -13,6 +14,12 @@ import { QuizWebSocketServer } from "./quizWebSocketServer";
 import { QuizQuestion } from "./types";
 
 // Sanitizes raw question input into valid quiz question objects.
+/**
+ * Functionality: sanitizeQuestions performs the sanitize questions workflow used by main/quiz/ipc-handlers.ts.
+ * Parameters: input (any).
+ * Returns: Returns QuizQuestion[].
+ * Usage: Call sanitizeQuestions from the owning module or component when this behavior is required.
+ */
 function sanitizeQuestions(input: any): QuizQuestion[] {
   if (!Array.isArray(input)) return [];
 
@@ -29,6 +36,12 @@ function sanitizeQuestions(input: any): QuizQuestion[] {
 }
 
 // Registers all quiz-related IPC handlers for host controls and session updates.
+/**
+ * Functionality: registerQuizIpc performs the register quiz ipc workflow used by main/quiz/ipc-handlers.ts.
+ * Parameters: manager (QuizSessionManager); wsServer (QuizWebSocketServer); getMainWindow (() => BrowserWindow | null).
+ * Returns: Returns void.
+ * Usage: Call registerQuizIpc from the owning module or component when this behavior is required.
+ */
 export function registerQuizIpc(
   manager: QuizSessionManager,
   wsServer: QuizWebSocketServer,

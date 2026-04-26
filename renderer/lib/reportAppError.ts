@@ -6,6 +6,7 @@
  * - Normalizes unknown thrown values into a safe structured payload.
  * - Prevents repeated error-reporting boilerplate across renderer features.
  * Author: Malek Kchaou
+ * Git-history contributors: Malek Kchaou
  * Date: 2026-03-28
  */
 
@@ -48,6 +49,12 @@ function normalizeRendererError(error: unknown): {
  *
  * This helper intentionally fails safely. If error reporting itself breaks,
  * it falls back to console.error rather than throwing a second error.
+ */
+/**
+ * Functionality: reportAppError performs the report app error workflow used by renderer/lib/reportAppError.ts.
+ * Parameters: { error, context, details, } (ReportAppErrorOptions).
+ * Returns: Returns Promise<void>.
+ * Usage: Call reportAppError from the owning module or component when this behavior is required.
  */
 export async function reportAppError({
     error,

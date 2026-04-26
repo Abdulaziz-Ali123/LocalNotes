@@ -5,6 +5,7 @@
  * - Adds a single IPC route for centralized renderer-to-main error logging.
  * - Keeps error log persistence owned by the main process.
  * Author: Malek Kchaou
+ * Git-history contributors: Malek Kchaou
  * Date Created: 2026-03-28
  * Last Updated: 2026-03-28
  */

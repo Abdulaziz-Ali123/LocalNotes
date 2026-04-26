@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/components/hooks/keyboardshortcuts.tsx
+ * Brief description: Defines a renderer component that implements part of the LocalNotes user interface.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Wesley McDougal
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import { useEffect } from 'react';
 
 interface KeyboardShortcutsConfig {
@@ -16,6 +27,12 @@ interface KeyboardShortcutsConfig {
  * Custom hook to handle keyboard shortcuts
  * Usage: useKeyboardShortcuts({ onSave: handleSave, onTogglePreview: () => setPreviewMode(prev => !prev) })
  */
+/**
+ * Functionality: useKeyboardShortcuts performs the use keyboard shortcuts workflow used by renderer/components/hooks/keyboardshortcuts.tsx.
+ * Parameters: { onSave, onTogglePreview, onToggleLivePreview, onToggleSidebar, onNewFile, onNewFolder, onSearch, onOpenFolder, enabled = true, } (KeyboardShortcutsConfig).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call useKeyboardShortcuts from the owning module or component when this behavior is required.
+ */
 export const useKeyboardShortcuts = ({
   onSave,
   onTogglePreview,
@@ -30,7 +47,13 @@ export const useKeyboardShortcuts = ({
   useEffect(() => {
     if (!enabled) return;
 
-    const handleKeyDown = (e: KeyboardEvent) => {
+        /**
+     * Functionality: handleKeyDown performs the handle key down workflow used by renderer/components/hooks/keyboardshortcuts.tsx.
+     * Parameters: e (KeyboardEvent).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleKeyDown from the owning module or component when this behavior is required.
+     */
+const handleKeyDown = (e: KeyboardEvent) => {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modKey = isMac ? e.metaKey : e.ctrlKey;
 

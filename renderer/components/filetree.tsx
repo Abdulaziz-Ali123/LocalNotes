@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/components/filetree.tsx
+ * Brief description: Defines a renderer component that implements part of the LocalNotes user interface.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Wesley McDougal; Malek Kchaou; Shaun; Abdulaziz-Ali123
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import { Tree, Folder, File } from "./ui/file-tree";
 
 export const ELEMENTS = [
@@ -56,6 +67,12 @@ export const ELEMENTS = [
   },
 ];
 
+/**
+ * Functionality: FileTree performs the file tree workflow used by renderer/components/filetree.tsx.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call FileTree from the owning module or component when this behavior is required.
+ */
 export function FileTree() {
   return (
     <Tree
