@@ -30,6 +30,7 @@ export const DEFAULT_SIDEBAR_ICON_ORDER = [
   "ai",
   "theme",
   "tags",
+  "trash",
   "share",
   "settings",
   "history",
@@ -123,6 +124,10 @@ export const DEFAULT_AI = {
   customModels: [],
 };
 
+export const DEFAULT_TRASH = {
+  autoPurgeDays: 30,
+};
+
 // ---------------------------------------------------------------------------
 // Composite defaults
 // ---------------------------------------------------------------------------
@@ -130,6 +135,7 @@ export const DEFAULT_AI = {
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   appearance: { ...DEFAULT_APPEARANCE },
   editor: { ...DEFAULT_EDITOR },
+  trash: { ...DEFAULT_TRASH },
   keybindings: { ...DEFAULT_KEYBINDINGS },
   llm: {
     defaultModelId: DEFAULT_LLM.defaultModelId,
@@ -163,4 +169,4 @@ export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
  * The current schema version. Bump this whenever the schema shape changes
  * and add a corresponding migration in migrations.ts.
  */
-export const LATEST_SCHEMA_VERSION = 5;
+export const LATEST_SCHEMA_VERSION = 6;

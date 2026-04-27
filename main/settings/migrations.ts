@@ -14,7 +14,7 @@
  *   3. Update the TypeScript interfaces in schema.ts if the shape changed
  */
 
-import { LATEST_SCHEMA_VERSION } from "./defaults";
+import { DEFAULT_TRASH, LATEST_SCHEMA_VERSION } from "./defaults";
 
 type MigrationFn = (settings: Record<string, any>) => Record<string, any>;
 
@@ -34,6 +34,16 @@ type MigrationFn = (settings: Record<string, any>) => Record<string, any>;
  *   };
  */
 const migrations: Record<number, MigrationFn> = {
+  6: (settings) => {
+    const next = { ...settings };
+    next.trash = {
+      autoPurgeDays:
+        typeof settings?.trash?.autoPurgeDays === "number"
+          ? settings.trash.autoPurgeDays
+          : DEFAULT_TRASH.autoPurgeDays,
+    };
+    return next;
+  },
   // No migrations needed yet — we're starting at version 1.
   // Future example:
   // 2: (settings) => {

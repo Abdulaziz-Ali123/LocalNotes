@@ -155,6 +155,10 @@ export interface AiSettings {
   customModels: CustomModel[];
 }
 
+export interface TrashSettings {
+  autoPurgeDays: number;
+}
+
 // ---------------------------------------------------------------------------
 // Combined settings objects
 // ---------------------------------------------------------------------------
@@ -163,6 +167,7 @@ export interface AiSettings {
 export interface GlobalSettings {
   appearance: AppearanceSettings;
   editor: EditorSettings;
+  trash: TrashSettings;
   keybindings: KeybindingMap;
   llm: LLMSettings;
   ai: AiSettings;

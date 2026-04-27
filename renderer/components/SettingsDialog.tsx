@@ -30,6 +30,8 @@ import {
   type SidebarPosition,
 } from "@/renderer/store/settings-slice";
 
+const MAX_AUTO_PURGE_DAYS = 3650;
+
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
@@ -312,6 +314,7 @@ function EditorTab() {
 
   const { autosaveEnabled, autosaveIntervalMs, wordWrap, showLineNumbers } =
     globalSettings.editor;
+  const autoPurgeDays = Number(globalSettings.trash?.autoPurgeDays ?? 30);
 
   return (
     <div className="space-y-6">
@@ -378,6 +381,28 @@ function EditorTab() {
             }
           />
           <Label className="text-sm">Show</Label>
+        </div>
+      </SettingRow>
+
+      <SettingRow
+        label="Trash Auto-Purge"
+        description="Automatically permanently delete trashed items older than this many days (0 disables auto-purge)"
+      >
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={0}
+            max={MAX_AUTO_PURGE_DAYS}
+            value={autoPurgeDays}
+            onChange={(e) =>
+              setGlobal(
+                "trash.autoPurgeDays",
+                Math.max(0, Math.min(MAX_AUTO_PURGE_DAYS, Number(e.target.value) || 0))
+              )
+            }
+            className="w-24 p-2 rounded-md bg-secondary text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+          />
+          <span className="text-sm text-muted-foreground">days</span>
         </div>
       </SettingRow>
     </div>

@@ -51,6 +51,7 @@ import { useTheme } from "@/renderer/lib/theme";
 import { CiFileOn, CiSearch, CiExport, CiShare2, CiSettings } from "react-icons/ci";
 import {
   RiRobot2Line,
+  RiDeleteBinLine,
   RiFileHistoryLine,
   RiPaletteLine,
   RiFolderAddLine,
@@ -61,6 +62,7 @@ import {
 } from "react-icons/ri";
 import { Tag } from "lucide-react";
 import EditorSpace from "@/renderer/pages/editorSpace";
+import TrashPanel from "@/renderer/components/TrashPanel";
 import TabBar from "../components/TabBar";
 import AIChatPanel from "@/renderer/components/AIChatPanel";
 import { Popover, PopoverContent, PopoverTrigger } from "@/renderer/components/ui/popover";
@@ -98,7 +100,7 @@ import type {
 // Autosave interval in milliseconds -> 10 seconds
 const AUTOSAVE_INTERVAL = 10000;
 
-type SidebarPanel = "file" | "search" | "theme" | "tags";
+type SidebarPanel = "file" | "search" | "theme" | "tags" | "trash";
 
 interface FileSystemItem {
   name: string;
@@ -113,6 +115,7 @@ type SidebarIconId =
   | "ai"
   | "theme"
   | "tags"
+  | "trash"
   | "share"
   | "settings"
   | "history";
@@ -124,6 +127,7 @@ const DEFAULT_SIDEBAR_ICON_ORDER: SidebarIconId[] = [
   "ai",
   "theme",
   "tags",
+  "trash",
   "share",
   "settings",
   "history",
@@ -442,7 +446,7 @@ export default function Editor() {
     }
 
     let cancelled = false;
-    const skippedDirectories = new Set([".git", ".localnotes", "node_modules"]);
+    const skippedDirectories = new Set([".git", ".localnotes", ".Local Notes", "node_modules"]);
     const maxFiles = 500;
 
     const relativePathFor = (filePath: string) => {
@@ -1328,6 +1332,19 @@ export default function Editor() {
           </button>
         );
 
+      case "trash":
+        return (
+          <button
+            type="button"
+            onMouseDown={handleSidebarIconMouseDown}
+            onClick={() => handleSidebarButtonClick("trash")}
+            className="app-nodrag-region size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
+            title="Trash"
+          >
+            <RiDeleteBinLine className="w-12 h-12" />
+          </button>
+        );
+
       case "share":
         return (
           <Popover>
@@ -1457,6 +1474,9 @@ export default function Editor() {
                                 rootPath={rootPath}
                                 onFiltersChange={setSelectedTagFilters}
                               />
+                            )}
+                            {activeSidebarPanel === "trash" && (
+                              <TrashPanel rootPath={rootPath} onFileSelect={handleFileSelect} />
                             )}
                           </>
                         )}
@@ -1597,6 +1617,9 @@ export default function Editor() {
                                 rootPath={rootPath}
                                 onFiltersChange={setSelectedTagFilters}
                               />
+                            )}
+                            {activeSidebarPanel === "trash" && (
+                              <TrashPanel rootPath={rootPath} onFileSelect={handleFileSelect} />
                             )}
                           </>
                         )}
