@@ -315,6 +315,7 @@ export default function AIChatPanel({ onOpenAiSettings }: AIChatPanelProps = {})
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+  const activeRequestIdRef = useRef<string | null>(null);
   const activeConvo = conversations.find((c) => c.id === activeConvoId)!;
 
   // Derive capabilities for the active model
@@ -436,34 +437,66 @@ Use the above context to answer the user accurately. If the context does not ans
       ];
 
       // 4. Contact LLM via IPC handler (API key stays in main process)
-      const chatResult = await (window as any).llm.chat(activeConvo.model, messagesData, thinkingEnabled);
+      let fullRawResponse = "";
+      let fullThinkingResponse = "";
+      const requestId = Math.random().toString(36).substring(7);
+      activeRequestIdRef.current = requestId;
+
+      const chatResult = await (window as any).llm.chatStream(
+        activeConvo.model,
+        messagesData,
+        thinkingEnabled,
+        (data: { content: string; reasoning: string }) => {
+          if (activeRequestIdRef.current !== requestId) return;
+          
+          fullRawResponse += data.content;
+          
+          // 1. Accumulate explicit reasoning if provided (DeepSeek/O1 style)
+          if (data.reasoning) {
+            fullThinkingResponse += data.reasoning;
+          }
+
+          // 2. Fallback: Parse <think> tags from the content (Ollama/R1 style)
+          let currentContent = fullRawResponse;
+          let currentThinking = fullThinkingResponse;
+
+          const thinkStartIdx = currentContent.indexOf("<think>");
+          if (thinkStartIdx !== -1) {
+            const thinkEndIdx = currentContent.indexOf("</think>");
+            if (thinkEndIdx !== -1) {
+              // Extract thinking from tags and append to currentThinking
+              const taggedThinking = currentContent.substring(thinkStartIdx + 7, thinkEndIdx).trim();
+              currentThinking = (currentThinking ? currentThinking + "\n" : "") + taggedThinking;
+              currentContent = currentContent.substring(0, thinkStartIdx) + currentContent.substring(thinkEndIdx + 8);
+            } else {
+              // Still thinking inside tags
+              const taggedThinking = currentContent.substring(thinkStartIdx + 7).trim();
+              currentThinking = (currentThinking ? currentThinking + "\n" : "") + taggedThinking;
+              currentContent = currentContent.substring(0, thinkStartIdx);
+            }
+          }
+
+          updateConversation(convoId, (c) => ({
+            ...c,
+            messages: c.messages.map((m) =>
+              m.id === assistantId ? { ...m, content: currentContent, thinking: currentThinking || undefined } : m
+            ),
+          }));
+        },
+        requestId
+      );
+
+      if (activeRequestIdRef.current !== requestId) return;
+      activeRequestIdRef.current = null;
 
       if (!chatResult.success) {
         throw new Error(chatResult.error || "Unknown LLM error");
       }
 
-      let rawResponse = chatResult.content;
-
-      // Extract thinking blocks if present
-      let contentStr = rawResponse;
-      let thinkStr = "";
-
-      const thinkStartIdx = contentStr.indexOf("<think>");
-      if (thinkStartIdx !== -1) {
-         const thinkEndIdx = contentStr.indexOf("</think>");
-         if (thinkEndIdx !== -1) {
-             thinkStr = contentStr.substring(thinkStartIdx + 7, thinkEndIdx).trim();
-             contentStr = contentStr.substring(0, thinkStartIdx) + contentStr.substring(thinkEndIdx + 8);
-         } else {
-             thinkStr = contentStr.substring(thinkStartIdx + 7).trim();
-             contentStr = contentStr.substring(0, thinkStartIdx);
-         }
-      }
-
       updateConversation(convoId, (c) => ({
         ...c,
         messages: c.messages.map((m) =>
-          m.id === assistantId ? { ...m, content: contentStr, thinking: thinkStr || undefined, isStreaming: false } : m
+          m.id === assistantId ? { ...m, isStreaming: false } : m
         ),
       }));
       setIsGenerating(false);
@@ -607,13 +640,11 @@ const handleKeyDown = (e: React.KeyboardEvent) => {
     }
   };
 
-    /**
-   * Functionality: handleStop performs the handle stop workflow used by renderer/components/AIChatPanel.tsx.
-   * Parameters: None.
-   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
-   * Usage: Call handleStop from the owning module or component when this behavior is required.
-   */
-const handleStop = () => {
+  const handleStop = () => {
+    if (activeRequestIdRef.current) {
+      (window as any).llm.abort(activeRequestIdRef.current);
+      activeRequestIdRef.current = null;
+    }
     setIsGenerating(false);
     updateConversation(activeConvoId, (c) => ({
       ...c,

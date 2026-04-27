@@ -125,6 +125,17 @@ export function registerSettingsIpc(
     }
   });
 
+  // Track active streaming controllers for abortion
+  const activeControllers = new Map<string, AbortController>();
+
+  ipcMain.on("llm:abort", (_event, { requestId }) => {
+    const controller = activeControllers.get(requestId);
+    if (controller) {
+      controller.abort();
+      activeControllers.delete(requestId);
+    }
+  });
+
   // -----------------------------------------------------------------------
   // Project settings
   // -----------------------------------------------------------------------
@@ -186,6 +197,7 @@ export function registerSettingsIpc(
     "llm:chat",
     async (
       _event,
+      requestId: string,
       modelId: string,
       messages: Array<{ role: string; content: string }>,
       thinkingEnabled?: boolean
@@ -243,8 +255,12 @@ export function registerSettingsIpc(
           `[LLM] Sending request to: ${endpoint} (Model: ${modelString}, Provider: ${currentModel.provider || "unknown"})`
         );
 
+        const controller = new AbortController();
+        activeControllers.set(requestId, controller);
+
         const response = await fetch(endpoint, {
           method: "POST",
+          signal: controller.signal,
           headers: {
             "Content-Type": "application/json",
             ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
@@ -257,6 +273,7 @@ export function registerSettingsIpc(
         });
 
         if (!response.ok) {
+          activeControllers.delete(requestId);
           const errorBody = await response.text();
           throw new Error(
             `LLM Error: ${response.statusText} (${response.status}). Details: ${errorBody.slice(0, 100)}...`
@@ -271,6 +288,7 @@ export function registerSettingsIpc(
         let rawBody = "";
 
         if (!reader) {
+          activeControllers.delete(requestId);
           throw new Error("No response stream available");
         }
 
@@ -295,8 +313,23 @@ export function registerSettingsIpc(
                 if (payload === "[DONE]") continue;
 
                 const data = JSON.parse(payload);
-                const delta = data.choices?.[0]?.delta?.content || "";
-                fullContent += delta;
+                const delta = data.choices?.[0]?.delta || {};
+
+                // Handle both standard content and reasoning_content (for DeepSeek/O1 style thinking)
+                const content = delta.content || "";
+                const reasoning = delta.reasoning_content || "";
+
+                const win = getMainWindow();
+                if (win && !win.isDestroyed()) {
+                  if (reasoning) {
+                    win.webContents.send(`llm:chunk:${requestId}`, { reasoning });
+                  }
+                  if (content) {
+                    win.webContents.send(`llm:chunk:${requestId}`, { chunk: content });
+                  }
+                }
+
+                fullContent += content;
               } catch (err) {
                 // Ignore malformed SSE JSON chunks
               }
@@ -330,13 +363,47 @@ export function registerSettingsIpc(
         console.log("[LLM] Response length:", fullContent.length);
         console.log("[LLM] Response preview:", fullContent.slice(0, 500));
 
+        // If SSE parsing yielded nothing, the provider may have returned
+        // a plain (non-streaming) JSON response — try to extract content.
+        if (!fullContent && rawBody.trim()) {
+          try {
+            const plain = JSON.parse(rawBody.trim());
+            fullContent =
+              plain.choices?.[0]?.message?.content ||
+              plain.choices?.[0]?.delta?.content ||
+              plain.content ||
+              plain.response ||
+              "";
+          } catch {
+            // rawBody might not be valid JSON either — just use it as-is
+            console.warn("[LLM] Could not parse raw response as JSON, using raw text.");
+            fullContent = rawBody.trim();
+          }
+        }
+
+        if (!fullContent) {
+          console.error("[LLM] Empty response. Raw body:", rawBody.slice(0, 500));
+          throw new Error("LLM returned an empty response. Check your model configuration.");
+        }
+
+        console.log("[LLM] Response length:", fullContent.length);
+        console.log("[LLM] Response preview:", fullContent.slice(0, 500));
+
+        activeControllers.delete(requestId);
         return { success: true, content: fullContent };
       } catch (error: any) {
-        console.error("[LLM] Error:", error);
-        return {
-          success: false,
-          error: error?.message || "Unknown error contacting LLM",
-        };
+        if (error.name === "AbortError") {
+          console.log(`[LLM] Request aborted for requestId: ${requestId}`);
+          return { success: false, error: "Request aborted" };
+        } else {
+          console.error("[LLM] Error:", error);
+          return {
+            success: false,
+            error: error?.message || "Unknown error contacting LLM",
+          };
+        }
+      } finally {
+        activeControllers.delete(requestId);
       }
     }
   );

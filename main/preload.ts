@@ -360,8 +360,42 @@ const llmHandler = {
     modelId: string,
     messages: Array<{ role: string; content: string }>,
     thinkingEnabled?: boolean
-  ) =>
-    ipcRenderer.invoke("llm:chat", modelId, messages, thinkingEnabled),
+  ) => {
+    const requestId = Math.random().toString(36).substring(7);
+    return ipcRenderer.invoke("llm:chat", requestId, modelId, messages, thinkingEnabled);
+  },
+
+  /**
+   * Send a streaming chat completion request via the main-process IPC handler.
+   */
+  chatStream: (
+    modelId: string,
+    messages: Array<{ role: string; content: string }>,
+    thinkingEnabled: boolean,
+    onChunk: (chunk: { content: string; reasoning: string }) => void,
+    requestId: string
+  ) => {
+    const chunkListener = (_event: IpcRendererEvent, payload: any) => {
+      onChunk({ 
+        content: payload.chunk || "", 
+        reasoning: payload.reasoning || "" 
+      });
+    };
+
+    const channel = `llm:chunk:${requestId}`;
+    ipcRenderer.on(channel, chunkListener);
+
+    return ipcRenderer.invoke("llm:chat", requestId, modelId, messages, thinkingEnabled)
+      .finally(() => {
+        ipcRenderer.removeListener(channel, chunkListener);
+      });
+  },
+
+  /**
+   * Abort an ongoing streaming request.
+   * @param requestId  The random ID generated during chatStream.
+   */
+  abort: (requestId: string) => ipcRenderer.send("llm:abort", { requestId }),
 };
 
 contextBridge.exposeInMainWorld("llm", llmHandler);
