@@ -96,7 +96,7 @@ function ModelSelector({
   const current = customModels.find((m) => m.id === selectedModel);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} data-tutorial="ai-model-selector" className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
         disabled={customModels.length === 0}
@@ -705,13 +705,14 @@ Use the above context to answer the user accurately. If the context does not ans
       )}
 
       {/* ── Header ── */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border bg-secondary">
+      <div data-tutorial="ai-header" className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border bg-secondary">
         <div className="flex items-center gap-3">
           <ModelSelector selectedModel={activeConvo.model} onSelect={handleModelSelect} />
 
           {/* Thinking Toggle — only shown if model supports it */}
           {caps.thinking && (
             <button
+              data-tutorial="ai-thinking"
               onClick={() => setThinkingEnabled((t) => !t)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
                 thinkingEnabled
@@ -732,6 +733,7 @@ Use the above context to answer the user accurately. If the context does not ans
 
         {/* New Chat */}
         <button
+          data-tutorial="ai-new-chat"
           onClick={handleNewChat}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background border border-border text-sm font-medium hover:bg-muted transition-colors"
           title="New Chat"
@@ -768,7 +770,7 @@ Use the above context to answer the user accurately. If the context does not ans
       )}
 
       {/* ── Messages ── */}
-      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 py-4">
+      <div ref={scrollRef} data-tutorial="ai-messages" className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 py-4">
         {aiSettings?.customModels?.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center text-destructive">
@@ -871,7 +873,7 @@ Use the above context to answer the user accurately. If the context does not ans
           </div>
         </div>
       )}
-      <div className="flex-shrink-0 px-4 pb-3 pt-2">
+      <div data-tutorial="ai-input" className="flex-shrink-0 px-4 pb-3 pt-2">
         <div className="flex items-end gap-2 bg-background border border-border rounded-2xl px-3 py-2 focus-within:ring-1 focus-within:ring-accent/40 transition-shadow">
           {/* File Upload — only shown if model supports it */}
           {caps.fileUpload && (

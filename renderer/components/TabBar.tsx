@@ -15,7 +15,7 @@ export default function TabBar() {
 
   return (
     <React.Fragment>
-      <div className="flex flex-row  bg-background h-10 gap-10 app-drag-region w-full">
+      <div data-tutorial="tab-bar" className="flex flex-row  bg-background h-10 gap-10 app-drag-region w-full">
         <div></div>
         <div className=" flex flex-flex-row justify-between mt-2 pb-0 w-5/6 rounded-t-md app-nodrag-region">
           <Reorder.Group

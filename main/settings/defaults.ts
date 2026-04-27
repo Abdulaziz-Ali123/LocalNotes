@@ -8,6 +8,7 @@
  * Revision History:
  *  • Wesley McDougal - 29MAR2026 - Default customThemes object and schema version bump to number 2
  *  • Wesley McDougal - 05APR2026 - Added sidebar layout defaults and updated schema version for sidebar layout persistence
+ *  • Wesley McDougal - 19APR2026 - Added statusBar defaults to DEFAULT_EDITOR; bumped LATEST_SCHEMA_VERSION to 6
  */
 
 import {
@@ -163,4 +164,4 @@ export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
  * The current schema version. Bump this whenever the schema shape changes
  * and add a corresponding migration in migrations.ts.
  */
-export const LATEST_SCHEMA_VERSION = 5;
+export const LATEST_SCHEMA_VERSION = 6;

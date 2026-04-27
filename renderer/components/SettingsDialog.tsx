@@ -38,7 +38,9 @@ interface SettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
   /** Which tab to show when the dialog opens (defaults to "appearance"). */
-  defaultTab?: "appearance" | "editor" | "keybindings" | "ai" | "sidebar";
+  defaultTab?: "appearance" | "editor" | "keybindings" | "ai" | "sidebar" | "help";
+  /** Called when the user clicks the Replay Tutorial button in the Help tab. */
+  onStartTutorial: () => void;
   sidebarLayout: SidebarLayoutSettings;
   layoutScope: SidebarLayoutScope;
   isProjectScopeAvailable: boolean;
@@ -61,20 +63,35 @@ export default function SettingsDialog({
   onSidebarPositionChange,
   onSidebarScopeChange,
   onResetSidebarLayout,
+  onStartTutorial,
 }: SettingsDialogProps) {
+  // Hooks must run before any early return (Rules of Hooks)
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: MouseEvent) => {
+      // Node.contains() is a pure DOM check — reliable regardless of what
+      // Radix UI or any other library does with synthetic events internally.
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    // Use mousedown (not click) so we intercept before Radix processes the event.
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div
-        className="bg-background border border-border rounded-lg shadow-lg w-[680px] max-h-[80vh] flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
+        ref={modalRef}
+        className="bg-background border border-border rounded-lg shadow-lg w-[680px] h-[500px] flex flex-col overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
           <h2 className="text-lg font-semibold">Settings</h2>
           <button
             onClick={onClose}
@@ -85,16 +102,17 @@ export default function SettingsDialog({
         </div>
 
         {/* Tabs */}
-        <Tabs.Root defaultValue={defaultTab} className="flex-1 flex flex-col overflow-hidden">
-          <Tabs.List className="flex border-b border-border px-6 gap-1">
+        <Tabs.Root defaultValue={defaultTab} className="flex-1 flex flex-col min-h-0">
+          <Tabs.List className="flex border-b border-border px-6 gap-1 flex-shrink-0">
             <TabTrigger value="appearance">Appearance</TabTrigger>
             <TabTrigger value="sidebar">Sidebar</TabTrigger>
             <TabTrigger value="editor">Editor</TabTrigger>
             <TabTrigger value="keybindings">Keybindings</TabTrigger>
             <TabTrigger value="ai">AI</TabTrigger>
+            <TabTrigger value="help">Help</TabTrigger>
           </Tabs.List>
 
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 min-h-0 overflow-y-auto p-6">
             <Tabs.Content value="appearance" className="outline-none">
               <AppearanceTab />
             </Tabs.Content>
@@ -116,6 +134,9 @@ export default function SettingsDialog({
             </Tabs.Content>
             <Tabs.Content value="ai" className="outline-none">
               <AiTab />
+            </Tabs.Content>
+            <Tabs.Content value="help" className="outline-none">
+              <HelpTab onStartTutorial={onStartTutorial} />
             </Tabs.Content>
           </div>
         </Tabs.Root>
@@ -782,6 +803,25 @@ function AiTab() {
         onClose={() => setIsAddModelsOpen(false)}
         defaultProvider="OpenAI"
       />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Help tab
+// ---------------------------------------------------------------------------
+
+function HelpTab({ onStartTutorial }: { onStartTutorial: () => void }) {
+  return (
+    <div className="space-y-6">
+      <SettingRow
+        label="App Tour"
+        description="Replay the guided first-time tutorial that highlights the main features of LocalNotes."
+      >
+        <Button variant="outline" size="sm" onClick={onStartTutorial}>
+          Replay Tutorial
+        </Button>
+      </SettingRow>
     </div>
   );
 }
