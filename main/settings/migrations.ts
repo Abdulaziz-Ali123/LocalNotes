@@ -12,6 +12,9 @@
  *   1. Bump LATEST_SCHEMA_VERSION in defaults.ts
  *   2. Add a new entry here with the target version as key
  *   3. Update the TypeScript interfaces in schema.ts if the shape changed
+ *
+ * Revision History:
+ *  • Wesley McDougal - 19APR2026 - Added v6 migration to backfill editor.statusBar visibility defaults
  */
 
 import { DEFAULT_TRASH, LATEST_SCHEMA_VERSION } from "./defaults";
@@ -34,7 +37,25 @@ type MigrationFn = (settings: Record<string, any>) => Record<string, any>;
  *   };
  */
 const migrations: Record<number, MigrationFn> = {
-  6: (settings) => {
+  // No migrations needed yet — we're starting at version 1.
+  // Future example:
+  // 2: (settings) => {
+  //   settings.editor.spellcheck = settings.editor?.spellcheck ?? false;
+  //   return settings;
+  // },
+
+   6: (settings) => {
+    // v5 -> v6: Added statusBar visibility settings to editor
+    settings.editor = settings.editor ?? {};
+    settings.editor.statusBar = settings.editor.statusBar ?? {
+      showWordCount: true,
+      showCharCount: true,
+      showSentenceCount: true,
+      showReadingTime: true,
+    };
+    return settings;
+  },
+  7: (settings) => {
     const next = { ...settings };
     next.trash = {
       autoPurgeDays:
@@ -44,12 +65,6 @@ const migrations: Record<number, MigrationFn> = {
     };
     return next;
   },
-  // No migrations needed yet — we're starting at version 1.
-  // Future example:
-  // 2: (settings) => {
-  //   settings.editor.spellcheck = settings.editor?.spellcheck ?? false;
-  //   return settings;
-  // },
 };
 
 /**

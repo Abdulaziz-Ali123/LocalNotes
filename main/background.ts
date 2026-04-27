@@ -535,9 +535,6 @@ ipcMain.handle("fs:readFile", async (event, filePath: string) => {
 
         // Read as binary (base64) for images
         if (imageExtensions.includes(ext)) {
-            const buffer = await fs.readFile(filePath);
-            const base64 = buffer.toString('base64');
-
             // Map extensions to proper MIME types
             const mimeTypes: { [key: string]: string } = {
                 '.png': 'image/png',
@@ -549,12 +546,32 @@ ipcMain.handle("fs:readFile", async (event, filePath: string) => {
                 '.webp': 'image/webp',
                 '.ico': 'image/x-icon'
             };
+            const mime = mimeTypes[ext] || 'image/png';
 
+            let buffer = await fs.readFile(filePath);
+
+            // Self-heal: if the file was corrupted by a previous autosave writing a
+            // data URL as text, decode it back to the original binary and restore the file.
+            const asText = buffer.toString('utf-8');
+            const dataUrlPrefix = asText.match(/^data:([^;]+);base64,/);
+            if (dataUrlPrefix) {
+                const cleanBase64 = asText.slice(dataUrlPrefix[0].length).trim();
+                const restored = Buffer.from(cleanBase64, 'base64');
+                await fs.writeFile(filePath, restored);
+                return {
+                    success: true,
+                    data: cleanBase64,
+                    type: 'binary',
+                    mimeType: dataUrlPrefix[1] || mime,
+                };
+            }
+
+            const base64 = buffer.toString('base64');
             return {
                 success: true,
                 data: base64,
                 type: 'binary',
-                mimeType: mimeTypes[ext] || 'image/png'
+                mimeType: mime,
             };
         }
 

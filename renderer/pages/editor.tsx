@@ -13,7 +13,7 @@
  * - Import/export workflows for files and folders
  * - Markdown preview and live preview modes
  * - AI chat panel for assistant interactions
- * - Status bar showing file info and autosave status
+ * - Status bar showing file info, autosave status, and live document statistics
  * - Responsive sidebar collapse/expand with active panel tracking
  * - Persistence of sidebar and editor state during session
  * Revision History:
@@ -21,6 +21,8 @@
  *  • Wesley McDougal - 05APR2026 - Added draggable sidebar rails, context-menu alignment, and bottom-rail layout updates
  *  • Wesley McDougal - 07APR2026 - Added "ai" to settingsDefaultTab union and handleOpenAiSettings
  *    callback so AIChatPanel can deep-link directly into the AI settings tab.
+ *  • Wesley McDougal - 19APR2026 - Added StatusBarStats to the status bar with per-stat toggle handler
+ *    (handleToggleStatVisibility) persisted via setGlobal("editor.statusBar", ...)
  */
 
 import { SidebarProvider, Sidebar, SidebarContent } from "../components/ui/sidebar";
@@ -40,6 +42,7 @@ import { produce } from "immer";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { TabsSlice } from "@/renderer/types/tab-slice";
 import { useKeybindings, KeybindingHandlers } from "@/renderer/hooks/useKeybindings";
+import { useTutorial } from "@/renderer/hooks/useTutorial";
 import SettingsDialog from "@/renderer/components/SettingsDialog";
 import CommandPalette from "@/renderer/components/CommandPalette";
 import {
@@ -65,6 +68,8 @@ import EditorSpace from "@/renderer/pages/editorSpace";
 import TrashPanel from "@/renderer/components/TrashPanel";
 import TabBar from "../components/TabBar";
 import AIChatPanel from "@/renderer/components/AIChatPanel";
+import StatusBarStats from "@/renderer/components/StatusBarStats";
+import { isImageFile } from "@/renderer/utils/fileValidation";
 import { Popover, PopoverContent, PopoverTrigger } from "@/renderer/components/ui/popover";
 import Link from "next/link";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
@@ -520,7 +525,7 @@ export default function Editor() {
 
   // Track unsaved changes
   useEffect(() => {
-    if (selectedFile && fileContent !== "") {
+    if (selectedFile && fileContent !== "" && !isImageFile(selectedFile)) {
       setHasUnsavedChanges(true);
     }
   }, [fileContent, selectedFile]);
@@ -544,14 +549,17 @@ export default function Editor() {
       return;
     }
 
-    const selectedTabId = useBoundStore.getState().tabs.selectedTabId;
+    // For images, store as a data URL so editorSpace can render them directly
+    const content =
+      result.type === "binary" && result.mimeType
+        ? `data:${result.mimeType};base64,${result.data}`
+        : result.data;
 
-    // Update tab state directly
     useBoundStore.setState(
       produce((state: TabsSlice) => {
         const tab = state.tabs.items.find((t: any) => t.id === selectedTabId);
         if (tab) {
-          tab.content = result.data;
+          tab.content = content;
           tab.filePath = filePath;
           tab.name = window.fs.basename(filePath);
         }
@@ -587,6 +595,7 @@ export default function Editor() {
     const filePath = selectedTab?.filePath || null;
 
     if (!filePath) return;
+    if (isImageFile(filePath)) return; // Never write image data back to disk
 
     setIsSaving(true);
     const result = await window.fs.writeFile(filePath, fileContent);
@@ -845,6 +854,7 @@ export default function Editor() {
   // Autosave periodically
   useEffect(() => {
     if (!selectedFile) return;
+    if (isImageFile(selectedFile)) return; // Never autosave image files
 
     const interval = setInterval(async () => {
       if (!hasUnsavedChanges) return; // Don't save if no changes
@@ -997,6 +1007,15 @@ export default function Editor() {
       void executeCommand("view.search");
     },
   };
+
+  // First-time user tutorial
+  const { startTutorial } = useTutorial({
+    onReset: () => {
+      setSidebarCollapsed(false);
+      setActiveSidebarPanel("file");
+      setActiveMainView("editor");
+    },
+  });
 
   // Settings-driven keybindings (reads shortcuts from the settings store)
   useKeybindings({
@@ -1226,6 +1245,7 @@ export default function Editor() {
         return (
           <button
             type="button"
+            data-tutorial="btn-files"
             onMouseDown={handleSidebarIconMouseDown}
             onClick={() => handleSidebarButtonClick("file")}
             className="app-nodrag-region size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
@@ -1239,6 +1259,7 @@ export default function Editor() {
         return (
           <button
             type="button"
+            data-tutorial="btn-search"
             onMouseDown={handleSidebarIconMouseDown}
             onClick={() => handleSidebarButtonClick("search")}
             className="app-nodrag-region size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
@@ -1254,6 +1275,7 @@ export default function Editor() {
             <PopoverTrigger asChild>
               <button
                 type="button"
+                data-tutorial="btn-import"
                 className="app-nodrag-region size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
                 title="Import/Export"
               >
@@ -1295,6 +1317,7 @@ export default function Editor() {
         return (
           <button
             type="button"
+            data-tutorial="btn-ai"
             onMouseDown={handleSidebarIconMouseDown}
             onClick={() => setActiveMainView((v) => (v === "ai" ? "editor" : "ai"))}
             className={`app-nodrag-region size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center transition-colors ${
@@ -1310,6 +1333,7 @@ export default function Editor() {
         return (
           <button
             type="button"
+            data-tutorial="btn-themes"
             onMouseDown={handleSidebarIconMouseDown}
             onClick={() => handleSidebarButtonClick("theme")}
             className="app-nodrag-region size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
@@ -1323,6 +1347,7 @@ export default function Editor() {
         return (
           <button
             type="button"
+            data-tutorial="btn-tags"
             onMouseDown={handleSidebarIconMouseDown}
             onClick={() => handleSidebarButtonClick("tags")}
             className="app-nodrag-region size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
@@ -1351,6 +1376,7 @@ export default function Editor() {
             <PopoverTrigger asChild>
               <button
                 type="button"
+                data-tutorial="btn-share"
                 onMouseDown={handleSidebarIconMouseDown}
                 className="app-nodrag-region size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
                 title="Share with Friends"
@@ -1381,6 +1407,7 @@ export default function Editor() {
         return (
           <button
             type="button"
+            data-tutorial="btn-settings"
             onClick={() => {
               setSettingsDefaultTab("sidebar");
               setSettingsOpen(true);
@@ -1396,6 +1423,7 @@ export default function Editor() {
         return (
           <button
             type="button"
+            data-tutorial="btn-files-history"
             className="app-nodrag-region size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
             title="File Change History"
           >
@@ -1486,6 +1514,9 @@ export default function Editor() {
                 </ResizablePanel>
                 <ResizableHandle className="w-0 hover:bg-accent hover:w-1 z-50 cursor-col-resize" />
                 <ResizablePanel defaultSize={75} minSize={60}>
+                  {/* Hidden tutorial view-switcher triggers — always in DOM so Driver.js steps can click them */}
+                  <button data-tutorial="set-view-editor" className="hidden" aria-hidden="true" tabIndex={-1} onClick={() => setActiveMainView("editor")} />
+                  <button data-tutorial="set-view-ai"     className="hidden" aria-hidden="true" tabIndex={-1} onClick={() => setActiveMainView("ai")} />
                   {activeMainView === "ai" ? (
                     <div className="flex flex-col h-full overflow-hidden">
                       <div className="flex-shrink-0 flex items-center bg-background h-10 px-4 app-drag-region">
@@ -1521,7 +1552,7 @@ export default function Editor() {
                       </div>
                     </div>
                   ) : (
-                    <>
+                    <div data-tutorial="editor-area" className="flex flex-col h-full">
                       <TabBar />
                       <EditorSpace
                         selectedFile={selectedFile}
@@ -1535,13 +1566,16 @@ export default function Editor() {
                         setFileContent={setFileContent}
                         saveMessage={saveMessage}
                       />
-                    </>
+                    </div>
                   )}
                 </ResizablePanel>
               </>
             ) : (
               <>
                 <ResizablePanel defaultSize={75} minSize={60}>
+                  {/* Hidden tutorial view-switcher triggers — always in DOM so Driver.js steps can click them */}
+                  <button data-tutorial="set-view-editor" className="hidden" aria-hidden="true" tabIndex={-1} onClick={() => setActiveMainView("editor")} />
+                  <button data-tutorial="set-view-ai"     className="hidden" aria-hidden="true" tabIndex={-1} onClick={() => setActiveMainView("ai")} />
                   {activeMainView === "ai" ? (
                     <div className="flex flex-col h-full overflow-hidden">
                       <div className="flex-shrink-0 flex items-center bg-background h-10 px-4 app-drag-region">
@@ -1737,6 +1771,7 @@ export default function Editor() {
             onSidebarPositionChange={handleSidebarPositionChange}
             onSidebarScopeChange={handleSidebarScopeChange}
             onResetSidebarLayout={handleResetSidebarLayout}
+            onStartTutorial={() => { setSettingsOpen(false); startTutorial(); }}
           />
 
           {/* Status Bar */}
@@ -1752,6 +1787,13 @@ export default function Editor() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Document stats */}
+            {selectedFile && !selectedFile.toLowerCase().endsWith(".canvas") && !isImageFile(selectedFile) && (
+              <StatusBarStats
+                content={fileContent}
+                isHtml={selectedFile.toLowerCase().endsWith(".txt")}
+              />
+            )}
             {/* File Type Button */}
             {selectedFile && (
               <Button

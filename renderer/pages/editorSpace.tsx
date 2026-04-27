@@ -41,6 +41,7 @@ import dynamic from "next/dynamic";
 import { Button } from "@/renderer/components/ui/button";
 import MarkdownViewer from "@/renderer/components/MarkdownViewer";
 import CanvasEditor from "@/renderer/components/CanvasEditor";
+import { isImageFile } from "@/renderer/utils/fileValidation";
 
 const TiptapTextEditor = dynamic(
     () => import("@/renderer/components/TiptapTextEditor"),
@@ -162,6 +163,15 @@ export default function EditorSpace({ selectedFile, previewMode, livePreview, fi
             ) : selectedFile.toLowerCase().endsWith(".txt") ? (
               <div className="h-[97%] w-full">
                 <TiptapTextEditor value={fileContent} onChange={setFileContent} />
+              </div>
+            ) : isImageFile(selectedFile) ? (
+              <div className="h-[97%] w-full flex items-center justify-center overflow-auto">
+                <img
+                  src={fileContent}
+                  alt={window.fs.basename(selectedFile)}
+                  className="max-w-full max-h-full object-contain rounded"
+                  draggable={false}
+                />
               </div>
             ) : (
               <textarea
