@@ -86,6 +86,7 @@ export interface EditorSettings {
  * An empty string means the shortcut is unbound.
  */
 export interface KeybindingMap {
+  "app.openCommandPalette": string;
   "file.save": string;
   "file.open": string;
   "file.newFile": string;

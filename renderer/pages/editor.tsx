@@ -44,6 +44,13 @@ import { TabsSlice } from "@/renderer/types/tab-slice";
 import { useKeybindings, KeybindingHandlers } from "@/renderer/hooks/useKeybindings";
 import { useTutorial } from "@/renderer/hooks/useTutorial";
 import SettingsDialog from "@/renderer/components/SettingsDialog";
+import CommandPalette from "@/renderer/components/CommandPalette";
+import {
+  buildCommandRegistry,
+  type SettingsTab,
+  type WorkspaceCommandFile,
+} from "@/renderer/commands/command-registry";
+import { useTheme } from "@/renderer/lib/theme";
 import { CiFileOn, CiSearch, CiExport, CiShare2, CiSettings } from "react-icons/ci";
 import {
   RiRobot2Line,
@@ -97,6 +104,12 @@ import type {
 const AUTOSAVE_INTERVAL = 10000;
 
 type SidebarPanel = "file" | "search" | "theme" | "tags";
+
+interface FileSystemItem {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+}
 
 type SidebarIconId =
   | "file"
@@ -404,8 +417,11 @@ export default function Editor() {
   // Tag filter states
   const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
   const [rootPath, setRootPath] = useState<string | null>(null);
+  const [workspaceFiles, setWorkspaceFiles] = useState<WorkspaceCommandFile[]>([]);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const globalSettings = useBoundStore((s) => s.settings.global);
   const setGlobalSetting = useBoundStore((s) => s.settings.setGlobal);
+  const { theme, customThemes, setTheme } = useTheme();
 
   const [layoutScope, setLayoutScope] = useState<SidebarLayoutScope>("global");
   const [sidebarLayout, setSidebarLayout] = useState<SidebarLayoutSettings>(
@@ -423,6 +439,79 @@ export default function Editor() {
     const savedPath = localStorage.getItem("currentFolderPath");
     setRootPath(savedPath);
   }, []);
+
+  useEffect(() => {
+    if (!rootPath) {
+      setWorkspaceFiles([]);
+      return;
+    }
+
+    let cancelled = false;
+    const skippedDirectories = new Set([".git", ".localnotes", "node_modules"]);
+    const maxFiles = 500;
+
+    const relativePathFor = (filePath: string) => {
+      const prefix = rootPath.endsWith(window.fs.sep)
+        ? rootPath
+        : `${rootPath}${window.fs.sep}`;
+
+      return filePath.startsWith(prefix)
+        ? filePath.slice(prefix.length)
+        : window.fs.basename(filePath);
+    };
+
+    const collectFiles = async () => {
+      const files: WorkspaceCommandFile[] = [];
+      const visitedDirectories = new Set<string>();
+
+      const walk = async (dirPath: string) => {
+        if (cancelled || files.length >= maxFiles || visitedDirectories.has(dirPath)) {
+          return;
+        }
+
+        visitedDirectories.add(dirPath);
+        const result = await window.fs.readDirectory(dirPath);
+        if (!result.success || !Array.isArray(result.data)) {
+          return;
+        }
+
+        const items = result.data as FileSystemItem[];
+        for (const item of items) {
+          if (cancelled || files.length >= maxFiles) {
+            return;
+          }
+
+          if (item.isDirectory) {
+            if (!skippedDirectories.has(item.name)) {
+              await walk(item.path);
+            }
+            continue;
+          }
+
+          files.push({
+            path: item.path,
+            name: item.name,
+            relativePath: relativePathFor(item.path),
+          });
+        }
+      };
+
+      await walk(rootPath);
+      if (!cancelled) {
+        setWorkspaceFiles(
+          files.sort((a, b) =>
+            a.relativePath.localeCompare(b.relativePath, undefined, { sensitivity: "base" })
+          )
+        );
+      }
+    };
+
+    void collectFiles();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rootPath]);
 
   // keep a ref to the latest content so the interval callback doesn't need fileContent as a dep
   const contentRef = useRef<string>(fileContent);
@@ -449,9 +538,7 @@ export default function Editor() {
    * Updates Zustand store with new filePath, content, and filename.
    * Called when user clicks file in FileSystemTree.
    */
-  const handleFileSelect = async (filePath: string) => {
-    const selectedTabId = useBoundStore.getState().tabs.selectedTabId;
-
+  const handleFileSelect = useCallback(async (filePath: string) => {
     const result = await window.fs.readFile(filePath);
     if (!result.success) {
       console.error("Failed to read file:", result.error);
@@ -477,8 +564,8 @@ export default function Editor() {
     );
 
     setSelectedFile(filePath);
-    setFileContent(content);
-  };
+    setFileContent(result.data);
+  }, []);
 
   // Load content when selected tab changes
   const selectedTabId = useBoundStore((state) => state.tabs.selectedTabId);
@@ -800,6 +887,9 @@ export default function Editor() {
   const executeCommand = React.useCallback(
     async (command: string) => {
       switch (command) {
+        case "app.openCommandPalette":
+          setCommandPaletteOpen(true);
+          break;
         case "file.save":
           await handleSave();
           break;
@@ -885,6 +975,9 @@ export default function Editor() {
   );
 
   const keybindingHandlers: KeybindingHandlers = {
+    "app.openCommandPalette": () => {
+      void executeCommand("app.openCommandPalette");
+    },
     "file.save": () => {
       void executeCommand("file.save");
     },
@@ -1082,6 +1175,49 @@ export default function Editor() {
       fileTreeRef.current.reloadRoot();
     }
   };
+
+  const openSettingsTab = useCallback((tab: SettingsTab) => {
+    setSettingsDefaultTab(tab);
+    setSettingsOpen(true);
+  }, []);
+
+  const openSidebarPanel = useCallback((panel: SidebarPanel) => {
+    setSidebarCollapsed(false);
+    setActiveSidebarPanel(panel);
+  }, []);
+
+  const commandPaletteCommands = React.useMemo(
+    () =>
+      buildCommandRegistry({
+        selectedFile,
+        rootPath,
+        workspaceFiles,
+        currentTheme: theme,
+        customThemes,
+        settings: globalSettings,
+        executeAction: executeCommand,
+        openSettings: openSettingsTab,
+        openSidebarPanel,
+        setMainView: setActiveMainView,
+        openWorkspaceFile: handleFileSelect,
+        setTheme,
+        setGlobalSetting,
+      }),
+    [
+      selectedFile,
+      rootPath,
+      workspaceFiles,
+      theme,
+      customThemes,
+      globalSettings,
+      executeCommand,
+      openSettingsTab,
+      openSidebarPanel,
+      handleFileSelect,
+      setTheme,
+      setGlobalSetting,
+    ]
+  );
 
   const popoverSideForEdge = (edge: SidebarEdge): "left" | "right" | "top" | "bottom" => {
     if (edge === "left") return "right";
@@ -1595,6 +1731,11 @@ export default function Editor() {
           </DropdownMenuPrimitive.Root>
 
 
+          <CommandPalette
+            isOpen={commandPaletteOpen}
+            commands={commandPaletteCommands}
+            onClose={() => setCommandPaletteOpen(false)}
+          />
 
           {/* Settings Dialog */}
           <SettingsDialog

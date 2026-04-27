@@ -28,6 +28,14 @@ export interface KeybindingAction {
  * Order here determines display order in the Settings UI.
  */
 export const KEYBINDING_ACTIONS: KeybindingAction[] = [
+  // App
+  {
+    id: "app.openCommandPalette",
+    label: "Open Command Palette",
+    category: "View",
+    defaultAccelerator: "CommandOrControl+K",
+  },
+
   // File
   {
     id: "file.save",
