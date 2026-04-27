@@ -193,13 +193,20 @@ export function registerSettingsIpc(
       try {
         const globalSettings = manager.getResolvedGlobal();
         const customModels = globalSettings?.ai?.customModels || [];
-        const currentModel = customModels.find((m: any) => m.id === modelId);
+        let currentModel = customModels.find((m: any) => m.id === modelId);
+
+        if (!currentModel && globalSettings?.llm?.models) {
+          const llmModels = Object.values(globalSettings.llm.models);
+          currentModel = llmModels.find((m: any) => m.id === modelId);
+        }
 
         if (!currentModel) {
           throw new Error("Selected LLM model not found in settings.");
         }
 
         const apiKey = currentModel.apiKey || "";
+        // llm.models use "model" for the API model string; ai.customModels use "name"
+        const modelString = currentModel.model || currentModel.name;
         let endpoint = (currentModel.baseUrl || "").trim();
 
         if (!endpoint) {
@@ -227,8 +234,13 @@ export function registerSettingsIpc(
           }
         }
 
+        // llm.models store baseUrl without /chat/completions — append if needed
+        if (endpoint && !endpoint.endsWith("/chat/completions")) {
+          endpoint = endpoint.replace(/\/+$/, "") + "/chat/completions";
+        }
+
         console.log(
-          `[LLM] Sending request to: ${endpoint} (Model: ${currentModel.name}, Provider: ${currentModel.provider})`
+          `[LLM] Sending request to: ${endpoint} (Model: ${modelString}, Provider: ${currentModel.provider || "unknown"})`
         );
 
         const response = await fetch(endpoint, {
@@ -238,7 +250,7 @@ export function registerSettingsIpc(
             ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
           },
           body: JSON.stringify({
-            model: currentModel.name,
+            model: modelString,
             messages: messages,
             stream: true,
           }),
@@ -256,6 +268,7 @@ export function registerSettingsIpc(
         const decoder = new TextDecoder("utf-8");
         let fullContent = "";
         let buffer = "";
+        let rawBody = "";
 
         if (!reader) {
           throw new Error("No response stream available");
@@ -265,7 +278,9 @@ export function registerSettingsIpc(
           const { value, done } = await reader.read();
           if (done) break;
 
-          buffer += decoder.decode(value, { stream: true });
+          const chunk = decoder.decode(value, { stream: true });
+          rawBody += chunk;
+          buffer += chunk;
 
           let boundary = buffer.indexOf("\n");
           while (boundary !== -1) {
@@ -283,11 +298,37 @@ export function registerSettingsIpc(
                 const delta = data.choices?.[0]?.delta?.content || "";
                 fullContent += delta;
               } catch (err) {
-                // Ignore malformed JSON
+                // Ignore malformed SSE JSON chunks
               }
             }
           }
         }
+
+        // If SSE parsing yielded nothing, the provider may have returned
+        // a plain (non-streaming) JSON response — try to extract content.
+        if (!fullContent && rawBody.trim()) {
+          try {
+            const plain = JSON.parse(rawBody.trim());
+            fullContent =
+              plain.choices?.[0]?.message?.content ||
+              plain.choices?.[0]?.delta?.content ||
+              plain.content ||
+              plain.response ||
+              "";
+          } catch {
+            // rawBody might not be valid JSON either — just use it as-is
+            console.warn("[LLM] Could not parse raw response as JSON, using raw text.");
+            fullContent = rawBody.trim();
+          }
+        }
+
+        if (!fullContent) {
+          console.error("[LLM] Empty response. Raw body:", rawBody.slice(0, 500));
+          throw new Error("LLM returned an empty response. Check your model configuration.");
+        }
+
+        console.log("[LLM] Response length:", fullContent.length);
+        console.log("[LLM] Response preview:", fullContent.slice(0, 500));
 
         return { success: true, content: fullContent };
       } catch (error: any) {

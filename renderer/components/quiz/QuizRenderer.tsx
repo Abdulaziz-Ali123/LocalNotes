@@ -68,6 +68,17 @@ interface QuizRendererProps {
  * Usage: Call QuizRenderer from the owning module or component when this behavior is required.
  */
 export default function QuizRenderer({ payload }: QuizRendererProps) {
+    if (!payload?.items?.length) {
+        return (
+            <div className="mx-auto flex h-full w-full max-w-5xl flex-col items-center justify-center gap-4 py-20 text-center">
+                <Brain className="h-12 w-12 text-muted-foreground" />
+                <h2 className="text-xl font-semibold">No questions available</h2>
+                <p className="text-sm text-muted-foreground max-w-md">
+                    Generate a quiz using the button above, or the quiz data may have been incomplete.
+                </p>
+            </div>
+        );
+    }
     if (payload.type === "flashcards") {
         return <FlashcardsView payload={payload} />;
     }
@@ -93,7 +104,7 @@ function FlashcardsView({ payload }: { payload: FlashcardsDocument }) {
     const progressPercent = Math.round(((index + 1) / payload.items.length) * 100);
 
     return (
-        <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-6">
+        <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-4 sm:gap-6 px-3 sm:px-0">
             <QuizHeader
                 title={payload.meta.topic}
                 subtitle={`Flashcards | ${payload.meta.difficulty}`}
@@ -101,8 +112,8 @@ function FlashcardsView({ payload }: { payload: FlashcardsDocument }) {
                 progressPercent={progressPercent}
             />
 
-            <div className="rounded-2xl border bg-card p-6 shadow-sm">
-                <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="rounded-2xl border bg-card p-4 sm:p-6 shadow-sm">
+                <div className="mb-4 flex items-center justify-center gap-2 text-xs sm:text-sm text-muted-foreground">
                     <Brain className="h-4 w-4" />
                     <span>Flashcard mode</span>
                 </div>
@@ -110,20 +121,20 @@ function FlashcardsView({ payload }: { payload: FlashcardsDocument }) {
                 <button
                     type="button"
                     onClick={() => setRevealed((prev) => !prev)}
-                    className="flex min-h-[320px] w-full flex-col items-center justify-center rounded-2xl border border-border bg-background p-8 text-center transition-colors hover:bg-accent/20"
+                    className="flex min-h-[240px] sm:min-h-[320px] w-full max-w-2xl mx-auto flex-col items-center justify-center rounded-2xl border border-border bg-background p-4 sm:p-8 text-center transition-colors hover:bg-accent/20"
                 >
                     <div className="mb-4 text-xs uppercase tracking-[0.2em] text-muted-foreground">
                         {revealed ? "Back" : "Front"}
                     </div>
-                    <div className="max-w-3xl text-xl font-semibold leading-relaxed">
+                    <div className="max-w-2xl text-lg sm:text-xl font-semibold leading-relaxed">
                         {revealed ? current.back : current.front}
                     </div>
-                    <div className="mt-8 text-sm text-muted-foreground">
+                    <div className="mt-4 sm:mt-8 text-xs sm:text-sm text-muted-foreground">
                         Click the card to flip
                     </div>
                 </button>
 
-                <div className="mt-6 flex items-center justify-between">
+                <div className="mt-4 sm:mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
                     <Button
                         variant="outline"
                         onClick={() => {
@@ -131,16 +142,19 @@ function FlashcardsView({ payload }: { payload: FlashcardsDocument }) {
                             setIndex((prev) => Math.max(0, prev - 1));
                         }}
                         disabled={index === 0}
+                        className="text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4"
                     >
-                        <ChevronLeft className="h-4 w-4" />
-                        Previous
+                        <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="hidden sm:inline ml-1">Previous</span>
                     </Button>
 
                     <Button
                         variant="outline"
                         onClick={() => setRevealed((prev) => !prev)}
+                        className="text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4"
                     >
-                        Flip card
+                        <span className="hidden sm:inline">Flip</span>
+                        <span className="sm:hidden">Flip card</span>
                     </Button>
 
                     <Button
@@ -149,9 +163,10 @@ function FlashcardsView({ payload }: { payload: FlashcardsDocument }) {
                             setIndex((prev) => Math.min(payload.items.length - 1, prev + 1));
                         }}
                         disabled={index === payload.items.length - 1}
+                        className="text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4"
                     >
-                        Next
-                        <ChevronRight className="h-4 w-4" />
+                        <span className="hidden sm:inline">Next</span>
+                        <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 ml-1" />
                     </Button>
                 </div>
             </div>
@@ -251,11 +266,12 @@ const handleRestart = () => {
      */
     const allAnswered = total > 0 && answeredCount === total;
 
+
     if (showSummary) {
         const scorePercent = total === 0 ? 0 : Math.round((correctCount / total) * 100);
 
         return (
-            <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-6">
+            <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-4 sm:gap-6 px-3 sm:px-0">
                 <QuizHeader
                     title={payload.meta.topic}
                     subtitle={`Results | ${payload.meta.difficulty}`}
@@ -263,41 +279,41 @@ const handleRestart = () => {
                     progressPercent={scorePercent}
                 />
 
-                <div className="rounded-2xl border bg-card p-8 shadow-sm">
-                    <div className="mb-6 flex items-center gap-3">
-                        <Trophy className="h-6 w-6 text-primary" />
+                <div className="rounded-2xl border bg-card p-4 sm:p-8 shadow-sm">
+                    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center items-center justify-center text-center sm:text-left">
+                        <Trophy className="h-6 w-6 text-primary flex-shrink-0" />
                         <div>
-                            <h2 className="text-2xl font-semibold">Session complete</h2>
-                            <p className="text-sm text-muted-foreground">
+                            <h2 className="text-xl sm:text-2xl font-semibold">Session complete</h2>
+                            <p className="text-xs sm:text-sm text-muted-foreground">
                                 Review your score and restart if you want another pass.
                             </p>
                         </div>
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-3">
+                    <div className="grid gap-3 sm:gap-4 grid-cols-3">
                         <SummaryStat label="Score" value={`${scorePercent}%`} />
                         <SummaryStat label="Correct" value={`${correctCount}`} />
                         <SummaryStat label="Reviewed" value={`${answeredCount}`} />
                     </div>
 
-                    <div className="mt-8 rounded-xl border bg-background p-4">
-                        <div className="mb-3 text-sm font-medium">Question status</div>
-                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="mt-6 sm:mt-8 rounded-xl border bg-background p-3 sm:p-4">
+                        <div className="mb-3 text-xs sm:text-sm font-medium">Question status</div>
+                        <div className="grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
                             {payload.items.map((item) => {
                                 const status = statusMap[item.id] ?? "unanswered";
 
                                 return (
                                     <div
                                         key={item.id}
-                                        className="rounded-lg border border-border bg-card p-3"
+                                        className="rounded-lg border border-border bg-card p-2 sm:p-3"
                                     >
                                         <div className="mb-2 flex items-center justify-between">
-                                            <span className="text-sm font-medium">
+                                            <span className="text-xs sm:text-sm font-medium">
                                                 Q{item.id}
                                             </span>
                                             <StatusPill status={status} />
                                         </div>
-                                        <div className="line-clamp-3 text-sm text-muted-foreground">
+                                        <div className="line-clamp-3 text-xs sm:text-sm text-muted-foreground">
                                             {"question" in item ? item.question : "Flashcard"}
                                         </div>
                                     </div>
@@ -306,10 +322,11 @@ const handleRestart = () => {
                         </div>
                     </div>
 
-                    <div className="mt-6 flex items-center gap-3">
-                        <Button onClick={handleRestart}>
-                            <RotateCcw className="h-4 w-4" />
-                            Restart quiz
+                    <div className="mt-4 sm:mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+                        <Button onClick={handleRestart} className="text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4">
+                            <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                            <span className="hidden sm:inline">Restart quiz</span>
+                            <span className="sm:hidden">Restart</span>
                         </Button>
                         <Button
                             variant="outline"
@@ -317,8 +334,10 @@ const handleRestart = () => {
                                 setShowSummary(false);
                                 setCurrentIndex(0);
                             }}
+                            className="text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4"
                         >
-                            Review questions
+                            <span className="hidden sm:inline">Review questions</span>
+                            <span className="sm:hidden">Review</span>
                         </Button>
                     </div>
                 </div>
@@ -327,7 +346,7 @@ const handleRestart = () => {
     }
 
     return (
-        <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-6">
+        <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-4 sm:gap-6 px-3 sm:px-0">
             <QuizHeader
                 title={payload.meta.topic}
                 subtitle={`Quiz | ${payload.meta.difficulty}`}
@@ -335,12 +354,12 @@ const handleRestart = () => {
                 progressPercent={progressPercent}
             />
 
-            <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-                <aside className="rounded-2xl border bg-card p-4 shadow-sm">
-                    <div className="mb-4 text-sm font-medium text-muted-foreground">
+            <div className="grid gap-4 sm:gap-6 lg:grid-cols-[200px_minmax(0,1fr)]">
+                <aside className="rounded-2xl border bg-card p-3 sm:p-4 shadow-sm overflow-hidden">
+                    <div className="mb-3 text-xs sm:text-sm font-medium text-muted-foreground">
                         Progress
                     </div>
-                    <div className="grid grid-cols-5 gap-2 lg:grid-cols-4">
+                    <div className="grid grid-cols-6 sm:grid-cols-5 lg:grid-cols-4 gap-1 sm:gap-2">
                         {payload.items.map((item, idx) => {
                             const status = statusMap[item.id] ?? "unanswered";
 
@@ -350,7 +369,7 @@ const handleRestart = () => {
                                     type="button"
                                     onClick={() => setCurrentIndex(idx)}
                                     className={cn(
-                                        "flex h-10 items-center justify-center rounded-lg border text-sm font-medium transition-colors",
+                                        "flex h-8 sm:h-10 items-center justify-center rounded-lg border text-xs sm:text-sm font-medium transition-colors",
                                         idx === currentIndex && "border-primary ring-2 ring-primary/20",
                                         status === "correct" && "bg-primary/15 text-foreground",
                                         status === "incorrect" && "bg-destructive/10 text-foreground",
@@ -363,7 +382,7 @@ const handleRestart = () => {
                         })}
                     </div>
 
-                    <div className="mt-4 space-y-2 text-xs text-muted-foreground">
+                    <div className="mt-3 sm:mt-4 space-y-1 sm:space-y-2 text-xs text-muted-foreground hidden sm:block">
                         <div className="flex items-center gap-2">
                             <Circle className="h-3.5 w-3.5" />
                             <span>Not checked</span>
@@ -375,50 +394,57 @@ const handleRestart = () => {
                     </div>
                 </aside>
 
-                <div className="rounded-2xl border bg-card p-6 shadow-sm">
-                    <div className="mb-6 flex items-start justify-between gap-4">
-                        <div>
+                <div className="rounded-2xl border bg-card p-4 sm:p-6 shadow-sm">
+                    <div className="mb-4 sm:mb-6 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4 items-center text-center">
+                        <div className="flex-1">
                             <div className="mb-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
                                 Question {currentIndex + 1}
                             </div>
-                            <h2 className="text-2xl font-semibold">
+                            <h2 className="text-lg sm:text-2xl font-semibold max-w-2xl mx-auto">
                                 {"question" in currentItem ? currentItem.question : ""}
                             </h2>
                         </div>
-                        <StatusPill status={statusMap[currentItem.id] ?? "unanswered"} />
+                        <div className="flex-shrink-0">
+                            <StatusPill status={statusMap[currentItem.id] ?? "unanswered"} />
+                        </div>
                     </div>
 
-                    <QuestionBody
-                        item={currentItem}
-                        locked={lockedMap[currentItem.id] ?? false}
-                        savedAnswer={selectedAnswers[currentItem.id]}
-                        onSubmit={handleSubmit}
-                    />
+                    <div className="max-w-2xl mx-auto">
+                        <QuestionBody
+                            item={currentItem}
+                            locked={lockedMap[currentItem.id] ?? false}
+                            savedAnswer={selectedAnswers[currentItem.id]}
+                            onSubmit={handleSubmit}
+                        />
+                    </div>
 
-                    <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t pt-6">
-                        <div className="flex items-center gap-3">
+                    <div className="mt-6 sm:mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center border-t pt-4 sm:pt-6">
+                        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto">
                             <Button
                                 variant="outline"
                                 onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
                                 disabled={currentIndex === 0}
+                                className="text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4 flex-1 sm:flex-initial"
                             >
-                                <ChevronLeft className="h-4 w-4" />
-                                Previous
+                                <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+                                <span className="hidden sm:inline ml-1">Previous</span>
                             </Button>
 
                             <Button
                                 variant="outline"
                                 onClick={handleRetryCurrent}
+                                className="text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4 flex-1 sm:flex-initial"
                             >
                                 Retry
                             </Button>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto">
                             {allAnswered && (
                                 <Button
                                     variant="outline"
                                     onClick={() => setShowSummary(true)}
+                                    className="text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4 flex-1 sm:flex-initial"
                                 >
                                     Finish
                                 </Button>
@@ -427,9 +453,10 @@ const handleRestart = () => {
                             <Button
                                 onClick={() => setCurrentIndex((prev) => Math.min(total - 1, prev + 1))}
                                 disabled={currentIndex === total - 1}
+                                className="text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4 flex-1 sm:flex-initial"
                             >
-                                Next
-                                <ChevronRight className="h-4 w-4" />
+                                <span className="hidden sm:inline">Next</span>
+                                <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 ml-1" />
                             </Button>
                         </div>
                     </div>
@@ -460,15 +487,15 @@ function QuizHeader({
     progressPercent: number;
 }) {
     return (
-        <div className="rounded-2xl border bg-card p-5 shadow-sm">
-            <div className="mb-4 flex flex-col justify-between gap-4 md:flex-row md:items-center">
+        <div className="rounded-2xl border bg-card p-3 sm:p-5 shadow-sm">
+            <div className="mb-3 sm:mb-4 flex flex-col justify-center gap-3 sm:gap-4 items-center text-center md:flex-row md:justify-between md:text-left md:items-center">
                 <div>
-                    <div className="text-sm text-muted-foreground">{subtitle}</div>
-                    <h1 className="text-3xl font-semibold">{title}</h1>
+                    <div className="text-xs sm:text-sm text-muted-foreground">{subtitle}</div>
+                    <h1 className="text-2xl sm:text-3xl font-semibold">{title}</h1>
                 </div>
 
-                <div className="min-w-[180px] text-right">
-                    <div className="text-sm font-medium">{progressLabel}</div>
+                <div className="min-w-[160px] text-center text-xs sm:text-sm md:text-right">
+                    <div className="font-medium">{progressLabel}</div>
                     <div className="text-xs text-muted-foreground">{progressPercent}% complete</div>
                 </div>
             </div>
@@ -1181,9 +1208,9 @@ function DropSlot({
  */
 function SummaryStat({ label, value }: { label: string; value: string }) {
     return (
-        <div className="rounded-xl border bg-background p-4">
-            <div className="text-sm text-muted-foreground">{label}</div>
-            <div className="mt-1 text-2xl font-semibold">{value}</div>
+        <div className="rounded-xl border bg-background p-2 sm:p-4">
+            <div className="text-xs sm:text-sm text-muted-foreground">{label}</div>
+            <div className="mt-1 text-xl sm:text-2xl font-semibold">{value}</div>
         </div>
     );
 }

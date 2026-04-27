@@ -30,6 +30,7 @@ import { SidebarProvider, Sidebar, SidebarContent } from "../components/ui/sideb
 import ThemeSelector from "@/renderer/components/ui/ThemeSelector";
 import TagFilterPanel from "@/renderer/components/TagFilterPanel";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -429,6 +430,8 @@ export default function Editor() {
   const [isSaving, setIsSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState<boolean>(true);
   const [livePreview, setLivePreview] = useState<boolean>(false);
+  const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
+  const [preFocusSidebarCollapsed, setPreFocusSidebarCollapsed] = useState<boolean>(false);
   // (removed fileTreeRef used for selectPath)
   const sidebarPanelRef = useRef<ImperativePanelHandle>(null);
   const fileTreeRef = useRef<any>(null);
@@ -991,6 +994,27 @@ const handleRailAlignmentChange = (edge: SidebarEdge, alignment: SidebarRailAlig
    * Opened file sidebar automatically before file operations if collapsed.
    * Called by both keybindings and native menu via IPC.
    */
+    /**
+   * Functionality: toggleFocusMode performs the toggle focus mode workflow used by renderer/pages/editor.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call toggleFocusMode from the owning module or component when this behavior is required.
+   */
+  const toggleFocusMode = useCallback(() => {
+    setIsFocusMode((prev) => {
+      const next = !prev;
+      if (next) {
+        // Entering focus mode
+        setPreFocusSidebarCollapsed(sidebarCollapsed);
+        setSidebarCollapsed(true);
+      } else {
+        // Exiting focus mode
+        setSidebarCollapsed(preFocusSidebarCollapsed);
+      }
+      return next;
+    });
+  }, [sidebarCollapsed, preFocusSidebarCollapsed]);
+
   const executeCommand = React.useCallback(
     async (command: string) => {
       switch (command) {
@@ -999,6 +1023,9 @@ const handleRailAlignmentChange = (edge: SidebarEdge, alignment: SidebarRailAlig
           break;
         case "file.save":
           await handleSave();
+          break;
+        case "view.toggleFocusMode":
+          toggleFocusMode();
           break;
         case "file.open": {
           if (sidebarCollapsed) {
@@ -1105,6 +1132,9 @@ const handleRailAlignmentChange = (edge: SidebarEdge, alignment: SidebarRailAlig
     },
     "view.toggleSidebar": () => {
       void executeCommand("view.toggleSidebar");
+    },
+    "view.toggleFocusMode": () => {
+      void executeCommand("view.toggleFocusMode");
     },
     "view.search": () => {
       void executeCommand("view.search");
@@ -1318,49 +1348,6 @@ const refreshTree = () => {
       fileTreeRef.current.reloadRoot();
     }
   };
-
-  const openSettingsTab = useCallback((tab: SettingsTab) => {
-    setSettingsDefaultTab(tab);
-    setSettingsOpen(true);
-  }, []);
-
-  const openSidebarPanel = useCallback((panel: SidebarPanel) => {
-    setSidebarCollapsed(false);
-    setActiveSidebarPanel(panel);
-  }, []);
-
-  const commandPaletteCommands = React.useMemo(
-    () =>
-      buildCommandRegistry({
-        selectedFile,
-        rootPath,
-        workspaceFiles,
-        currentTheme: theme,
-        customThemes,
-        settings: globalSettings,
-        executeAction: executeCommand,
-        openSettings: openSettingsTab,
-        openSidebarPanel,
-        setMainView: setActiveMainView,
-        openWorkspaceFile: handleFileSelect,
-        setTheme,
-        setGlobalSetting,
-      }),
-    [
-      selectedFile,
-      rootPath,
-      workspaceFiles,
-      theme,
-      customThemes,
-      globalSettings,
-      executeCommand,
-      openSettingsTab,
-      openSidebarPanel,
-      handleFileSelect,
-      setTheme,
-      setGlobalSetting,
-    ]
-  );
 
   const openSettingsTab = useCallback((tab: SettingsTab) => {
     setSettingsDefaultTab(tab);
@@ -1648,19 +1635,31 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex flex-col h-screen">
+        <div className="flex flex-col h-screen overflow-hidden relative">
+          <AnimatePresence>
+            {isFocusMode && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: globalSettings.editor.focusModeDimLevel }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[40] bg-black pointer-events-none"
+              />
+            )}
+          </AnimatePresence>
 
           {/* Main Content Area */}
-          <div className="flex flex-row flex-1 overflow-hidden">
-            <EdgeRail
-              edge="left"
-              items={leftRailIcons}
-              alignment={sidebarLayout.railAlignment.left}
-              isDragActive={Boolean(activeDragIconId)}
-              onContextMenu={handleRailContextMenu}
-            >
-              {renderSidebarIcon}
-            </EdgeRail>
+          <div className="flex flex-row flex-1 overflow-hidden relative">
+            {!isFocusMode && (
+              <EdgeRail
+                edge="left"
+                items={leftRailIcons}
+                alignment={sidebarLayout.railAlignment.left}
+                isDragActive={Boolean(activeDragIconId)}
+                onContextMenu={handleRailContextMenu}
+              >
+                {renderSidebarIcon}
+              </EdgeRail>
+            )}
 
             <ResizablePanelGroup
               direction="horizontal"
@@ -1668,52 +1667,54 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
             >
               {sidebarLayout.panelPosition === "left" ? (
               <>
-                <ResizablePanel
-                  ref={sidebarPanelRef}
-                  defaultSize={20}
-                  minSize={12}
-                  maxSize={40}
-                  collapsible={true}
-                  collapsedSize={0}
-                  onCollapse={() => setSidebarCollapsed(true)}
-                  onExpand={() => setSidebarCollapsed(false)}
-                >
-                  <div className="app-drag-region h-10 bg-background"></div>
+                {!isFocusMode && (
+                  <ResizablePanel
+                    ref={sidebarPanelRef}
+                    defaultSize={20}
+                    minSize={12}
+                    maxSize={40}
+                    collapsible={true}
+                    collapsedSize={0}
+                    onCollapse={() => setSidebarCollapsed(true)}
+                    onExpand={() => setSidebarCollapsed(false)}
+                  >
+                    <div className="app-drag-region h-10 bg-background"></div>
 
-                  <SidebarProvider>
-                    <Sidebar collapsible="none" className="!static w-full">
-                      <SidebarContent className="h-full p-0">
-                        {!sidebarCollapsed && (
-                          <>
-                            {activeSidebarPanel === "file" && (
-                              <FileSystemTree
-                                ref={fileTreeRef}
-                                onFileSelect={handleFileSelect}
-                                isVisible={!sidebarCollapsed}
-                                autoOpen={true}
-                              />
-                            )}
-                            {activeSidebarPanel === "search" && (
-                              <SearchComponent onFileSelect={handleFileSelect} />
-                            )}
-                            {activeSidebarPanel === "theme" && <ThemeSelector />}
-                            {activeSidebarPanel === "tags" && (
-                              <TagFilterPanel
-                                rootPath={rootPath}
-                                onFiltersChange={setSelectedTagFilters}
-                              />
-                            )}
-                            {activeSidebarPanel === "trash" && (
-                              <TrashPanel rootPath={rootPath} onFileSelect={handleFileSelect} />
-                            )}
-                          </>
-                        )}
-                      </SidebarContent>
-                    </Sidebar>
-                  </SidebarProvider>
-                </ResizablePanel>
-                <ResizableHandle className="w-0 hover:bg-accent hover:w-1 z-50 cursor-col-resize" />
-                <ResizablePanel defaultSize={75} minSize={60}>
+                    <SidebarProvider>
+                      <Sidebar collapsible="none" className="!static w-full">
+                        <SidebarContent className="h-full p-0">
+                          {!sidebarCollapsed && (
+                            <>
+                              {activeSidebarPanel === "file" && (
+                                <FileSystemTree
+                                  ref={fileTreeRef}
+                                  onFileSelect={handleFileSelect}
+                                  isVisible={!sidebarCollapsed}
+                                  autoOpen={true}
+                                />
+                              )}
+                              {activeSidebarPanel === "search" && (
+                                <SearchComponent onFileSelect={handleFileSelect} />
+                              )}
+                              {activeSidebarPanel === "theme" && <ThemeSelector />}
+                              {activeSidebarPanel === "tags" && (
+                                <TagFilterPanel
+                                  rootPath={rootPath}
+                                  onFiltersChange={setSelectedTagFilters}
+                                />
+                              )}
+                              {activeSidebarPanel === "trash" && (
+                                <TrashPanel rootPath={rootPath} onFileSelect={handleFileSelect} />
+                              )}
+                            </>
+                          )}
+                        </SidebarContent>
+                      </Sidebar>
+                    </SidebarProvider>
+                  </ResizablePanel>
+                )}
+                {!isFocusMode && <ResizableHandle className="w-0 hover:bg-accent hover:w-1 z-50 cursor-col-resize" />}
+                <ResizablePanel defaultSize={75} minSize={60} className="relative z-[45]">
                   {/* Hidden tutorial view-switcher triggers — always in DOM so Driver.js steps can click them */}
                   <button data-tutorial="set-view-editor" className="hidden" aria-hidden="true" tabIndex={-1} onClick={() => setActiveMainView("editor")} />
                   <button data-tutorial="set-view-ai"     className="hidden" aria-hidden="true" tabIndex={-1} onClick={() => setActiveMainView("ai")} />
@@ -1752,27 +1753,39 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
                       </div>
                     </div>
                   ) : (
-                    <div data-tutorial="editor-area" className="flex flex-col h-full">
-                      <TabBar />
-                      <EditorSpace
-                        selectedFile={selectedFile}
-                        previewMode={previewMode}
-                        livePreview={livePreview}
-                        fileContent={fileContent}
-                        isSaving={isSaving}
-                        handleSave={handleSave}
-                        setPreviewMode={setPreviewMode}
-                        setLivePreview={setLivePreview}
-                        setFileContent={setFileContent}
-                        saveMessage={saveMessage}
-                      />
+                    <div data-tutorial="editor-area" className="flex flex-col h-full items-center">
+                      {!isFocusMode && <TabBar />}
+                      <motion.div
+                        layout
+                        style={{ 
+                          width: isFocusMode ? `${globalSettings.editor.focusModeMaxWidth}px` : '100%',
+                          maxWidth: '100%',
+                          transition: 'width 0.3s ease-in-out'
+                        }}
+                        className="flex-1 min-h-0 flex flex-col"
+                      >
+                        <EditorSpace
+                          selectedFile={selectedFile}
+                          previewMode={previewMode}
+                          livePreview={livePreview}
+                          fileContent={fileContent}
+                          isSaving={isSaving}
+                          handleSave={handleSave}
+                          setPreviewMode={setPreviewMode}
+                          setLivePreview={setLivePreview}
+                          setFileContent={setFileContent}
+                          saveMessage={saveMessage}
+                          isFocusMode={isFocusMode}
+                          onToggleFocusMode={toggleFocusMode}
+                        />
+                      </motion.div>
                     </div>
                   )}
                 </ResizablePanel>
               </>
             ) : (
               <>
-                <ResizablePanel defaultSize={75} minSize={60}>
+                <ResizablePanel defaultSize={75} minSize={60} className="relative z-[45]">
                   {/* Hidden tutorial view-switcher triggers — always in DOM so Driver.js steps can click them */}
                   <button data-tutorial="set-view-editor" className="hidden" aria-hidden="true" tabIndex={-1} onClick={() => setActiveMainView("editor")} />
                   <button data-tutorial="set-view-ai"     className="hidden" aria-hidden="true" tabIndex={-1} onClick={() => setActiveMainView("ai")} />
@@ -1799,92 +1812,110 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
                       </div>
                     </div>
                   ) : (
-                    <>
-                      <TabBar />
-                      <EditorSpace
-                        selectedFile={selectedFile}
-                        previewMode={previewMode}
-                        livePreview={livePreview}
-                        fileContent={fileContent}
-                        isSaving={isSaving}
-                        handleSave={handleSave}
-                        setPreviewMode={setPreviewMode}
-                        setLivePreview={setLivePreview}
-                        setFileContent={setFileContent}
-                        saveMessage={saveMessage}
-                      />
-                    </>
+                    <div className="flex flex-col h-full items-center">
+                      {!isFocusMode && <TabBar />}
+                      <motion.div
+                        layout
+                        style={{ 
+                          width: isFocusMode ? `${globalSettings.editor.focusModeMaxWidth}px` : '100%',
+                          maxWidth: '100%',
+                          transition: 'width 0.3s ease-in-out'
+                        }}
+                        className="flex-1 min-h-0 flex flex-col"
+                      >
+                        <EditorSpace
+                          selectedFile={selectedFile}
+                          previewMode={previewMode}
+                          livePreview={livePreview}
+                          fileContent={fileContent}
+                          isSaving={isSaving}
+                          handleSave={handleSave}
+                          setPreviewMode={setPreviewMode}
+                          setLivePreview={setLivePreview}
+                          setFileContent={setFileContent}
+                          saveMessage={saveMessage}
+                          isFocusMode={isFocusMode}
+                          onToggleFocusMode={toggleFocusMode}
+                        />
+                      </motion.div>
+                    </div>
                   )}
                 </ResizablePanel>
-                <ResizableHandle className="w-0 hover:bg-accent hover:w-1 z-50 cursor-col-resize" />
-                <ResizablePanel
-                  ref={sidebarPanelRef}
-                  defaultSize={20}
-                  minSize={12}
-                  maxSize={40}
-                  collapsible={true}
-                  collapsedSize={0}
-                  onCollapse={() => setSidebarCollapsed(true)}
-                  onExpand={() => setSidebarCollapsed(false)}
-                >
-                  <div className="app-drag-region h-10 bg-background"></div>
+                {!isFocusMode && <ResizableHandle className="w-0 hover:bg-accent hover:w-1 z-50 cursor-col-resize" />}
+                {!isFocusMode && (
+                  <ResizablePanel
+                    ref={sidebarPanelRef}
+                    defaultSize={20}
+                    minSize={12}
+                    maxSize={40}
+                    collapsible={true}
+                    collapsedSize={0}
+                    onCollapse={() => setSidebarCollapsed(true)}
+                    onExpand={() => setSidebarCollapsed(false)}
+                  >
+                    <div className="app-drag-region h-10 bg-background"></div>
 
-                  <SidebarProvider>
-                    <Sidebar collapsible="none" className="!static w-full">
-                      <SidebarContent className="h-full p-0">
-                        {!sidebarCollapsed && (
-                          <>
-                            {activeSidebarPanel === "file" && (
-                              <FileSystemTree
-                                ref={fileTreeRef}
-                                onFileSelect={handleFileSelect}
-                                isVisible={!sidebarCollapsed}
-                                autoOpen={true}
-                              />
-                            )}
-                            {activeSidebarPanel === "search" && (
-                              <SearchComponent onFileSelect={handleFileSelect} />
-                            )}
-                            {activeSidebarPanel === "theme" && <ThemeSelector />}
-                            {activeSidebarPanel === "tags" && (
-                              <TagFilterPanel
-                                rootPath={rootPath}
-                                onFiltersChange={setSelectedTagFilters}
-                              />
-                            )}
-                            {activeSidebarPanel === "trash" && (
-                              <TrashPanel rootPath={rootPath} onFileSelect={handleFileSelect} />
-                            )}
-                          </>
-                        )}
-                      </SidebarContent>
-                    </Sidebar>
-                  </SidebarProvider>
-                </ResizablePanel>
+                    <SidebarProvider>
+                      <Sidebar collapsible="none" className="!static w-full">
+                        <SidebarContent className="h-full p-0">
+                          {!sidebarCollapsed && (
+                            <>
+                              {activeSidebarPanel === "file" && (
+                                <FileSystemTree
+                                  ref={fileTreeRef}
+                                  onFileSelect={handleFileSelect}
+                                  isVisible={!sidebarCollapsed}
+                                  autoOpen={true}
+                                />
+                              )}
+                              {activeSidebarPanel === "search" && (
+                                <SearchComponent onFileSelect={handleFileSelect} />
+                              )}
+                              {activeSidebarPanel === "theme" && <ThemeSelector />}
+                              {activeSidebarPanel === "tags" && (
+                                <TagFilterPanel
+                                  rootPath={rootPath}
+                                  onFiltersChange={setSelectedTagFilters}
+                                />
+                              )}
+                              {activeSidebarPanel === "trash" && (
+                                <TrashPanel rootPath={rootPath} onFileSelect={handleFileSelect} />
+                              )}
+                            </>
+                          )}
+                        </SidebarContent>
+                      </Sidebar>
+                    </SidebarProvider>
+                  </ResizablePanel>
+                )}
               </>
               )}
             </ResizablePanelGroup>
 
+            {!isFocusMode && (
+              <EdgeRail
+                edge="right"
+                items={rightRailIcons}
+                alignment={sidebarLayout.railAlignment.right}
+                isDragActive={Boolean(activeDragIconId)}
+                onContextMenu={handleRailContextMenu}
+              >
+                {renderSidebarIcon}
+              </EdgeRail>
+            )}
+          </div>
+
+          {!isFocusMode && (
             <EdgeRail
-              edge="right"
-              items={rightRailIcons}
-              alignment={sidebarLayout.railAlignment.right}
+              edge="bottom"
+              items={bottomRailIcons}
+              alignment={sidebarLayout.railAlignment.bottom}
               isDragActive={Boolean(activeDragIconId)}
               onContextMenu={handleRailContextMenu}
             >
               {renderSidebarIcon}
             </EdgeRail>
-          </div>
-
-          <EdgeRail
-            edge="bottom"
-            items={bottomRailIcons}
-            alignment={sidebarLayout.railAlignment.bottom}
-            isDragActive={Boolean(activeDragIconId)}
-            onContextMenu={handleRailContextMenu}
-          >
-            {renderSidebarIcon}
-          </EdgeRail>
+          )}
 
           <DropdownMenuPrimitive.Root
             open={Boolean(railContextMenu)}
