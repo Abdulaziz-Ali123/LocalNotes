@@ -20,7 +20,4 @@ dist
 .notepad-tags.json
 
 # package locks
-package-lock.json
-pnpm-lock.yaml
-yarn.lock
 plan.md
