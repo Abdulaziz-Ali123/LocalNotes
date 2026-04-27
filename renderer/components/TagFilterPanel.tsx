@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/components/TagFilterPanel.tsx
+ * Brief description: Defines a renderer component that implements part of the LocalNotes user interface.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: m518n748
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { Button } from "./ui/button";
@@ -15,6 +26,12 @@ interface TagFilterPanelProps {
   selectedTagIds?: string[];
 }
 
+/**
+ * Functionality: TagFilterPanel performs the tag filter panel workflow used by renderer/components/TagFilterPanel.tsx.
+ * Parameters: { rootPath, onFiltersChange, selectedTagIds: propSelectedTagIds } (TagFilterPanelProps).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call TagFilterPanel from the owning module or component when this behavior is required.
+ */
 export default function TagFilterPanel({ rootPath, onFiltersChange, selectedTagIds: propSelectedTagIds }: TagFilterPanelProps) {
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
@@ -37,7 +54,13 @@ export default function TagFilterPanel({ rootPath, onFiltersChange, selectedTagI
     }
   }, [propSelectedTagIds, rootPath]);
 
-  const loadTags = async () => {
+    /**
+   * Functionality: loadTags performs the load tags workflow used by renderer/components/TagFilterPanel.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call loadTags from the owning module or component when this behavior is required.
+   */
+const loadTags = async () => {
     if (!rootPath) return;
 
     setLoading(true);
@@ -61,7 +84,13 @@ export default function TagFilterPanel({ rootPath, onFiltersChange, selectedTagI
 
   // Listen for external updates to tags (TagModal writes triggers this)
   useEffect(() => {
-    const onTagsUpdated = () => {
+        /**
+     * Functionality: onTagsUpdated performs the on tags updated workflow used by renderer/components/TagFilterPanel.tsx.
+     * Parameters: None.
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call onTagsUpdated from the owning module or component when this behavior is required.
+     */
+const onTagsUpdated = () => {
       loadTags();
       if (selectedTagIds.length > 0) computeMatchingItems(selectedTagIds);
     };
@@ -69,7 +98,13 @@ export default function TagFilterPanel({ rootPath, onFiltersChange, selectedTagI
     return () => window.removeEventListener("tags-updated", onTagsUpdated);
   }, [rootPath, selectedTagIds]);
 
-  const handleToggleTag = (tagId: string) => {
+    /**
+   * Functionality: handleToggleTag performs the handle toggle tag workflow used by renderer/components/TagFilterPanel.tsx.
+   * Parameters: tagId (string).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleToggleTag from the owning module or component when this behavior is required.
+   */
+const handleToggleTag = (tagId: string) => {
     setSelectedTagIds((prev) => {
       const updated = prev.includes(tagId)
         ? prev.filter((id) => id !== tagId)
@@ -81,13 +116,25 @@ export default function TagFilterPanel({ rootPath, onFiltersChange, selectedTagI
     });
   };
 
-  const handleClearFilters = () => {
+    /**
+   * Functionality: handleClearFilters performs the handle clear filters workflow used by renderer/components/TagFilterPanel.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleClearFilters from the owning module or component when this behavior is required.
+   */
+const handleClearFilters = () => {
     setSelectedTagIds([]);
     onFiltersChange([]);
     setMatchingItems([]);
   };
 
-  const computeMatchingItems = async (filterIds: string[]) => {
+    /**
+   * Functionality: computeMatchingItems performs the compute matching items workflow used by renderer/components/TagFilterPanel.tsx.
+   * Parameters: filterIds (string[]).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call computeMatchingItems from the owning module or component when this behavior is required.
+   */
+const computeMatchingItems = async (filterIds: string[]) => {
     if (!rootPath) return setMatchingItems([]);
     if (filterIds.length === 0) return setMatchingItems([]);
 

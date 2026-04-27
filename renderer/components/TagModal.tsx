@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/components/TagModal.tsx
+ * Brief description: Defines a renderer component that implements part of the LocalNotes user interface.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: m518n748
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import React, { useState, useEffect } from "react";
 import { X, Plus, Edit2, Trash2, Check } from "lucide-react";
 import { Button } from "./ui/button";
@@ -34,6 +45,12 @@ const PRESET_COLORS = [
   "#ABEBC6", // Light Green
 ];
 
+/**
+ * Functionality: TagModal performs the tag modal workflow used by renderer/components/TagModal.tsx.
+ * Parameters: { isOpen, itemPath, rootPath, onClose } (TagModalProps).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call TagModal from the owning module or component when this behavior is required.
+ */
 export default function TagModal({ isOpen, itemPath, rootPath, onClose }: TagModalProps) {
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [assignedTagIds, setAssignedTagIds] = useState<string[]>([]);
@@ -48,14 +65,20 @@ export default function TagModal({ isOpen, itemPath, rootPath, onClose }: TagMod
     }
   }, [isOpen, itemPath, rootPath]);
 
-  const loadTags = async () => {
+    /**
+   * Functionality: loadTags performs the load tags workflow used by renderer/components/TagModal.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call loadTags from the owning module or component when this behavior is required.
+   */
+const loadTags = async () => {
     if (!itemPath || !rootPath) return;
     try {
       const tagsFilePath = window.fs.join(rootPath, ".notepad-tags.json");
       const result = await window.fs.readFile(tagsFilePath);
       if (result.success && result.data) {
         const data = JSON.parse(result.data as string);
-        
+
         // Load all tags
         setAllTags(data.tags || []);
 
@@ -73,12 +96,18 @@ export default function TagModal({ isOpen, itemPath, rootPath, onClose }: TagMod
     }
   };
 
-  const saveTagsFile = async (tags: Tag[], itemTagIds: string[]) => {
+    /**
+   * Functionality: saveTagsFile performs the save tags file workflow used by renderer/components/TagModal.tsx.
+   * Parameters: tags (Tag[]); itemTagIds (string[]).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call saveTagsFile from the owning module or component when this behavior is required.
+   */
+const saveTagsFile = async (tags: Tag[], itemTagIds: string[]) => {
     if (!rootPath || !itemPath) return;
     try {
       const tagsFilePath = window.fs.join(rootPath, ".notepad-tags.json");
       let existingData = { tags: [] as Tag[], items: {} as Record<string, { tagIds: string[] }> };
-      
+
       // Try to load existing data
       try {
         const result = await window.fs.readFile(tagsFilePath);
@@ -109,7 +138,13 @@ export default function TagModal({ isOpen, itemPath, rootPath, onClose }: TagMod
     }
   };
 
-  const handleAddTag = async () => {
+    /**
+   * Functionality: handleAddTag performs the handle add tag workflow used by renderer/components/TagModal.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleAddTag from the owning module or component when this behavior is required.
+   */
+const handleAddTag = async () => {
     if (!formData.name.trim()) return;
 
     const newTag: Tag = {
@@ -120,7 +155,7 @@ export default function TagModal({ isOpen, itemPath, rootPath, onClose }: TagMod
 
     const updatedTags = [...allTags, newTag];
     setAllTags(updatedTags);
-    
+
     await saveTagsFile(updatedTags, assignedTagIds);
     // Notify other components that tags file changed
     try {
@@ -130,7 +165,13 @@ export default function TagModal({ isOpen, itemPath, rootPath, onClose }: TagMod
     setShowAddForm(false);
   };
 
-  const handleUpdateTag = async (id: string) => {
+    /**
+   * Functionality: handleUpdateTag performs the handle update tag workflow used by renderer/components/TagModal.tsx.
+   * Parameters: id (string).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleUpdateTag from the owning module or component when this behavior is required.
+   */
+const handleUpdateTag = async (id: string) => {
     if (!formData.name.trim()) return;
 
     const updatedTags = allTags.map((tag) =>
@@ -140,7 +181,7 @@ export default function TagModal({ isOpen, itemPath, rootPath, onClose }: TagMod
     );
 
     setAllTags(updatedTags);
-    
+
     await saveTagsFile(updatedTags, assignedTagIds);
     try {
       window.dispatchEvent(new Event("tags-updated"));
@@ -149,45 +190,75 @@ export default function TagModal({ isOpen, itemPath, rootPath, onClose }: TagMod
     setEditingId(null);
   };
 
-  const handleDeleteTag = async (id: string) => {
+    /**
+   * Functionality: handleDeleteTag performs the handle delete tag workflow used by renderer/components/TagModal.tsx.
+   * Parameters: id (string).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleDeleteTag from the owning module or component when this behavior is required.
+   */
+const handleDeleteTag = async (id: string) => {
     const updatedTags = allTags.filter((tag) => tag.id !== id);
     const updatedAssignments = assignedTagIds.filter((tagId) => tagId !== id);
-    
+
     setAllTags(updatedTags);
     setAssignedTagIds(updatedAssignments);
-    
+
     await saveTagsFile(updatedTags, updatedAssignments);
     try {
       window.dispatchEvent(new Event("tags-updated"));
     } catch (e) {}
   };
 
-  const handleToggleTagAssignment = async (tagId: string) => {
+    /**
+   * Functionality: handleToggleTagAssignment performs the handle toggle tag assignment workflow used by renderer/components/TagModal.tsx.
+   * Parameters: tagId (string).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleToggleTagAssignment from the owning module or component when this behavior is required.
+   */
+const handleToggleTagAssignment = async (tagId: string) => {
     const updatedAssignments = assignedTagIds.includes(tagId)
       ? assignedTagIds.filter((id) => id !== tagId)
       : [...assignedTagIds, tagId];
 
     setAssignedTagIds(updatedAssignments);
-    
+
     await saveTagsFile(allTags, updatedAssignments);
     try {
       window.dispatchEvent(new Event("tags-updated"));
     } catch (e) {}
   };
 
-  const startEdit = (tag: Tag) => {
+    /**
+   * Functionality: startEdit performs the start edit workflow used by renderer/components/TagModal.tsx.
+   * Parameters: tag (Tag).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call startEdit from the owning module or component when this behavior is required.
+   */
+const startEdit = (tag: Tag) => {
     setFormData({ name: tag.name, color: tag.color });
     setEditingId(tag.id);
     setShowAddForm(false);
   };
 
-  const startAdd = () => {
+    /**
+   * Functionality: startAdd performs the start add workflow used by renderer/components/TagModal.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call startAdd from the owning module or component when this behavior is required.
+   */
+const startAdd = () => {
     setFormData({ name: "", color: PRESET_COLORS[0] });
     setShowAddForm(true);
     setEditingId(null);
   };
 
-  const handleCancel = () => {
+    /**
+   * Functionality: handleCancel performs the handle cancel workflow used by renderer/components/TagModal.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleCancel from the owning module or component when this behavior is required.
+   */
+const handleCancel = () => {
     setShowAddForm(false);
     setEditingId(null);
     setFormData({ name: "", color: PRESET_COLORS[0] });

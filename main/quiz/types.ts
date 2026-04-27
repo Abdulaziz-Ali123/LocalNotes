@@ -1,6 +1,7 @@
 /**
  * File: main/quiz/types.ts
  * Author: Atharva Patil
+ * Git-history contributors: a157p624
  * Sprint: 5
  * Purpose: Canonical type contracts for quiz sessions, players, questions, and leaderboards.
  * Notes: Shared by quiz session manager, IPC handlers, and WebSocket transport.

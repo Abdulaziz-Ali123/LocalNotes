@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/components/MarkdownViewer.tsx
+ * Brief description: Defines a renderer component that implements part of the LocalNotes user interface.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Wesley McDougal; Abdulaziz-Ali123; Malek Kchaou
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import React, { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -12,12 +23,24 @@ type Props = {
   baseDir?: string | null;
 };
 
+/**
+ * Functionality: MarkdownViewer performs the markdown viewer workflow used by renderer/components/MarkdownViewer.tsx.
+ * Parameters: { content, baseDir } (Props).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call MarkdownViewer from the owning module or component when this behavior is required.
+ */
 export default function MarkdownViewer({ content, baseDir }: Props) {
   const [processedContent, setProcessedContent] = useState(content);
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
-    const processImages = async () => {
+        /**
+     * Functionality: processImages performs the process images workflow used by renderer/components/MarkdownViewer.tsx.
+     * Parameters: None.
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call processImages from the owning module or component when this behavior is required.
+     */
+const processImages = async () => {
       if (isProcessing) return;
       setIsProcessing(true);
 

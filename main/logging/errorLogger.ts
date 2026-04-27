@@ -6,6 +6,7 @@
  * - Normalizes unknown thrown values into a consistent log payload.
  * - Supports logging errors coming from both main and renderer processes.
  * Author: Malek Kchaou
+ * Git-history contributors: Malek Kchaou
  * Date: 2026-03-28
  * Housekeeping note:
  * - Keep this file lightweight and dependency-free so it can be reused from any IPC handler.
@@ -53,6 +54,12 @@ function getLogDirectory(): string {
 /**
  * The current implementation writes all application errors into one log file.
  * This is the lowest-overhead option and is sufficient for debugging.
+ */
+/**
+ * Functionality: getLogFilePath performs the get log file path workflow used by main/logging/errorLogger.ts.
+ * Parameters: None.
+ * Returns: Returns string.
+ * Usage: Call getLogFilePath from the owning module or component when this behavior is required.
  */
 function getLogFilePath(): string {
     return path.join(getLogDirectory(), "errors.log");
@@ -109,6 +116,12 @@ export function normalizeError(
  * The format is newline-delimited JSON so it is easy to inspect manually
  * and easy to parse later if we want filtering tools.
  */
+/**
+ * Functionality: writeErrorLog performs the write error log workflow used by main/logging/errorLogger.ts.
+ * Parameters: payload (ErrorLogPayload).
+ * Returns: Returns void.
+ * Usage: Call writeErrorLog from the owning module or component when this behavior is required.
+ */
 export function writeErrorLog(payload: ErrorLogPayload): void {
     const filePath = getLogFilePath();
 
@@ -124,6 +137,12 @@ export function writeErrorLog(payload: ErrorLogPayload): void {
  * Convenience helper used inside main-process try/catch blocks.
  * It normalizes the thrown value, writes it to disk, and returns the
  * normalized payload in case the caller wants to do additional handling.
+ */
+/**
+ * Functionality: logMainError performs the log main error workflow used by main/logging/errorLogger.ts.
+ * Parameters: error (unknown); context (string); details (Record<string, unknown>).
+ * Returns: Returns ErrorLogPayload.
+ * Usage: Call logMainError from the owning module or component when this behavior is required.
  */
 export function logMainError(
     error: unknown,

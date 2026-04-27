@@ -1,8 +1,25 @@
+/**
+ * Name of code artifact: renderer/store/tab-slice.ts
+ * Brief description: Defines Zustand state slices and store wiring for renderer application state.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Wesley McDougal; Malek Kchaou; Abdulaziz-Ali123
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import { TabsSlice } from "@/renderer/types/tab-slice";
 import { TabInfo } from "@/renderer/types/tabs";
 import { produce } from "immer";
 import { StateCreator } from "zustand";
 
+/**
+ * Functionality: createTabSlice performs the create tab slice workflow used by renderer/store/tab-slice.ts.
+ * Parameters: set (inferred).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call createTabSlice from the owning module or component when this behavior is required.
+ */
 export const createTabSlice: StateCreator<TabsSlice, [], [], TabsSlice> = (set) => ({
   tabs: {
     items: [

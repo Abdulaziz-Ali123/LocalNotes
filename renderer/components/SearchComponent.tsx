@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/components/SearchComponent.tsx
+ * Brief description: Defines a renderer component that implements part of the LocalNotes user interface.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Abdulaziz-Ali123; Wesley McDougal
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import React, { useState, useEffect } from "react";
 import { Search, X, FileText, Loader2 } from "lucide-react";
 import { Input } from "./ui/input";
@@ -23,6 +34,12 @@ interface SearchComponentProps {
   onFileSelect?: (filePath: string, searchTerm?: string, matchCase?: boolean, matchWholeWord?: boolean) => void;
 }
 
+/**
+ * Functionality: SearchComponent performs the search component workflow used by renderer/components/SearchComponent.tsx.
+ * Parameters: { onFileSelect } (SearchComponentProps).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SearchComponent from the owning module or component when this behavior is required.
+ */
 export default function SearchComponent({ onFileSelect }: SearchComponentProps) {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [matchCase, setMatchCase] = useState<boolean>(false);
@@ -36,7 +53,13 @@ export default function SearchComponent({ onFileSelect }: SearchComponentProps) 
   const [filterTex, setFilterTex] = useState<boolean>(false);
 
   // Highlight matches in text
-  const highlightText = (text: string, query: string): React.ReactNode => {
+    /**
+   * Functionality: highlightText performs the highlight text workflow used by renderer/components/SearchComponent.tsx.
+   * Parameters: text (string); query (string).
+   * Returns: Returns React.ReactNode.
+   * Usage: Call highlightText from the owning module or component when this behavior is required.
+   */
+const highlightText = (text: string, query: string): React.ReactNode => {
     if (!query) return text;
 
     try {
@@ -85,7 +108,13 @@ export default function SearchComponent({ onFileSelect }: SearchComponentProps) 
   }, [filterTxt, filterMd, filterTex]);
 
   // Search through file contents
-  const searchFileContents = async (dirPath: string, query: string): Promise<SearchResult[]> => {
+    /**
+   * Functionality: searchFileContents performs the search file contents workflow used by renderer/components/SearchComponent.tsx.
+   * Parameters: dirPath (string); query (string).
+   * Returns: Returns Promise<SearchResult[]>.
+   * Usage: Call searchFileContents from the owning module or component when this behavior is required.
+   */
+const searchFileContents = async (dirPath: string, query: string): Promise<SearchResult[]> => {
     const results: SearchResult[] = [];
 
     try {
@@ -158,7 +187,13 @@ export default function SearchComponent({ onFileSelect }: SearchComponentProps) 
   };
 
   // Trigger search
-  const handleSearch = async () => {
+    /**
+   * Functionality: handleSearch performs the handle search workflow used by renderer/components/SearchComponent.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleSearch from the owning module or component when this behavior is required.
+   */
+const handleSearch = async () => {
     if (!searchQuery.trim()) {
       setSearchError("Please enter a search query");
       return;
@@ -189,33 +224,63 @@ export default function SearchComponent({ onFileSelect }: SearchComponentProps) 
   };
 
   // Clear search
-  const clearSearch = () => {
+    /**
+   * Functionality: clearSearch performs the clear search workflow used by renderer/components/SearchComponent.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call clearSearch from the owning module or component when this behavior is required.
+   */
+const clearSearch = () => {
     setSearchQuery("");
     setSearchResults([]);
     setSearchError("");
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    /**
+   * Functionality: handleKeyPress performs the handle key press workflow used by renderer/components/SearchComponent.tsx.
+   * Parameters: e (React.KeyboardEvent<HTMLInputElement>).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleKeyPress from the owning module or component when this behavior is required.
+   */
+const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       handleSearch();
     }
   };
 
-  const handleMatchCaseChange = (checked: boolean) => {
+    /**
+   * Functionality: handleMatchCaseChange performs the handle match case change workflow used by renderer/components/SearchComponent.tsx.
+   * Parameters: checked (boolean).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleMatchCaseChange from the owning module or component when this behavior is required.
+   */
+const handleMatchCaseChange = (checked: boolean) => {
     if (isUpdating) return;
     setIsUpdating(true);
     setMatchCase(checked);
     setTimeout(() => setIsUpdating(false), 50);
   };
 
-  const handleMatchWholeWordChange = (checked: boolean) => {
+    /**
+   * Functionality: handleMatchWholeWordChange performs the handle match whole word change workflow used by renderer/components/SearchComponent.tsx.
+   * Parameters: checked (boolean).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleMatchWholeWordChange from the owning module or component when this behavior is required.
+   */
+const handleMatchWholeWordChange = (checked: boolean) => {
     if (isUpdating) return;
     setIsUpdating(true);
     setMatchWholeWord(checked);
     setTimeout(() => setIsUpdating(false), 50);
   };
 
-  const handleFilterToggle = (type: 'txt' | 'md' | 'tex') => {
+    /**
+   * Functionality: handleFilterToggle performs the handle filter toggle workflow used by renderer/components/SearchComponent.tsx.
+   * Parameters: type ('txt' | 'md' | 'tex').
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleFilterToggle from the owning module or component when this behavior is required.
+   */
+const handleFilterToggle = (type: 'txt' | 'md' | 'tex') => {
     if (isUpdating) return;
     setIsUpdating(true);
     if (type === 'txt') setFilterTxt((v) => !v);
@@ -262,7 +327,7 @@ export default function SearchComponent({ onFileSelect }: SearchComponentProps) 
               )}
             </Button>
           </div>
-          
+
         </div>
 
         {/* Options */}

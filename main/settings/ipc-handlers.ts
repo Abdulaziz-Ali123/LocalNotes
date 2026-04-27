@@ -4,6 +4,7 @@
  * Registers all settings-related IPC channels so the renderer can
  * get/set/reset both global and project settings.
  *
+ * Git-history contributors: Wesley McDougal; Malek Kchaou; Shaun
  * Revision History:
  *  • Wesley McDougal - 07APR2026 - Added llm:chat IPC handler: performs all HTTP
  *    requests to LLM provider endpoints server-side so API keys are never exposed to the
@@ -22,6 +23,12 @@ import { upsertLLMModel, listLLMModels, getDefaultLLMModel, deleteLLMModel } fro
  *
  * @param manager  The initialised SettingsManager instance
  * @param getMainWindow  Getter for the main BrowserWindow (used to rebuild menus)
+ */
+/**
+ * Functionality: registerSettingsIpc performs the register settings ipc workflow used by main/settings/ipc-handlers.ts.
+ * Parameters: manager (SettingsManager); getMainWindow (() => BrowserWindow | null).
+ * Returns: Returns void.
+ * Usage: Call registerSettingsIpc from the owning module or component when this behavior is required.
  */
 export function registerSettingsIpc(
   manager: SettingsManager,
@@ -298,6 +305,12 @@ export function registerSettingsIpc(
 // Menu rebuilder
 // ---------------------------------------------------------------------------
 
+/**
+ * Functionality: rebuildMenu performs the rebuild menu workflow used by main/settings/ipc-handlers.ts.
+ * Parameters: settings (GlobalSettings); win (BrowserWindow | null).
+ * Returns: Returns void.
+ * Usage: Call rebuildMenu from the owning module or component when this behavior is required.
+ */
 function rebuildMenu(
   settings: GlobalSettings,
   win: BrowserWindow | null

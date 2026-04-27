@@ -7,6 +7,7 @@
  *
  * This replaces the old hardcoded useKeyboardShortcuts hook with a
  * settings-driven version.
+ * Git-history contributors: Shaun
  */
 
 import { useEffect, useMemo } from "react";
@@ -35,6 +36,12 @@ interface ParsedAccelerator {
 
 const isMac = typeof navigator !== "undefined" && navigator.platform.toUpperCase().includes("MAC");
 
+/**
+ * Functionality: parseAccelerator performs the parse accelerator workflow used by renderer/hooks/useKeybindings.ts.
+ * Parameters: accel (string).
+ * Returns: Returns ParsedAccelerator | null.
+ * Usage: Call parseAccelerator from the owning module or component when this behavior is required.
+ */
 function parseAccelerator(accel: string): ParsedAccelerator | null {
   if (!accel || typeof accel !== "string") return null;
 
@@ -68,6 +75,12 @@ function parseAccelerator(accel: string): ParsedAccelerator | null {
   return { ctrl, shift, alt, key };
 }
 
+/**
+ * Functionality: matchesEvent performs the matches event workflow used by renderer/hooks/useKeybindings.ts.
+ * Parameters: parsed (ParsedAccelerator); e (KeyboardEvent).
+ * Returns: Returns boolean.
+ * Usage: Call matchesEvent from the owning module or component when this behavior is required.
+ */
 function matchesEvent(parsed: ParsedAccelerator, e: KeyboardEvent): boolean {
   const modKey = isMac ? e.metaKey : e.ctrlKey;
   if (parsed.ctrl !== modKey) return false;
@@ -85,6 +98,12 @@ function matchesEvent(parsed: ParsedAccelerator, e: KeyboardEvent): boolean {
   return eventKey === parsed.key;
 }
 
+/**
+ * Functionality: useKeybindings performs the use keybindings workflow used by renderer/hooks/useKeybindings.ts.
+ * Parameters: { handlers, enabled = true } (UseKeybindingsOptions).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call useKeybindings from the owning module or component when this behavior is required.
+ */
 export function useKeybindings({ handlers, enabled = true }: UseKeybindingsOptions) {
   const keybindings = useBoundStore((s) => s.settings.global.keybindings);
 
@@ -107,7 +126,13 @@ export function useKeybindings({ handlers, enabled = true }: UseKeybindingsOptio
   useEffect(() => {
     if (!enabled) return;
 
-    const handleKeyDown = (e: KeyboardEvent) => {
+        /**
+     * Functionality: handleKeyDown performs the handle key down workflow used by renderer/hooks/useKeybindings.ts.
+     * Parameters: e (KeyboardEvent).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleKeyDown from the owning module or component when this behavior is required.
+     */
+const handleKeyDown = (e: KeyboardEvent) => {
       for (const { parsed, actionId } of parsedBindings) {
         if (matchesEvent(parsed, e)) {
           const handler = handlers[actionId];

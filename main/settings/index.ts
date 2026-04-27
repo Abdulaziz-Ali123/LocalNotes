@@ -1,6 +1,7 @@
 /**
  * Barrel export for the settings module.
  *
+ * Git-history contributors: Wesley McDougal; Shaun
  * Revision History:
  *  • Wesley McDougal - 05APR2026 - Exported sidebar layout-related settings types
  */

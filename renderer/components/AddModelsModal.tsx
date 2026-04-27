@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/components/AddModelsModal.tsx
+ * Brief description: Defines a renderer component that implements part of the LocalNotes user interface.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Shaun
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import React, { useState } from "react";
 import { X } from "lucide-react";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
@@ -21,6 +32,12 @@ interface AddModelsModalProps {
   defaultProvider?: string;
 }
 
+/**
+ * Functionality: AddModelsModal performs the add models modal workflow used by renderer/components/AddModelsModal.tsx.
+ * Parameters: { isOpen, onClose, defaultProvider = "OpenAI" } (AddModelsModalProps).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call AddModelsModal from the owning module or component when this behavior is required.
+ */
 export default function AddModelsModal({ isOpen, onClose, defaultProvider = "OpenAI" }: AddModelsModalProps) {
   const [provider, setProvider] = useState(defaultProvider);
   const [modelName, setModelName] = useState("");
@@ -32,7 +49,13 @@ export default function AddModelsModal({ isOpen, onClose, defaultProvider = "Ope
 
   if (!isOpen) return null;
 
-  const handleSave = () => {
+    /**
+   * Functionality: handleSave performs the handle save workflow used by renderer/components/AddModelsModal.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleSave from the owning module or component when this behavior is required.
+   */
+const handleSave = () => {
     if (!modelName.trim()) return;
 
     const newModel = {

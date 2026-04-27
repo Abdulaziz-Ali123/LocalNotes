@@ -1,6 +1,23 @@
+/**
+ * Name of code artifact: main/helpers/create-window.ts
+ * Brief description: Provides main-process helper utilities shared across Electron startup and file operations.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Wesley McDougal; Malek Kchaou; Abdulaziz-Ali123
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import { screen, BrowserWindow, BrowserWindowConstructorOptions, Rectangle } from "electron";
 import Store from "electron-store";
 
+/**
+ * Functionality: createWindow performs the create window workflow used by main/helpers/create-window.ts.
+ * Parameters: windowName (string); options (BrowserWindowConstructorOptions).
+ * Returns: Returns BrowserWindow.
+ * Usage: Call createWindow from the owning module or component when this behavior is required.
+ */
 export const createWindow = (
   windowName: string,
   options: BrowserWindowConstructorOptions
@@ -14,9 +31,21 @@ export const createWindow = (
   };
   let state = {};
 
-  const restore = () => store.get(key, defaultSize);
+    /**
+   * Functionality: restore performs the restore workflow used by main/helpers/create-window.ts.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call restore from the owning module or component when this behavior is required.
+   */
+const restore = () => store.get(key, defaultSize);
 
-  const getCurrentPosition = () => {
+    /**
+   * Functionality: getCurrentPosition performs the get current position workflow used by main/helpers/create-window.ts.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call getCurrentPosition from the owning module or component when this behavior is required.
+   */
+const getCurrentPosition = () => {
     const position = win.getPosition();
     const size = win.getSize();
     return {
@@ -27,7 +56,13 @@ export const createWindow = (
     };
   };
 
-  const windowWithinBounds = (windowState, bounds) => {
+    /**
+   * Functionality: windowWithinBounds performs the window within bounds workflow used by main/helpers/create-window.ts.
+   * Parameters: windowState (inferred); bounds (inferred).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call windowWithinBounds from the owning module or component when this behavior is required.
+   */
+const windowWithinBounds = (windowState, bounds) => {
     return (
       windowState.x >= bounds.x &&
       windowState.y >= bounds.y &&
@@ -36,7 +71,13 @@ export const createWindow = (
     );
   };
 
-  const resetToDefaults = () => {
+    /**
+   * Functionality: resetToDefaults performs the reset to defaults workflow used by main/helpers/create-window.ts.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call resetToDefaults from the owning module or component when this behavior is required.
+   */
+const resetToDefaults = () => {
     const bounds = screen.getPrimaryDisplay().bounds;
     return Object.assign({}, defaultSize, {
       x: (bounds.width - defaultSize.width) / 2,
@@ -44,7 +85,13 @@ export const createWindow = (
     });
   };
 
-  const ensureVisibleOnSomeDisplay = (windowState) => {
+    /**
+   * Functionality: ensureVisibleOnSomeDisplay performs the ensure visible on some display workflow used by main/helpers/create-window.ts.
+   * Parameters: windowState (inferred).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call ensureVisibleOnSomeDisplay from the owning module or component when this behavior is required.
+   */
+const ensureVisibleOnSomeDisplay = (windowState) => {
     const visible = screen.getAllDisplays().some((display) => {
       return windowWithinBounds(windowState, display.bounds);
     });
@@ -56,7 +103,13 @@ export const createWindow = (
     return windowState;
   };
 
-  const saveState = () => {
+    /**
+   * Functionality: saveState performs the save state workflow used by main/helpers/create-window.ts.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call saveState from the owning module or component when this behavior is required.
+   */
+const saveState = () => {
     if (!win.isMinimized() && !win.isMaximized()) {
       Object.assign(state, getCurrentPosition());
     }

@@ -1,4 +1,13 @@
-﻿// eslint.config.js
+/**
+ * Name of code artifact: eslint.config.js
+ * Brief description: Defines repository-wide ESLint rules for TypeScript, React, unused imports, and Prettier compatibility.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Wesley McDougal; Malek Kchaou
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required configuration prolog documentation.
+ * Implementation notes: This JavaScript configuration is a 4GL-style build tool artifact and should stay aligned with ESLint's flat config contract.
+ */
 import js from "@eslint/js";
 import parser from "@typescript-eslint/parser";
 import tseslint from "@typescript-eslint/eslint-plugin";

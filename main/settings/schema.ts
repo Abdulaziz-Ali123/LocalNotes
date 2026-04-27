@@ -4,6 +4,7 @@
  * TypeScript interfaces defining the shape of all settings.
  * These interfaces are the single source of truth for the settings structure
  * and are shared between the main process SettingsManager and the renderer.
+ * Git-history contributors: Wesley McDougal; Abdulaziz Ali; Shaun; Malek Kchaou
  * Revision History:
  *  • Wesley McDougal - 29MAR2026 - Added CustomThemeTokens and customThemes to AppearanceSettings
  *  • Wesley McDougal - 05APR2026 - Added sidebar layout schema types and appearance/project layout support

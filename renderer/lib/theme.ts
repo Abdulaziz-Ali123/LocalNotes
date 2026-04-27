@@ -13,6 +13,7 @@
  * 9. Constants: BUILT_IN_THEMES array, DEFAULT_CUSTOM_THEME_TOKENS, TOKEN_TO_CSS_VAR mapping
  * 10. Type definitions: BuiltInThemeType, CustomThemeTokens (20 color tokens), CustomThemeDefinition
  *
+ * Git-history contributors: Wesley McDougal; Shaun; Abdulaziz-Ali123; m518n748
  * Revision History:
  * - 29 MAR 2026: Wesley McDougal - Theme engine overhaul with custom token support, contrast ratio calculation, CSS variable application, and synchronization with settings store.
  */
@@ -132,7 +133,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     storeTheme(theme);
   }, [theme, customThemes]);
 
-  const setTheme = (t: ThemeType) => {
+    /**
+   * Functionality: setTheme performs the set theme workflow used by renderer/lib/theme.ts.
+   * Parameters: t (ThemeType).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call setTheme from the owning module or component when this behavior is required.
+   */
+const setTheme = (t: ThemeType) => {
     setThemeState(t);
     // Persist to the settings system (writes to JSON on disk via main process)
     setGlobal("appearance.theme", t);
@@ -158,6 +165,12 @@ export function loadStoredTheme(): ThemeType | null {
  * Persists theme to localStorage for backward-compatibility and quick first-render display.
  * Does not update persistent settings storage (that happens via setGlobal in ThemeProvider).
  */
+/**
+ * Functionality: storeTheme performs the store theme workflow used by renderer/lib/theme.ts.
+ * Parameters: theme (ThemeType).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call storeTheme from the owning module or component when this behavior is required.
+ */
 export function storeTheme(theme: ThemeType) {
   if (typeof window === "undefined") return;
   localStorage.setItem(THEME_KEY, theme);
@@ -167,6 +180,12 @@ export function storeTheme(theme: ThemeType) {
  * Applies theme class to document root (<html> element) and dispatches token overrides for custom themes.
  * Removes old theme classes first, then adds appropriate class (e.g., theme-nord, theme-dark).
  * For custom themes, also calls applyThemeTokenOverrides to set CSS variables.
+ */
+/**
+ * Functionality: applyTheme performs the apply theme workflow used by renderer/lib/theme.ts.
+ * Parameters: theme (ThemeType); customThemes (Record<string, CustomThemeDefinition>).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call applyTheme from the owning module or component when this behavior is required.
  */
 export function applyTheme(
   theme: ThemeType,
@@ -208,6 +227,12 @@ export function applyTheme(
 
 /**
  * Alias for loadStoredTheme() - retrieves theme from localStorage.
+ */
+/**
+ * Functionality: getStoredTheme performs the get stored theme workflow used by renderer/lib/theme.ts.
+ * Parameters: None.
+ * Returns: Returns ThemeType | null.
+ * Usage: Call getStoredTheme from the owning module or component when this behavior is required.
  */
 export function getStoredTheme(): ThemeType | null {
   if (typeof window === "undefined") return null;
@@ -256,6 +281,12 @@ export function applyThemeTokenOverrides(tokens: CustomThemeTokens): void {
  * Removes all CSS custom property overrides from document root.
  * Called when switching from custom theme to built-in theme.
  */
+/**
+ * Functionality: clearThemeTokenOverrides performs the clear theme token overrides workflow used by renderer/lib/theme.ts.
+ * Parameters: None.
+ * Returns: Returns void.
+ * Usage: Call clearThemeTokenOverrides from the owning module or component when this behavior is required.
+ */
 export function clearThemeTokenOverrides(): void {
   if (typeof document === "undefined") return;
 
@@ -269,6 +300,12 @@ export function clearThemeTokenOverrides(): void {
  * Type guard that returns true if themeId is one of the built-in themes (nord, light, dark, cozy, darker).
  * Used to distinguish custom theme IDs from built-in theme names.
  */
+/**
+ * Functionality: isBuiltInTheme performs the is built in theme workflow used by renderer/lib/theme.ts.
+ * Parameters: themeId (string).
+ * Returns: Returns themeId is BuiltInThemeType.
+ * Usage: Call isBuiltInTheme from the owning module or component when this behavior is required.
+ */
 export function isBuiltInTheme(themeId: string): themeId is BuiltInThemeType {
   return BUILT_IN_THEMES.includes(themeId as BuiltInThemeType);
 }
@@ -276,6 +313,12 @@ export function isBuiltInTheme(themeId: string): themeId is BuiltInThemeType {
 /**
  * Generates a unique theme ID from theme name by slugifying and appending random 6-char suffix.
  * Example: "My Theme" → custom-my-theme-a1b2c3
+ */
+/**
+ * Functionality: createCustomThemeId performs the create custom theme id workflow used by renderer/lib/theme.ts.
+ * Parameters: name (string).
+ * Returns: Returns string.
+ * Usage: Call createCustomThemeId from the owning module or component when this behavior is required.
  */
 export function createCustomThemeId(name: string): string {
   const base = name
@@ -287,6 +330,12 @@ export function createCustomThemeId(name: string): string {
   return `custom-${base || "theme"}-${suffix}`;
 }
 
+/**
+ * Functionality: srgbToLinear performs the srgb to linear workflow used by renderer/lib/theme.ts.
+ * Parameters: value (number).
+ * Returns: Returns number.
+ * Usage: Call srgbToLinear from the owning module or component when this behavior is required.
+ */
 function srgbToLinear(value: number): number {
   const normalized = value / 255;
   return normalized <= 0.03928
@@ -308,6 +357,12 @@ function relativeLuminance(hexColor: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
+/**
+ * Functionality: hexToRgb performs the hex to rgb workflow used by renderer/lib/theme.ts.
+ * Parameters: hexColor (string).
+ * Returns: Returns { r: number; g: number; b: number } | null.
+ * Usage: Call hexToRgb from the owning module or component when this behavior is required.
+ */
 function hexToRgb(hexColor: string): { r: number; g: number; b: number } | null {
   const normalized = hexColor.trim().replace(/^#/, "");
   if (![3, 6].includes(normalized.length)) return null;
@@ -345,6 +400,12 @@ export function contrastRatio(foreground: string, background: string): number {
 /**
  * React hook to access theme context (theme name, customThemes object, setTheme callback).
  * Must be used inside <ThemeProvider>; throws error if context not found.
+ */
+/**
+ * Functionality: useTheme performs the use theme workflow used by renderer/lib/theme.ts.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call useTheme from the owning module or component when this behavior is required.
  */
 export function useTheme() {
   const ctx = useContext(ThemeContext);

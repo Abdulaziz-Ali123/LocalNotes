@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/components/ui/button.tsx
+ * Brief description: Defines reusable renderer UI primitives used throughout the LocalNotes interface.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Wesley McDougal; Malek Kchaou; Shaun; Abdulaziz-Ali123
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
@@ -34,6 +45,12 @@ const buttonVariants = cva(
   }
 );
 
+/**
+ * Functionality: Button performs the button workflow used by renderer/components/ui/button.tsx.
+ * Parameters: { className, variant, size, asChild = false, ...props } (React.ComponentProps<"button"> & VariantProps<typeof buttonVariants> & { asChild?: boolean; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call Button from the owning module or component when this behavior is required.
+ */
 function Button({
   className,
   variant,

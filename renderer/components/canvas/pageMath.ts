@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/components/canvas/pageMath.ts
+ * Brief description: Supports the multi-page canvas editor data model, page math, rendering, or stroke processing.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Malek Kchaou
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import type { CanvasDocV1 } from "./canvasTypes";
 
 /**
@@ -10,7 +21,7 @@ import type { CanvasDocV1 } from "./canvasTypes";
  *
  * Date Created: 03/14/2026
  * Last Updated: 03/15/2026
- * 
+ *
  * Purpose:
  * Contains the layout and coordinate math for the multi-page notebook model.
  *
@@ -47,6 +58,12 @@ export function getPageSpan(doc: CanvasDocV1): number {
  * - y = 1700  -> page 1
  * - y = 3400  -> page 2
  */
+/**
+ * Functionality: getPageIndexForGlobalY performs the get page index for global y workflow used by renderer/components/canvas/pageMath.ts.
+ * Parameters: doc (CanvasDocV1); y (number).
+ * Returns: Returns number.
+ * Usage: Call getPageIndexForGlobalY from the owning module or component when this behavior is required.
+ */
 export function getPageIndexForGlobalY(doc: CanvasDocV1, y: number): number {
   return Math.max(0, Math.floor(y / getPageSpan(doc)));
 }
@@ -68,6 +85,12 @@ export function getLocalYForGlobalY(doc: CanvasDocV1, y: number, pageIndex: numb
  * This supports "unlimited pages" by growing the page list on demand.
  * If the user reaches a page that does not yet exist, we append empty pages
  * until the requested index is valid.
+ */
+/**
+ * Functionality: ensurePageExists performs the ensure page exists workflow used by renderer/components/canvas/pageMath.ts.
+ * Parameters: doc (CanvasDocV1); index (number).
+ * Returns: Returns CanvasDocV1.
+ * Usage: Call ensurePageExists from the owning module or component when this behavior is required.
  */
 export function ensurePageExists(doc: CanvasDocV1, index: number): CanvasDocV1 {
   const pages = [...doc.pages];
@@ -91,6 +114,12 @@ export function ensurePageExists(doc: CanvasDocV1, index: number): CanvasDocV1 {
  *
  * The +1 behavior intentionally preallocates one extra page ahead so the user
  * can continue drawing downward naturally without hitting a hard stop at the bottom.
+ */
+/**
+ * Functionality: ensurePagesThroughY performs the ensure pages through y workflow used by renderer/components/canvas/pageMath.ts.
+ * Parameters: doc (CanvasDocV1); y (number).
+ * Returns: Returns CanvasDocV1.
+ * Usage: Call ensurePagesThroughY from the owning module or component when this behavior is required.
  */
 export function ensurePagesThroughY(doc: CanvasDocV1, y: number): CanvasDocV1 {
   const requiredPage = getPageIndexForGlobalY(doc, y) + 1;

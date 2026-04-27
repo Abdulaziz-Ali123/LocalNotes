@@ -2,6 +2,7 @@
  * Purpose:
  *  Provides database operations for directories, files, chunks, and embeddings.
  *
+ * Git-history contributors: Shaun; Wesley McDougal; Abdulaziz-Ali123; Abdulaziz Ali; a157p624
  * Revision History:
  *  • Wesley McDougal - 05APR2026 - Made addDirectory idempotent and prevented duplicate directory registration failures
  */
@@ -11,6 +12,12 @@ import { getDB } from "@/main/database/sqllite";
 
 type UUID = string;
 
+/**
+ * Functionality: addDirectory performs the add directory workflow used by main/database/documentRepository.ts.
+ * Parameters: uuid (string); path (string).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call addDirectory from the owning module or component when this behavior is required.
+ */
 export function addDirectory(uuid: string, path: string) {
     const db = getDB();
 
@@ -58,6 +65,12 @@ export function addDirectory(uuid: string, path: string) {
     }
 }
 
+/**
+ * Functionality: updateDirectory performs the update directory workflow used by main/database/documentRepository.ts.
+ * Parameters: id (UUID); path (string).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call updateDirectory from the owning module or component when this behavior is required.
+ */
 export function updateDirectory(id: UUID, path?: string) {
     const db = getDB();
 
@@ -89,6 +102,12 @@ export function updateDirectory(id: UUID, path?: string) {
     }
 }
 
+/**
+ * Functionality: deleteDirectory performs the delete directory workflow used by main/database/documentRepository.ts.
+ * Parameters: id (UUID).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call deleteDirectory from the owning module or component when this behavior is required.
+ */
 export function deleteDirectory(id: UUID) {
     const db = getDB();
 
@@ -97,7 +116,7 @@ export function deleteDirectory(id: UUID) {
         const files = db.prepare(`
             SELECT id FROM files WHERE directory_id = ?
         `).all(id) as Array<{ id: string }>;
-        
+
         for (const file of files) {
             db.prepare(`DELETE FROM chunks WHERE file_id = ?`).run(file.id);
         }
@@ -117,6 +136,12 @@ export function deleteDirectory(id: UUID) {
     }
 }
 
+/**
+ * Functionality: getDirectory performs the get directory workflow used by main/database/documentRepository.ts.
+ * Parameters: id (UUID).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call getDirectory from the owning module or component when this behavior is required.
+ */
 export function getDirectory(id: UUID) {
     const db = getDB();
 
@@ -131,6 +156,12 @@ export function getDirectory(id: UUID) {
     }
 }
 
+/**
+ * Functionality: getAllDirectories performs the get all directories workflow used by main/database/documentRepository.ts.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call getAllDirectories from the owning module or component when this behavior is required.
+ */
 export function getAllDirectories() {
     const db = getDB();
 
@@ -145,6 +176,12 @@ export function getAllDirectories() {
     }
 }
 
+/**
+ * Functionality: getDirectoryIdByPath performs the get directory id by path workflow used by main/database/documentRepository.ts.
+ * Parameters: path (string).
+ * Returns: Returns string | undefined.
+ * Usage: Call getDirectoryIdByPath from the owning module or component when this behavior is required.
+ */
 export function getDirectoryIdByPath(path: string): string | undefined {
     const db = getDB();
 
@@ -161,6 +198,12 @@ export function getDirectoryIdByPath(path: string): string | undefined {
 }
 
 
+/**
+ * Functionality: addFile performs the add file workflow used by main/database/documentRepository.ts.
+ * Parameters: directoryId (UUID); filePath (string); fileHash (string); lastModified (number).
+ * Returns: Returns { id: UUID; result: any }.
+ * Usage: Call addFile from the owning module or component when this behavior is required.
+ */
 export function addFile(
     directoryId: UUID,
     filePath: string,
@@ -191,6 +234,12 @@ export function addFile(
     }
 }
 
+/**
+ * Functionality: updateFileHash performs the update file hash workflow used by main/database/documentRepository.ts.
+ * Parameters: fileId (UUID); fileHash (string); lastModified (number).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call updateFileHash from the owning module or component when this behavior is required.
+ */
 export function updateFileHash(
     fileId: UUID,
     fileHash: string,
@@ -213,6 +262,12 @@ export function updateFileHash(
     }
 }
 
+/**
+ * Functionality: deleteFile performs the delete file workflow used by main/database/documentRepository.ts.
+ * Parameters: fileId (UUID).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call deleteFile from the owning module or component when this behavior is required.
+ */
 export function deleteFile(fileId: UUID) {
     const db = getDB();
 
@@ -236,6 +291,12 @@ export function deleteFile(fileId: UUID) {
     }
 }
 
+/**
+ * Functionality: getFilesByDirectory performs the get files by directory workflow used by main/database/documentRepository.ts.
+ * Parameters: directoryId (UUID).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call getFilesByDirectory from the owning module or component when this behavior is required.
+ */
 export function getFilesByDirectory(directoryId: UUID) {
     const db = getDB();
 
@@ -252,6 +313,12 @@ export function getFilesByDirectory(directoryId: UUID) {
     }
 }
 
+/**
+ * Functionality: getFileByPath performs the get file by path workflow used by main/database/documentRepository.ts.
+ * Parameters: directoryId (UUID); filePath (string).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call getFileByPath from the owning module or component when this behavior is required.
+ */
 export function getFileByPath(directoryId: UUID, filePath: string) {
     const db = getDB();
 
@@ -268,6 +335,12 @@ export function getFileByPath(directoryId: UUID, filePath: string) {
     }
 }
 
+/**
+ * Functionality: addChunk performs the add chunk workflow used by main/database/documentRepository.ts.
+ * Parameters: fileId (UUID); contentHash (string); content (string).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call addChunk from the owning module or component when this behavior is required.
+ */
 export function addChunk(
     fileId: UUID,
     contentHash: string,
@@ -298,6 +371,12 @@ export function addChunk(
     }
 }
 
+/**
+ * Functionality: addEmbedding performs the add embedding workflow used by main/database/documentRepository.ts.
+ * Parameters: embedding (Float32Array | number[]).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call addEmbedding from the owning module or component when this behavior is required.
+ */
 export function addEmbedding(
     embedding: Float32Array | number[],
 ) {
@@ -321,6 +400,12 @@ export function addEmbedding(
     }
 }
 
+/**
+ * Functionality: deleteChunksByFile performs the delete chunks by file workflow used by main/database/documentRepository.ts.
+ * Parameters: fileId (UUID).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call deleteChunksByFile from the owning module or component when this behavior is required.
+ */
 export function deleteChunksByFile(fileId: UUID) {
     const db = getDB();
 
@@ -335,6 +420,12 @@ export function deleteChunksByFile(fileId: UUID) {
     }
 }
 
+/**
+ * Functionality: deleteChunkById performs the delete chunk by id workflow used by main/database/documentRepository.ts.
+ * Parameters: chunkId (number).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call deleteChunkById from the owning module or component when this behavior is required.
+ */
 export function deleteChunkById(chunkId: number) {
     const db = getDB();
 
@@ -350,6 +441,12 @@ export function deleteChunkById(chunkId: number) {
 }
 
 // Updated: join through files to get chunks by directory
+/**
+ * Functionality: getChunksByDirectory performs the get chunks by directory workflow used by main/database/documentRepository.ts.
+ * Parameters: directoryId (UUID).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call getChunksByDirectory from the owning module or component when this behavior is required.
+ */
 export function getChunksByDirectory(directoryId: UUID) {
     const db = getDB();
 
@@ -367,6 +464,12 @@ export function getChunksByDirectory(directoryId: UUID) {
     }
 }
 
+/**
+ * Functionality: getChunksByFile performs the get chunks by file workflow used by main/database/documentRepository.ts.
+ * Parameters: fileId (UUID).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call getChunksByFile from the owning module or component when this behavior is required.
+ */
 export function getChunksByFile(fileId: UUID) {
     const db = getDB();
 
@@ -383,6 +486,12 @@ export function getChunksByFile(fileId: UUID) {
     }
 }
 
+/**
+ * Functionality: searchSimilarChunks performs the search similar chunks workflow used by main/database/documentRepository.ts.
+ * Parameters: directoryId (UUID); queryEmbedding (Float32Array | number[]); topK (number).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call searchSimilarChunks from the owning module or component when this behavior is required.
+ */
 export function searchSimilarChunks(
     directoryId: UUID,
     queryEmbedding: Float32Array | number[],
@@ -391,8 +500,8 @@ export function searchSimilarChunks(
     const db = getDB();
 
     try {
-        const float32ArrayBinding = queryEmbedding instanceof Float32Array 
-            ? queryEmbedding 
+        const float32ArrayBinding = queryEmbedding instanceof Float32Array
+            ? queryEmbedding
             : new Float32Array(queryEmbedding);
 
         // Uses the vec0 extension's virtual table `embeddings` and joins on the actual

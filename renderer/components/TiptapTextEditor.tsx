@@ -10,8 +10,8 @@ Brief description:
 • Dates the code was revised: 12MAR2026
 
 • Brief description of each revision & author:
-    Wesley McDougal - 12MAR2026 - Initial implementation of TiptapTextEditor component with rich text editing features, 
-    including font family and size selection, text color and highlight color pickers, quick symbol insertion, 
+    Wesley McDougal - 12MAR2026 - Initial implementation of TiptapTextEditor component with rich text editing features,
+    including font family and size selection, text color and highlight color pickers, quick symbol insertion,
     and table insertion with dynamic row and column configuration.
 
 Preconditions:
@@ -58,8 +58,9 @@ Invariants:
 - Insert menu closes when clicking outside or after insert actions.
 - Table insertion is bounded to max 20 rows and 12 columns.
 
-Any known faults: 
+Any known faults:
   - 12MAR2026 - None at this time
+ * Git-history contributors: Wesley McDougal
 */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -140,7 +141,13 @@ const QUICK_SYMBOLS = [
 const FontSize = Extension.create({
   name: "fontSize",
 
-  addGlobalAttributes() {
+    /**
+   * Functionality: addGlobalAttributes performs the add global attributes workflow used by renderer/components/TiptapTextEditor.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call addGlobalAttributes from the owning module or component when this behavior is required.
+   */
+addGlobalAttributes() {
     return [
       {
         types: ["textStyle"],
@@ -162,6 +169,12 @@ const FontSize = Extension.create({
   },
 });
 
+/**
+ * Functionality: escapeHtml performs the escape html workflow used by renderer/components/TiptapTextEditor.tsx.
+ * Parameters: input (string).
+ * Returns: Returns string.
+ * Usage: Call escapeHtml from the owning module or component when this behavior is required.
+ */
 function escapeHtml(input: string): string {
   return input
     .replace(/&/g, "&amp;")
@@ -171,6 +184,12 @@ function escapeHtml(input: string): string {
     .replace(/'/g, "&#39;");
 }
 
+/**
+ * Functionality: normalizeToHtml performs the normalize to html workflow used by renderer/components/TiptapTextEditor.tsx.
+ * Parameters: content (string).
+ * Returns: Returns string.
+ * Usage: Call normalizeToHtml from the owning module or component when this behavior is required.
+ */
 function normalizeToHtml(content: string): string {
   const trimmed = content.trim();
   if (!trimmed) {
@@ -188,6 +207,12 @@ function normalizeToHtml(content: string): string {
     .join("");
 }
 
+/**
+ * Functionality: TiptapTextEditor performs the tiptap text editor workflow used by renderer/components/TiptapTextEditor.tsx.
+ * Parameters: { value, onChange } (TiptapTextEditorProps).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call TiptapTextEditor from the owning module or component when this behavior is required.
+ */
 export default function TiptapTextEditor({ value, onChange }: TiptapTextEditorProps) {
   const normalizedContent = useMemo(() => normalizeToHtml(value), [value]);
   const [textColor, setTextColor] = useState("#111827");
@@ -243,7 +268,13 @@ export default function TiptapTextEditor({ value, onChange }: TiptapTextEditorPr
   }, [editor, normalizedContent]);
 
   useEffect(() => {
-    const handleDocumentMouseDown = (event: MouseEvent) => {
+        /**
+     * Functionality: handleDocumentMouseDown performs the handle document mouse down workflow used by renderer/components/TiptapTextEditor.tsx.
+     * Parameters: event (MouseEvent).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleDocumentMouseDown from the owning module or component when this behavior is required.
+     */
+const handleDocumentMouseDown = (event: MouseEvent) => {
       if (!insertMenuRef.current) {
         return;
       }
@@ -264,7 +295,13 @@ export default function TiptapTextEditor({ value, onChange }: TiptapTextEditorPr
   const currentFamily = editor.getAttributes("textStyle").fontFamily ?? "";
   const currentSize = editor.getAttributes("textStyle").fontSize ?? "16px";
 
-  const applyFontSize = (size: string) => {
+    /**
+   * Functionality: applyFontSize performs the apply font size workflow used by renderer/components/TiptapTextEditor.tsx.
+   * Parameters: size (string).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call applyFontSize from the owning module or component when this behavior is required.
+   */
+const applyFontSize = (size: string) => {
     const selection = lastSelectionRef.current;
     const baseChain = editor.chain().focus();
 
@@ -279,7 +316,13 @@ export default function TiptapTextEditor({ value, onChange }: TiptapTextEditorPr
     }
   };
 
-  const insertTable = () => {
+    /**
+   * Functionality: insertTable performs the insert table workflow used by renderer/components/TiptapTextEditor.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call insertTable from the owning module or component when this behavior is required.
+   */
+const insertTable = () => {
     const rows = Number.parseInt(tableRows, 10);
     const cols = Number.parseInt(tableCols, 10);
 
@@ -295,7 +338,13 @@ export default function TiptapTextEditor({ value, onChange }: TiptapTextEditorPr
     setInsertMenuOpen(false);
   };
 
-  const insertSymbol = (symbol: string) => {
+    /**
+   * Functionality: insertSymbol performs the insert symbol workflow used by renderer/components/TiptapTextEditor.tsx.
+   * Parameters: symbol (string).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call insertSymbol from the owning module or component when this behavior is required.
+   */
+const insertSymbol = (symbol: string) => {
     if (!symbol) {
       return;
     }

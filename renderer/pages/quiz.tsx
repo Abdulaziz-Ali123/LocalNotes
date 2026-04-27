@@ -6,6 +6,7 @@
  * - Wired the page to a local mock quiz payload.
  * - Added a lightweight mode toggle so both quiz and flashcard root payloads can be previewed.
  * Author: Malek Kchaou
+ * Git-history contributors: Malek Kchaou
  * Date: 2026-04-12
  * Note: This page intentionally avoids main/preload/store changes for the fastest low-overhead delivery.
  */
@@ -20,6 +21,12 @@ import { Brain, NotebookPen } from "lucide-react";
 
 type PreviewMode = "quiz" | "flashcards";
 
+/**
+ * Functionality: QuizPage performs the quiz page workflow used by renderer/pages/quiz.tsx.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call QuizPage from the owning module or component when this behavior is required.
+ */
 export default function QuizPage() {
     const [previewMode, setPreviewMode] = useState<PreviewMode>("quiz");
 

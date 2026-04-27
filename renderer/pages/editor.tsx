@@ -16,6 +16,7 @@
  * - Status bar showing file info, autosave status, and live document statistics
  * - Responsive sidebar collapse/expand with active panel tracking
  * - Persistence of sidebar and editor state during session
+ * Git-history contributors: Malek Kchaou; Wesley McDougal; Abdulaziz-Ali123; Shaun; m518n748
  * Revision History:
  *  • Wesley McDougal - 29MAR2026 - Menu command handler and sidebar toggle fixes
  *  • Wesley McDougal - 05APR2026 - Added draggable sidebar rails, context-menu alignment, and bottom-rail layout updates
@@ -166,6 +167,12 @@ const DEFAULT_SIDEBAR_LAYOUT: SidebarLayoutSettings = {
   },
 };
 
+/**
+ * Functionality: sanitizeSidebarLayout performs the sanitize sidebar layout workflow used by renderer/pages/editor.tsx.
+ * Parameters: raw (unknown).
+ * Returns: Returns SidebarLayoutSettings.
+ * Usage: Call sanitizeSidebarLayout from the owning module or component when this behavior is required.
+ */
 function sanitizeSidebarLayout(raw: unknown): SidebarLayoutSettings {
   const input = (raw ?? {}) as {
     panelPosition?: SidebarPosition;
@@ -238,6 +245,12 @@ function sanitizeSidebarLayout(raw: unknown): SidebarLayoutSettings {
   return { panelPosition, rails, railAlignment };
 }
 
+/**
+ * Functionality: getIconLocation performs the get icon location workflow used by renderer/pages/editor.tsx.
+ * Parameters: rails (Record<SidebarEdge, SidebarIconId[]>); iconId (SidebarIconId).
+ * Returns: Returns { edge: SidebarEdge; index: number } | null.
+ * Usage: Call getIconLocation from the owning module or component when this behavior is required.
+ */
 function getIconLocation(
   rails: Record<SidebarEdge, SidebarIconId[]>,
   iconId: SidebarIconId
@@ -251,6 +264,12 @@ function getIconLocation(
   return null;
 }
 
+/**
+ * Functionality: SortableIcon performs the sortable icon workflow used by renderer/pages/editor.tsx.
+ * Parameters: { iconId, edge, className, onContextMenu, children, } ({ iconId: SidebarIconId; edge: SidebarEdge; className?: string; onContextMenu?: (edge: SidebarEdge, event: React.MouseEvent) => void; children: React.ReactNode; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SortableIcon from the owning module or component when this behavior is required.
+ */
 function SortableIcon({
   iconId,
   edge,
@@ -280,6 +299,12 @@ function SortableIcon({
   );
 }
 
+/**
+ * Functionality: EdgeRail performs the edge rail workflow used by renderer/pages/editor.tsx.
+ * Parameters: { edge, items, alignment, isDragActive, onContextMenu, children, } ({ edge: SidebarEdge; items: SidebarIconId[]; alignment: SidebarRailAlignment; isDragActive: boolean; onContextMenu: (edge: SidebarEdge, event: React.MouseEvent) => void; children: (iconId: SidebarIconId, edge: SidebarEdge) => React.ReactNode; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call EdgeRail from the owning module or component when this behavior is required.
+ */
 function EdgeRail({
   edge,
   items,
@@ -371,6 +396,12 @@ function EdgeRail({
   );
 }
 
+/**
+ * Functionality: sidebarCollisionDetection performs the sidebar collision detection workflow used by renderer/pages/editor.tsx.
+ * Parameters: args (inferred).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call sidebarCollisionDetection from the owning module or component when this behavior is required.
+ */
 const sidebarCollisionDetection: CollisionDetection = (args) => {
   const pointerHits = pointerWithin(args);
   if (pointerHits.length > 0) {
@@ -385,6 +416,12 @@ const sidebarCollisionDetection: CollisionDetection = (args) => {
   return closestCenter(args);
 };
 
+/**
+ * Functionality: Editor performs the editor workflow used by renderer/pages/editor.tsx.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call Editor from the owning module or component when this behavior is required.
+ */
 export default function Editor() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
@@ -589,7 +626,13 @@ export default function Editor() {
    * Shows save confirmation message and updates lastAutosaveTime.
    * Called by Ctrl+S keybinding and File > Save menu.
    */
-  const handleSave = async () => {
+    /**
+   * Functionality: handleSave performs the handle save workflow used by renderer/pages/editor.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleSave from the owning module or component when this behavior is required.
+   */
+const handleSave = async () => {
     const selectedTabId = useBoundStore.getState().tabs.selectedTabId;
     const tabState = useBoundStore.getState().tabs;
     const filePath = selectedTab?.filePath || null;
@@ -637,7 +680,13 @@ export default function Editor() {
    * If sidebar is collapsed: opens sidebar and shows requested panel.
    * If same panel is active: closes sidebar. If different panel: switches to it.
    */
-  const handleSidebarButtonClick = (panel: SidebarPanel) => {
+    /**
+   * Functionality: handleSidebarButtonClick performs the handle sidebar button click workflow used by renderer/pages/editor.tsx.
+   * Parameters: panel (SidebarPanel).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleSidebarButtonClick from the owning module or component when this behavior is required.
+   */
+const handleSidebarButtonClick = (panel: SidebarPanel) => {
     if (sidebarCollapsed) {
       // If sidebar is collapsed, open and show the panel
       setSidebarCollapsed(false);
@@ -659,7 +708,13 @@ export default function Editor() {
    * When opening: defaults to 'file' panel if no active panel was set.
    * Connected to ResizablePanel callbacks for visual sync.
    */
-  const toggleSidebar = () => {
+    /**
+   * Functionality: toggleSidebar performs the toggle sidebar workflow used by renderer/pages/editor.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call toggleSidebar from the owning module or component when this behavior is required.
+   */
+const toggleSidebar = () => {
     setSidebarCollapsed((isCollapsed) => {
       if (isCollapsed && activeSidebarPanel === null) {
         setActiveSidebarPanel("file");
@@ -679,7 +734,13 @@ export default function Editor() {
   useEffect(() => {
     let cancelled = false;
 
-    const loadLayout = async () => {
+        /**
+     * Functionality: loadLayout performs the load layout workflow used by renderer/pages/editor.tsx.
+     * Parameters: None.
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call loadLayout from the owning module or component when this behavior is required.
+     */
+const loadLayout = async () => {
       if (layoutScope === "project" && rootPath) {
         try {
           const projectSettings = await window.settings.loadProject(rootPath);
@@ -727,7 +788,13 @@ export default function Editor() {
     [layoutScope, rootPath, setGlobalSetting]
   );
 
-  const handleSidebarPositionChange = (position: SidebarPosition) => {
+    /**
+   * Functionality: handleSidebarPositionChange performs the handle sidebar position change workflow used by renderer/pages/editor.tsx.
+   * Parameters: position (SidebarPosition).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleSidebarPositionChange from the owning module or component when this behavior is required.
+   */
+const handleSidebarPositionChange = (position: SidebarPosition) => {
     setSidebarLayout((prev) => {
       if (prev.panelPosition === position) return prev;
       const next = { ...prev, panelPosition: position };
@@ -736,7 +803,13 @@ export default function Editor() {
     });
   };
 
-  const handleSidebarScopeChange = (scope: SidebarLayoutScope) => {
+    /**
+   * Functionality: handleSidebarScopeChange performs the handle sidebar scope change workflow used by renderer/pages/editor.tsx.
+   * Parameters: scope (SidebarLayoutScope).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleSidebarScopeChange from the owning module or component when this behavior is required.
+   */
+const handleSidebarScopeChange = (scope: SidebarLayoutScope) => {
     if (scope === "project" && !rootPath) {
       return;
     }
@@ -745,13 +818,25 @@ export default function Editor() {
     void setGlobalSetting("appearance.sidebarLayoutScope", scope);
   };
 
-  const handleResetSidebarLayout = () => {
+    /**
+   * Functionality: handleResetSidebarLayout performs the handle reset sidebar layout workflow used by renderer/pages/editor.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleResetSidebarLayout from the owning module or component when this behavior is required.
+   */
+const handleResetSidebarLayout = () => {
     const next = sanitizeSidebarLayout(DEFAULT_SIDEBAR_LAYOUT);
     setSidebarLayout(next);
     persistSidebarLayout(next);
   };
 
-  const handleDragStart = (event: DragStartEvent) => {
+    /**
+   * Functionality: handleDragStart performs the handle drag start workflow used by renderer/pages/editor.tsx.
+   * Parameters: event (DragStartEvent).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleDragStart from the owning module or component when this behavior is required.
+   */
+const handleDragStart = (event: DragStartEvent) => {
     setRailContextMenu(null);
     const iconId = event.active.id as SidebarIconId;
     if (DEFAULT_SIDEBAR_ICON_ORDER.includes(iconId)) {
@@ -759,7 +844,13 @@ export default function Editor() {
     }
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+    /**
+   * Functionality: handleDragEnd performs the handle drag end workflow used by renderer/pages/editor.tsx.
+   * Parameters: event (DragEndEvent).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleDragEnd from the owning module or component when this behavior is required.
+   */
+const handleDragEnd = (event: DragEndEvent) => {
     setActiveDragIconId(null);
 
     const activeId = event.active.id as SidebarIconId;
@@ -813,13 +904,25 @@ export default function Editor() {
     });
   };
 
-  const handleRailContextMenu = (edge: SidebarEdge, event: React.MouseEvent) => {
+    /**
+   * Functionality: handleRailContextMenu performs the handle rail context menu workflow used by renderer/pages/editor.tsx.
+   * Parameters: edge (SidebarEdge); event (React.MouseEvent).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleRailContextMenu from the owning module or component when this behavior is required.
+   */
+const handleRailContextMenu = (edge: SidebarEdge, event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
     setRailContextMenu({ edge, x: event.clientX, y: event.clientY });
   };
 
-  const handleRailAlignmentChange = (edge: SidebarEdge, alignment: SidebarRailAlignment) => {
+    /**
+   * Functionality: handleRailAlignmentChange performs the handle rail alignment change workflow used by renderer/pages/editor.tsx.
+   * Parameters: edge (SidebarEdge); alignment (SidebarRailAlignment).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleRailAlignmentChange from the owning module or component when this behavior is required.
+   */
+const handleRailAlignmentChange = (edge: SidebarEdge, alignment: SidebarRailAlignment) => {
     setRailContextMenu(null);
     setSidebarLayout((prev) => {
       if (prev.railAlignment[edge] === alignment) {
@@ -906,21 +1009,21 @@ export default function Editor() {
           if (result.success && result.data) {
             const folderPath = result.data;
             localStorage.setItem("currentFolderPath", folderPath);
-            
+
             // Check if folder is already in database
             const idRes = await window.db.getDirectoryIdByPath(folderPath);
             let uuid = idRes.success && idRes.data ? idRes.data : crypto.randomUUID();
-            
+
             // Register if not found
             if (!idRes.data) {
                 await window.db.addDirectory(uuid, folderPath);
             }
-            
+
             // Initialize .localnotes/.env for compatibility
             const localNotesDir = window.fs.join(folderPath, ".localnotes");
             await window.fs.createFolder(localNotesDir);
             await window.fs.writeFile(window.fs.join(localNotesDir, ".env"), `DIRECTORY_ID=${uuid}`);
-            
+
             // Reload to re-initialize tree etc.
             window.location.reload();
           }
@@ -1038,7 +1141,13 @@ export default function Editor() {
    * Shows file picker, copies selected files to current folder, reloads folder view.
    * Called by Import > Import File(s) button.
    */
-  const handleImportFiles = async () => {
+    /**
+   * Functionality: handleImportFiles performs the handle import files workflow used by renderer/pages/editor.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleImportFiles from the owning module or component when this behavior is required.
+   */
+const handleImportFiles = async () => {
     const currentFolder = localStorage.getItem("currentFolderPath");
     if (!currentFolder) {
       alert("Please open a folder first.");
@@ -1066,7 +1175,13 @@ export default function Editor() {
    * Shows folder picker, recursively imports entire folder to current location, reloads view.
    * Called by Import > Import Folder button.
    */
-  const handleImportFolder = async () => {
+    /**
+   * Functionality: handleImportFolder performs the handle import folder workflow used by renderer/pages/editor.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleImportFolder from the owning module or component when this behavior is required.
+   */
+const handleImportFolder = async () => {
     const currentFolder = localStorage.getItem("currentFolderPath");
     if (!currentFolder) {
       alert("Please open a folder first.");
@@ -1092,7 +1207,13 @@ export default function Editor() {
    * Refreshes editor with merged content.
    * Called by Import > Import into Note button (disabled if no file selected).
    */
-  const handleImportIntoNote = async () => {
+    /**
+   * Functionality: handleImportIntoNote performs the handle import into note workflow used by renderer/pages/editor.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleImportIntoNote from the owning module or component when this behavior is required.
+   */
+const handleImportIntoNote = async () => {
     if (!selectedFile) {
       alert("Please select a note first.");
       return;
@@ -1129,7 +1250,13 @@ export default function Editor() {
    * Shows destination picker, exports currently selected file, shows confirmation.
    * Called by Share > Export Current File button.
    */
-  const handleExportCurrentFile = async () => {
+    /**
+   * Functionality: handleExportCurrentFile performs the handle export current file workflow used by renderer/pages/editor.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleExportCurrentFile from the owning module or component when this behavior is required.
+   */
+const handleExportCurrentFile = async () => {
     if (!selectedFile) {
       alert("No file selected to export.");
       return;
@@ -1153,7 +1280,13 @@ export default function Editor() {
    * Shows destination picker, exports entire workspace folder, shows confirmation.
    * Called by Share > Export Workspace button.
    */
-  const handleExportFolder = async () => {
+    /**
+   * Functionality: handleExportFolder performs the handle export folder workflow used by renderer/pages/editor.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleExportFolder from the owning module or component when this behavior is required.
+   */
+const handleExportFolder = async () => {
     const root = localStorage.getItem("currentFolderPath");
     if (!root) return;
 
@@ -1174,7 +1307,13 @@ export default function Editor() {
    * Refreshes FileSystemTree display by calling reloadRoot on ref.
    * Called after import/export operations to show new files.
    */
-  const refreshTree = () => {
+    /**
+   * Functionality: refreshTree performs the refresh tree workflow used by renderer/pages/editor.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call refreshTree from the owning module or component when this behavior is required.
+   */
+const refreshTree = () => {
     if (fileTreeRef.current && fileTreeRef.current.reloadRoot) {
       fileTreeRef.current.reloadRoot();
     }
@@ -1223,7 +1362,56 @@ export default function Editor() {
     ]
   );
 
-  const popoverSideForEdge = (edge: SidebarEdge): "left" | "right" | "top" | "bottom" => {
+  const openSettingsTab = useCallback((tab: SettingsTab) => {
+    setSettingsDefaultTab(tab);
+    setSettingsOpen(true);
+  }, []);
+
+  const openSidebarPanel = useCallback((panel: SidebarPanel) => {
+    setSidebarCollapsed(false);
+    setActiveSidebarPanel(panel);
+  }, []);
+
+  const commandPaletteCommands = React.useMemo(
+    () =>
+      buildCommandRegistry({
+        selectedFile,
+        rootPath,
+        workspaceFiles,
+        currentTheme: theme,
+        customThemes,
+        settings: globalSettings,
+        executeAction: executeCommand,
+        openSettings: openSettingsTab,
+        openSidebarPanel,
+        setMainView: setActiveMainView,
+        openWorkspaceFile: handleFileSelect,
+        setTheme,
+        setGlobalSetting,
+      }),
+    [
+      selectedFile,
+      rootPath,
+      workspaceFiles,
+      theme,
+      customThemes,
+      globalSettings,
+      executeCommand,
+      openSettingsTab,
+      openSidebarPanel,
+      handleFileSelect,
+      setTheme,
+      setGlobalSetting,
+    ]
+  );
+
+    /**
+   * Functionality: popoverSideForEdge performs the popover side for edge workflow used by renderer/pages/editor.tsx.
+   * Parameters: edge (SidebarEdge).
+   * Returns: Returns "left" | "right" | "top" | "bottom".
+   * Usage: Call popoverSideForEdge from the owning module or component when this behavior is required.
+   */
+const popoverSideForEdge = (edge: SidebarEdge): "left" | "right" | "top" | "bottom" => {
     if (edge === "left") return "right";
     if (edge === "right") return "left";
     if (edge === "bottom") return "left";
@@ -1232,9 +1420,21 @@ export default function Editor() {
 
   const isProjectScopeAvailable = Boolean(rootPath);
 
-  const renderSidebarIcon = (iconId: SidebarIconId, edge: SidebarEdge) => {
+    /**
+   * Functionality: renderSidebarIcon performs the render sidebar icon workflow used by renderer/pages/editor.tsx.
+   * Parameters: iconId (SidebarIconId); edge (SidebarEdge).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call renderSidebarIcon from the owning module or component when this behavior is required.
+   */
+const renderSidebarIcon = (iconId: SidebarIconId, edge: SidebarEdge) => {
     const popoverSide = popoverSideForEdge(edge);
-    const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) => {
+        /**
+     * Functionality: handleSidebarIconMouseDown performs the handle sidebar icon mouse down workflow used by renderer/pages/editor.tsx.
+     * Parameters: event (React.MouseEvent<HTMLButtonElement>).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleSidebarIconMouseDown from the owning module or component when this behavior is required.
+     */
+const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) => {
       if (event.button === 0) {
         event.preventDefault();
       }
@@ -1528,14 +1728,14 @@ export default function Editor() {
                                                   <CiFileOn className="w-4 h-4" />
                                                   Back to Files
                                               </button>
-    
+
                                           <span className="text-xs text-muted-foreground/50">|</span>
-    
+
                                           <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
                                                   <RiRobot2Line className="w-3.5 h-3.5" />
                                                   AI Chat
                                               </span>
-    
+
                                           <Link href="/quiz">
                                               <Button
                                                   variant="outline"

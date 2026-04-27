@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/components/TagIndicators.tsx
+ * Brief description: Defines a renderer component that implements part of the LocalNotes user interface.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: m518n748
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import React, { useEffect, useState } from "react";
 import { cn } from "renderer/lib/util";
 
@@ -14,6 +25,12 @@ interface TagIndicatorsProps {
   className?: string;
 }
 
+/**
+ * Functionality: TagIndicators performs the tag indicators workflow used by renderer/components/TagIndicators.tsx.
+ * Parameters: { itemPath, rootPath, maxDisplay = 3, className, } (TagIndicatorsProps).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call TagIndicators from the owning module or component when this behavior is required.
+ */
 export default function TagIndicators({
   itemPath,
   rootPath,
@@ -27,7 +44,13 @@ export default function TagIndicators({
       loadTags();
     }
 
-    const onTagsUpdated = () => {
+        /**
+     * Functionality: onTagsUpdated performs the on tags updated workflow used by renderer/components/TagIndicators.tsx.
+     * Parameters: None.
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call onTagsUpdated from the owning module or component when this behavior is required.
+     */
+const onTagsUpdated = () => {
       loadTags();
     };
 
@@ -37,7 +60,13 @@ export default function TagIndicators({
     };
   }, [itemPath, rootPath]);
 
-  const loadTags = async () => {
+    /**
+   * Functionality: loadTags performs the load tags workflow used by renderer/components/TagIndicators.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call loadTags from the owning module or component when this behavior is required.
+   */
+const loadTags = async () => {
     if (!rootPath || !itemPath) return;
     try {
       const tagsFilePath = window.fs.join(rootPath, ".notepad-tags.json");
