@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/components/canvas/canvasDoc.ts
+ * Brief description: Supports the multi-page canvas editor data model, page math, rendering, or stroke processing.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Malek Kchaou
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import type {
   CanvasDocV1,
   LegacyCanvasDoc,
@@ -14,7 +25,7 @@ import type {
  *
  * Date Created: 03/14/2026
  * Last Updated: 03/15/2026
- * 
+ *
  * Purpose:
  * Centralizes creation, parsing, migration, validation, and serialization
  * of the multi-page canvas document format.
@@ -66,6 +77,12 @@ export function createEmptyCanvasDoc(): CanvasDocV1 {
  *
  * This helps us verify that a parsed JSON value already conforms to the new
  * persisted schema before using it directly in the editor.
+ */
+/**
+ * Functionality: isCanvasDocV1 performs the is canvas doc v1 workflow used by renderer/components/canvas/canvasDoc.ts.
+ * Parameters: value (unknown).
+ * Returns: Returns value is CanvasDocV1.
+ * Usage: Call isCanvasDocV1 from the owning module or component when this behavior is required.
  */
 export function isCanvasDocV1(value: unknown): value is CanvasDocV1 {
   return !!value

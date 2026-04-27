@@ -1,4 +1,21 @@
-﻿export function validateFileName(raw: string): { ok: true; name: string } | { ok: false; error: string } {
+/**
+ * Name of code artifact: renderer/utils/fileValidation.ts
+ * Brief description: Provides utility validation or transformation logic for renderer features.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Malek Kchaou
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
+/**
+ * Functionality: validateFileName performs the validate file name workflow used by renderer/utils/fileValidation.ts.
+ * Parameters: raw (string).
+ * Returns: Returns { ok: true; name: string } | { ok: false; error: string }.
+ * Usage: Call validateFileName from the owning module or component when this behavior is required.
+ */
+export function validateFileName(raw: string): { ok: true; name: string } | { ok: false; error: string } {
     const name = raw.trim();
 
     if (!name) return { ok: false, error: "File name cannot be empty." };
@@ -28,4 +45,12 @@
     if (reserved.has(base)) return { ok: false, error: "This file name is reserved by the system." };
 
     return { ok: true, name };
+}
+
+const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".ico", ".tiff", ".tif"]);
+
+/** Returns true if the given file path has an image extension. */
+export function isImageFile(filePath: string): boolean {
+    const ext = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
+    return IMAGE_EXTENSIONS.has(ext);
 }

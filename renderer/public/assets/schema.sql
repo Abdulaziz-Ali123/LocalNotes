@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/public/assets/schema.sql
+ * Brief description: Defines the SQLite schema used by LocalNotes local persistence and vector indexing.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Wesley McDougal; Abdulaziz-Ali123
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 CREATE TABLE IF NOT EXISTS directories (
     id TEXT PRIMARY KEY,
     path TEXT NOT NULL,

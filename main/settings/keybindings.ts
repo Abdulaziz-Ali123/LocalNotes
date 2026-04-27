@@ -10,6 +10,7 @@
  *  - background.ts        — to rebuild the Electron Menu with resolved shortcuts
  *  - SettingsDialog.tsx    — to display the keybinding editor
  *  - useKeybindings hook  — to map actions to keydown events in the renderer
+ * Git-history contributors: Shaun
  */
 
 export interface KeybindingAction {
@@ -113,6 +114,12 @@ export const KEYBINDING_ACTIONS: KeybindingAction[] = [
  * Helper: convert an Electron accelerator string to a human-readable label.
  * e.g. "CommandOrControl+Shift+S" -> "Ctrl+Shift+S" (Windows/Linux)
  *                                  -> "Cmd+Shift+S"  (Mac)
+ */
+/**
+ * Functionality: acceleratorToDisplay performs the accelerator to display workflow used by main/settings/keybindings.ts.
+ * Parameters: accelerator (string); platform (NodeJS.Platform).
+ * Returns: Returns string.
+ * Usage: Call acceleratorToDisplay from the owning module or component when this behavior is required.
  */
 export function acceleratorToDisplay(
   accelerator: string,

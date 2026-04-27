@@ -4,11 +4,14 @@
  * Loads settings from the main process on init and keeps them in sync.
  * Exposes setter helpers that persist changes via IPC and update local state.
  *
+ * Git-history contributors: Wesley McDougal; Abdulaziz Ali; Shaun
  * Revision History:
  *  • Wesley McDougal - 29MAR2026 - Custom theme types and initial state
  *  • Wesley McDougal - 05APR2026 - Added sidebar layout types/defaults and persisted appearance layout state
  *  • Wesley McDougal - 07APR2026 - Added defaultModelId to AiSettings, loadError +
  *    retryLoad to SettingsSlice, and try/catch in initialize() to surface load failures.
+ *  • Wesley McDougal - 19APR2026 - Added StatusBarSettings interface and statusBar field to EditorSettings;
+ *    updated INITIAL_GLOBAL with statusBar defaults
  */
 
 import { StateCreator } from "zustand";
@@ -109,9 +112,14 @@ export interface AiSettings {
   customModels: CustomModel[];
 }
 
+export interface TrashSettings {
+  autoPurgeDays: number;
+}
+
 export interface GlobalSettings {
   appearance: AppearanceSettings;
   editor: EditorSettings;
+  trash: TrashSettings;
   keybindings: KeybindingMap;
   ai: AiSettings;
 }
@@ -210,6 +218,7 @@ const DEFAULT_SIDEBAR_ICON_ORDER = [
   "ai",
   "theme",
   "tags",
+  "trash",
   "share",
   "settings",
   "history",
@@ -260,6 +269,9 @@ const INITIAL_GLOBAL: GlobalSettings = {
     wordWrap: true,
     showLineNumbers: false,
   },
+  trash: {
+    autoPurgeDays: 30,
+  },
   keybindings: DEFAULT_KEYBINDINGS,
   ai: INITIAL_AI,
 };
@@ -268,6 +280,12 @@ const INITIAL_GLOBAL: GlobalSettings = {
 // Slice creator
 // ---------------------------------------------------------------------------
 
+/**
+ * Functionality: createSettingsSlice performs the create settings slice workflow used by renderer/store/settings-slice.ts.
+ * Parameters: set (inferred).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call createSettingsSlice from the owning module or component when this behavior is required.
+ */
 export const createSettingsSlice: StateCreator<
   SettingsSlice,
   [],

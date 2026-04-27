@@ -9,6 +9,7 @@
  *
  * Path resolution is delegated to utility functions provided by teammates
  * (Tickets 1 & 2). During development, stub fallbacks are used.
+ * Git-history contributors: Shaun
  */
 
 import path from "path";
@@ -34,6 +35,12 @@ import { migrateSettings } from "./migrations";
 // ---------------------------------------------------------------------------
 
 /** Deep-merge source into target (target values are overridden). */
+/**
+ * Functionality: deepMerge performs the deep merge workflow used by main/settings/settings-manager.ts.
+ * Parameters: target (T); source (Partial<T>).
+ * Returns: Returns T.
+ * Usage: Call deepMerge from the owning module or component when this behavior is required.
+ */
 function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>): T {
   const result = { ...target };
   for (const key of Object.keys(source) as (keyof T)[]) {
@@ -61,6 +68,12 @@ function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>)
  * Resolve a nested property via a dot-path string.
  * e.g. getByPath(obj, "appearance.theme") -> obj.appearance.theme
  */
+/**
+ * Functionality: getByPath performs the get by path workflow used by main/settings/settings-manager.ts.
+ * Parameters: obj (Record<string, any>); dotPath (string).
+ * Returns: Returns any.
+ * Usage: Call getByPath from the owning module or component when this behavior is required.
+ */
 function getByPath(obj: Record<string, any>, dotPath: string): any {
   return dotPath.split(".").reduce((acc, part) => acc?.[part], obj);
 }
@@ -68,6 +81,12 @@ function getByPath(obj: Record<string, any>, dotPath: string): any {
 /**
  * Set a nested property via a dot-path string (immutable, returns new object).
  * e.g. setByPath(obj, "appearance.theme", "dark")
+ */
+/**
+ * Functionality: setByPath performs the set by path workflow used by main/settings/settings-manager.ts.
+ * Parameters: obj (Record<string, any>); dotPath (string); value (any).
+ * Returns: Returns Record<string, any>.
+ * Usage: Call setByPath from the owning module or component when this behavior is required.
  */
 function setByPath(obj: Record<string, any>, dotPath: string, value: any): Record<string, any> {
   const parts = dotPath.split(".");
@@ -86,6 +105,12 @@ function setByPath(obj: Record<string, any>, dotPath: string, value: any): Recor
 /**
  * Delete a nested property via a dot-path string (resets to default).
  */
+/**
+ * Functionality: deleteByPath performs the delete by path workflow used by main/settings/settings-manager.ts.
+ * Parameters: obj (Record<string, any>); dotPath (string).
+ * Returns: Returns Record<string, any>.
+ * Usage: Call deleteByPath from the owning module or component when this behavior is required.
+ */
 function deleteByPath(obj: Record<string, any>, dotPath: string): Record<string, any> {
   const parts = dotPath.split(".");
   const clone = structuredClone(obj);
@@ -103,11 +128,23 @@ function deleteByPath(obj: Record<string, any>, dotPath: string): Record<string,
 // ---------------------------------------------------------------------------
 
 /** Global settings dir -- uses Wesley's cross-platform config directory (Ticket 1). */
+/**
+ * Functionality: globalPath performs the global path workflow used by main/settings/settings-manager.ts.
+ * Parameters: None.
+ * Returns: Returns string.
+ * Usage: Call globalPath from the owning module or component when this behavior is required.
+ */
 function globalPath(): string {
   return resolveConfigDirectoryPath();
 }
 
 /** Project settings dir -- stub until Atharva's Ticket 2 is merged. */
+/**
+ * Functionality: projectPath performs the project path workflow used by main/settings/settings-manager.ts.
+ * Parameters: projectRoot (string).
+ * Returns: Returns string.
+ * Usage: Call projectPath from the owning module or component when this behavior is required.
+ */
 function projectPath(projectRoot: string): string {
   return path.join(projectRoot, ".Local Notes");
 }
@@ -123,6 +160,12 @@ export interface SettingsManagerOptions {
   getProjectDir?: ProjectPathResolver;
 }
 
+/**
+ * Class functionality: Defines the SettingsManager class used by main/settings/settings-manager.ts.
+ * Parameters: Constructor parameters are documented on the constructor when applicable.
+ * Returns: Returns the class constructor for creating or organizing related behavior.
+ * Usage: Instantiate or reference SettingsManager from modules that need this grouped behavior.
+ */
 export class SettingsManager {
   private getGlobalDir: GlobalPathResolver;
   private getProjectDir: ProjectPathResolver;
@@ -133,7 +176,13 @@ export class SettingsManager {
   /** In-memory cache of project overrides, keyed by project root. */
   private projectOverrides: Map<string, Partial<ProjectSettings>> = new Map();
 
-  constructor(options: SettingsManagerOptions = {}) {
+    /**
+   * Constructor functionality: Initializes constructor state and dependencies for its class.
+   * Parameters: options (SettingsManagerOptions).
+   * Returns: Returns a configured class instance through normal construction.
+   * Usage: Call constructor from the owning module or component when this behavior is required.
+   */
+constructor(options: SettingsManagerOptions = {}) {
     this.getGlobalDir = options.getGlobalDir ?? globalPath;
     this.getProjectDir = options.getProjectDir ?? projectPath;
   }
@@ -143,12 +192,24 @@ export class SettingsManager {
   // -------------------------------------------------------------------------
 
   /** Full path to the global settings JSON file. */
-  private get globalFilePath(): string {
+    /**
+   * Functionality: globalFilePath performs the global file path workflow used by main/settings/settings-manager.ts.
+   * Parameters: None.
+   * Returns: Returns string.
+   * Usage: Call globalFilePath from the owning module or component when this behavior is required.
+   */
+private get globalFilePath(): string {
     return path.join(this.getGlobalDir(), SETTINGS_FILENAME);
   }
 
   /** Load global settings from disk, run migrations, cache overrides. */
-  async loadGlobal(): Promise<GlobalSettings> {
+    /**
+   * Functionality: loadGlobal performs the load global workflow used by main/settings/settings-manager.ts.
+   * Parameters: None.
+   * Returns: Returns Promise<GlobalSettings>.
+   * Usage: Call loadGlobal from the owning module or component when this behavior is required.
+   */
+async loadGlobal(): Promise<GlobalSettings> {
     const filePath = this.globalFilePath;
     console.log("[Settings] Loading global settings from:", filePath);
 
@@ -182,18 +243,36 @@ export class SettingsManager {
   }
 
   /** Get the fully resolved global settings (defaults + overrides). */
-  getResolvedGlobal(): GlobalSettings {
+    /**
+   * Functionality: getResolvedGlobal performs the get resolved global workflow used by main/settings/settings-manager.ts.
+   * Parameters: None.
+   * Returns: Returns GlobalSettings.
+   * Usage: Call getResolvedGlobal from the owning module or component when this behavior is required.
+   */
+getResolvedGlobal(): GlobalSettings {
     return deepMerge(DEFAULT_GLOBAL_SETTINGS, this.globalOverrides);
   }
 
   /** Get a single global setting by dot-path (e.g. "appearance.theme"). */
-  getGlobal(dotPath: string): any {
+    /**
+   * Functionality: getGlobal performs the get global workflow used by main/settings/settings-manager.ts.
+   * Parameters: dotPath (string).
+   * Returns: Returns any.
+   * Usage: Call getGlobal from the owning module or component when this behavior is required.
+   */
+getGlobal(dotPath: string): any {
     const resolved = this.getResolvedGlobal();
     return getByPath(resolved as unknown as Record<string, any>, dotPath);
   }
 
   /** Set a single global setting by dot-path. Persists to disk. */
-  async setGlobal(dotPath: string, value: any): Promise<GlobalSettings> {
+    /**
+   * Functionality: setGlobal performs the set global workflow used by main/settings/settings-manager.ts.
+   * Parameters: dotPath (string); value (any).
+   * Returns: Returns Promise<GlobalSettings>.
+   * Usage: Call setGlobal from the owning module or component when this behavior is required.
+   */
+async setGlobal(dotPath: string, value: any): Promise<GlobalSettings> {
     this.globalOverrides = setByPath(
       this.globalOverrides as Record<string, any>,
       dotPath,
@@ -205,7 +284,13 @@ export class SettingsManager {
   }
 
   /** Reset a single global setting to its default (removes the override). */
-  async resetGlobal(dotPath: string): Promise<GlobalSettings> {
+    /**
+   * Functionality: resetGlobal performs the reset global workflow used by main/settings/settings-manager.ts.
+   * Parameters: dotPath (string).
+   * Returns: Returns Promise<GlobalSettings>.
+   * Usage: Call resetGlobal from the owning module or component when this behavior is required.
+   */
+async resetGlobal(dotPath: string): Promise<GlobalSettings> {
     this.globalOverrides = deleteByPath(
       this.globalOverrides as Record<string, any>,
       dotPath
@@ -216,14 +301,26 @@ export class SettingsManager {
   }
 
   /** Reset ALL global settings to defaults. */
-  async resetAllGlobal(): Promise<GlobalSettings> {
+    /**
+   * Functionality: resetAllGlobal performs the reset all global workflow used by main/settings/settings-manager.ts.
+   * Parameters: None.
+   * Returns: Returns Promise<GlobalSettings>.
+   * Usage: Call resetAllGlobal from the owning module or component when this behavior is required.
+   */
+async resetAllGlobal(): Promise<GlobalSettings> {
     this.globalOverrides = {};
     await this.saveGlobal();
     return this.getResolvedGlobal();
   }
 
   /** Persist the full resolved global settings to disk (defaults + overrides). */
-  async saveGlobal(): Promise<void> {
+    /**
+   * Functionality: saveGlobal performs the save global workflow used by main/settings/settings-manager.ts.
+   * Parameters: None.
+   * Returns: Returns Promise<void>.
+   * Usage: Call saveGlobal from the owning module or component when this behavior is required.
+   */
+async saveGlobal(): Promise<void> {
     try {
       const dir = this.getGlobalDir();
       const filePath = this.globalFilePath;
@@ -247,12 +344,24 @@ export class SettingsManager {
   // -------------------------------------------------------------------------
 
   /** Full path to a project's settings JSON file. */
-  private projectFilePath(projectRoot: string): string {
+    /**
+   * Functionality: projectFilePath performs the project file path workflow used by main/settings/settings-manager.ts.
+   * Parameters: projectRoot (string).
+   * Returns: Returns string.
+   * Usage: Call projectFilePath from the owning module or component when this behavior is required.
+   */
+private projectFilePath(projectRoot: string): string {
     return path.join(this.getProjectDir(projectRoot), SETTINGS_FILENAME);
   }
 
   /** Load project settings from disk, run migrations, cache overrides. */
-  async loadProject(projectRoot: string): Promise<ProjectSettings> {
+    /**
+   * Functionality: loadProject performs the load project workflow used by main/settings/settings-manager.ts.
+   * Parameters: projectRoot (string).
+   * Returns: Returns Promise<ProjectSettings>.
+   * Usage: Call loadProject from the owning module or component when this behavior is required.
+   */
+async loadProject(projectRoot: string): Promise<ProjectSettings> {
     try {
       const filePath = this.projectFilePath(projectRoot);
       const raw = await fs.readFile(filePath, "utf-8");
@@ -280,19 +389,37 @@ export class SettingsManager {
   }
 
   /** Get fully resolved project settings for a given root. */
-  getResolvedProject(projectRoot: string): ProjectSettings {
+    /**
+   * Functionality: getResolvedProject performs the get resolved project workflow used by main/settings/settings-manager.ts.
+   * Parameters: projectRoot (string).
+   * Returns: Returns ProjectSettings.
+   * Usage: Call getResolvedProject from the owning module or component when this behavior is required.
+   */
+getResolvedProject(projectRoot: string): ProjectSettings {
     const overrides = this.projectOverrides.get(projectRoot) ?? {};
     return deepMerge(DEFAULT_PROJECT_SETTINGS, overrides);
   }
 
   /** Get a single project setting by dot-path. */
-  getProject(projectRoot: string, dotPath: string): any {
+    /**
+   * Functionality: getProject performs the get project workflow used by main/settings/settings-manager.ts.
+   * Parameters: projectRoot (string); dotPath (string).
+   * Returns: Returns any.
+   * Usage: Call getProject from the owning module or component when this behavior is required.
+   */
+getProject(projectRoot: string, dotPath: string): any {
     const resolved = this.getResolvedProject(projectRoot);
     return getByPath(resolved as unknown as Record<string, any>, dotPath);
   }
 
   /** Set a single project setting by dot-path. Persists to disk. */
-  async setProject(projectRoot: string, dotPath: string, value: any): Promise<ProjectSettings> {
+    /**
+   * Functionality: setProject performs the set project workflow used by main/settings/settings-manager.ts.
+   * Parameters: projectRoot (string); dotPath (string); value (any).
+   * Returns: Returns Promise<ProjectSettings>.
+   * Usage: Call setProject from the owning module or component when this behavior is required.
+   */
+async setProject(projectRoot: string, dotPath: string, value: any): Promise<ProjectSettings> {
     const current = this.projectOverrides.get(projectRoot) ?? {};
     this.projectOverrides.set(
       projectRoot,
@@ -304,7 +431,13 @@ export class SettingsManager {
   }
 
   /** Reset a single project setting to its default. */
-  async resetProject(projectRoot: string, dotPath: string): Promise<ProjectSettings> {
+    /**
+   * Functionality: resetProject performs the reset project workflow used by main/settings/settings-manager.ts.
+   * Parameters: projectRoot (string); dotPath (string).
+   * Returns: Returns Promise<ProjectSettings>.
+   * Usage: Call resetProject from the owning module or component when this behavior is required.
+   */
+async resetProject(projectRoot: string, dotPath: string): Promise<ProjectSettings> {
     const current = this.projectOverrides.get(projectRoot) ?? {};
     this.projectOverrides.set(
       projectRoot,
@@ -316,14 +449,26 @@ export class SettingsManager {
   }
 
   /** Reset ALL project settings for a given root. */
-  async resetAllProject(projectRoot: string): Promise<ProjectSettings> {
+    /**
+   * Functionality: resetAllProject performs the reset all project workflow used by main/settings/settings-manager.ts.
+   * Parameters: projectRoot (string).
+   * Returns: Returns Promise<ProjectSettings>.
+   * Usage: Call resetAllProject from the owning module or component when this behavior is required.
+   */
+async resetAllProject(projectRoot: string): Promise<ProjectSettings> {
     this.projectOverrides.set(projectRoot, {});
     await this.saveProject(projectRoot);
     return this.getResolvedProject(projectRoot);
   }
 
   /** Persist the full resolved project settings to disk (defaults + overrides). */
-  async saveProject(projectRoot: string): Promise<void> {
+    /**
+   * Functionality: saveProject performs the save project workflow used by main/settings/settings-manager.ts.
+   * Parameters: projectRoot (string).
+   * Returns: Returns Promise<void>.
+   * Usage: Call saveProject from the owning module or component when this behavior is required.
+   */
+async saveProject(projectRoot: string): Promise<void> {
     const dir = this.getProjectDir(projectRoot);
     await this.ensureDir(dir);
     const resolved = this.getResolvedProject(projectRoot);
@@ -338,20 +483,38 @@ export class SettingsManager {
   // -------------------------------------------------------------------------
 
   /** Get the default values (useful for the renderer to know what defaults are). */
-  getDefaults() {
+    /**
+   * Functionality: getDefaults performs the get defaults workflow used by main/settings/settings-manager.ts.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call getDefaults from the owning module or component when this behavior is required.
+   */
+getDefaults() {
     return {
       global: DEFAULT_GLOBAL_SETTINGS,
       project: DEFAULT_PROJECT_SETTINGS,
     };
   }
 
-  private async ensureDir(dir: string): Promise<void> {
+    /**
+   * Functionality: ensureDir performs the ensure dir workflow used by main/settings/settings-manager.ts.
+   * Parameters: dir (string).
+   * Returns: Returns Promise<void>.
+   * Usage: Call ensureDir from the owning module or component when this behavior is required.
+   */
+private async ensureDir(dir: string): Promise<void> {
     if (!fsSync.existsSync(dir)) {
       await fs.mkdir(dir, { recursive: true });
     }
   }
 
-  private async writeFile(filePath: string, data: object): Promise<void> {
+    /**
+   * Functionality: writeFile performs the write file workflow used by main/settings/settings-manager.ts.
+   * Parameters: filePath (string); data (object).
+   * Returns: Returns Promise<void>.
+   * Usage: Call writeFile from the owning module or component when this behavior is required.
+   */
+private async writeFile(filePath: string, data: object): Promise<void> {
     await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
   }
 }

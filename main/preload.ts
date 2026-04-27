@@ -2,6 +2,7 @@
  * File: main/preload.ts
  * Purpose: Exposes safe renderer APIs through Electron's preload bridge.
  * Author: Malek Kchaou (if you see this and you've worked on it add your name)
+ * Git-history contributors: a157p624; Wesley McDougal; Abdulaziz-Ali123; Abdulaziz Ali; Malek Kchaou; Shaun; m518n748
  * Update Log:
  *  - 2026-04-12: Atharva Patil - Added code for the quiz bridge. Exposes window.quiz APIs for host controls and session update listeners.
  * Date created: 2024-06
@@ -26,11 +27,29 @@ interface DbResponse<T = any> {
 }
 
 const handler = {
-  send(channel: string, value: unknown) {
+    /**
+   * Functionality: send performs the send workflow used by main/preload.ts.
+   * Parameters: channel (string); value (unknown).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call send from the owning module or component when this behavior is required.
+   */
+send(channel: string, value: unknown) {
     ipcRenderer.send(channel, value);
   },
-  on(channel: string, callback: (...args: unknown[]) => void) {
-    const subscription = (_event: IpcRendererEvent, ...args: unknown[]) => callback(...args);
+    /**
+   * Functionality: on performs the on workflow used by main/preload.ts.
+   * Parameters: channel (string); callback ((...args: unknown[]) => void).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call on from the owning module or component when this behavior is required.
+   */
+on(channel: string, callback: (...args: unknown[]) => void) {
+        /**
+     * Functionality: subscription performs the subscription workflow used by main/preload.ts.
+     * Parameters: _event (IpcRendererEvent); args (unknown[]).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call subscription from the owning module or component when this behavior is required.
+     */
+const subscription = (_event: IpcRendererEvent, ...args: unknown[]) => callback(...args);
     ipcRenderer.on(channel, subscription);
 
     return () => {
@@ -44,7 +63,12 @@ const fileSystemHandler = {
   createFolder: (folderPath: string) => ipcRenderer.invoke("fs:createFolder", folderPath),
   createFile: (filePath: string, content?: string) =>
     ipcRenderer.invoke("fs:createFile", filePath, content),
-  deleteItem: (itemPath: string) => ipcRenderer.invoke("fs:deleteItem", itemPath),
+  deleteItem: (itemPath: string, projectRoot?: string) => ipcRenderer.invoke("fs:deleteItem", itemPath, projectRoot),
+  listTrash: (projectRoot: string) => ipcRenderer.invoke("fs:listTrash", projectRoot),
+  restoreTrashItem: (projectRoot: string, itemId: string) =>
+    ipcRenderer.invoke("fs:restoreTrashItem", projectRoot, itemId),
+  deleteTrashItem: (projectRoot: string, itemId: string) =>
+    ipcRenderer.invoke("fs:deleteTrashItem", projectRoot, itemId),
   renameItem: (oldPath: string, newPath: string) =>
     ipcRenderer.invoke("fs:renameItem", oldPath, newPath),
   readFile: (filePath: string) => ipcRenderer.invoke("fs:readFile", filePath),
@@ -79,17 +103,17 @@ const tabHandler = {
 };
 
 const vectorDbHandler = {
-    addDirectory: (uuid: string, path: string) => 
+    addDirectory: (uuid: string, path: string) =>
         ipcRenderer.invoke("db:addDirectory", uuid, path),
-    updateDirectory: (id: UUID, path?: string) => 
+    updateDirectory: (id: UUID, path?: string) =>
         ipcRenderer.invoke("db:updateDirectory", id, path),
-    deleteDirectory: (id: UUID) => 
+    deleteDirectory: (id: UUID) =>
         ipcRenderer.invoke("db:deleteDirectory", id),
-    getDirectory: (id: UUID) => 
+    getDirectory: (id: UUID) =>
         ipcRenderer.invoke("db:getDirectory", id),
-    getAllDirectories: () => 
+    getAllDirectories: () =>
         ipcRenderer.invoke("db:getAllDirectories"),
-    getDirectoryIdByPath: (path: string) => 
+    getDirectoryIdByPath: (path: string) =>
         ipcRenderer.invoke("db:getDirectoryIdByPath", path),
     addFile: (directoryId: UUID, filePath: string, fileHash: string, lastModified: number) =>
         ipcRenderer.invoke("db:addFile", directoryId, filePath, fileHash, lastModified),
@@ -122,7 +146,7 @@ const chunkerHandler = {
     // Chunk entire directory
     chunkDirectory: (directoryPath: string, config?: DirectoryChunkerConfig): Promise<DbResponse<DirectoryChunkResult>> =>
         ipcRenderer.invoke("chunker:chunkDirectory", directoryPath, config),
-    
+
     // Chunk single file
     chunkFile: (filePath: string, config?: DirectoryChunkerConfig["chunkingConfig"]): Promise<DbResponse<Chunk[]>> =>
        ipcRenderer.invoke("chunker:chunkFile", filePath, config),
@@ -132,8 +156,8 @@ const chunkerHandler = {
 const indexerHandler = {
     // Index entire directory with placeholder embeddings
    indexDirectory: (
-       directoryId: UUID, 
-       directoryPath: string, 
+       directoryId: UUID,
+       directoryPath: string,
        config?: DirectoryChunkerConfig
    ): Promise<DbResponse<{
        filesProcessed: number;
@@ -143,11 +167,11 @@ const indexerHandler = {
        errorFiles: string[];
    }>> =>
        ipcRenderer.invoke("indexer:indexDirectory", directoryId, directoryPath, config),
-   
+
    // Index single file with placeholder embeddings
    indexFile: (
-       directoryId: UUID, 
-       filePath: string, 
+       directoryId: UUID,
+       filePath: string,
        config?: DirectoryChunkerConfig["chunkingConfig"]
    ): Promise<DbResponse<{
        fileId: UUID;
@@ -160,19 +184,19 @@ const watcherHandler = {
     // Start watching a directory
     start: (directoryId: UUID, directoryPath: string): Promise<DbResponse<void>> =>
         ipcRenderer.invoke("watcher:start", directoryId, directoryPath),
-    
+
     // Stop watching a directory
     stop: (directoryId: UUID): Promise<DbResponse<void>> =>
         ipcRenderer.invoke("watcher:stop", directoryId),
-    
+
     // Stop all watchers
     stopAll: (): Promise<DbResponse<void>> =>
         ipcRenderer.invoke("watcher:stopAll"),
-    
+
     // Get all active watchers
     getActive: (): Promise<DbResponse<Array<{ directoryId: UUID; directoryPath: string }>>> =>
         ipcRenderer.invoke("watcher:getActive"),
-    
+
     // Check if a directory is being watched
     isWatching: (directoryId: UUID): Promise<DbResponse<boolean>> =>
         ipcRenderer.invoke("watcher:isWatching", directoryId),
@@ -182,18 +206,42 @@ export default vectorDbHandler;
 
 
 contextBridge.exposeInMainWorld("ipc", {
-  send(channel: string, value: unknown) {
+    /**
+   * Functionality: send performs the send workflow used by main/preload.ts.
+   * Parameters: channel (string); value (unknown).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call send from the owning module or component when this behavior is required.
+   */
+send(channel: string, value: unknown) {
     ipcRenderer.send(channel, value);
   },
-  on(channel: string, callback: (...args: unknown[]) => void) {
-    const subscription = (_event: IpcRendererEvent, ...args: unknown[]) =>
+    /**
+   * Functionality: on performs the on workflow used by main/preload.ts.
+   * Parameters: channel (string); callback ((...args: unknown[]) => void).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call on from the owning module or component when this behavior is required.
+   */
+on(channel: string, callback: (...args: unknown[]) => void) {
+        /**
+     * Functionality: subscription performs the subscription workflow used by main/preload.ts.
+     * Parameters: _event (IpcRendererEvent); args (unknown[]).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call subscription from the owning module or component when this behavior is required.
+     */
+const subscription = (_event: IpcRendererEvent, ...args: unknown[]) =>
       callback(...args);
     ipcRenderer.on(channel, subscription);
     return () => {
       ipcRenderer.removeListener(channel, subscription);
     };
   },
-  invoke(channel: string, data?: unknown) {
+    /**
+   * Functionality: invoke performs the invoke workflow used by main/preload.ts.
+   * Parameters: channel (string); data (unknown).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call invoke from the owning module or component when this behavior is required.
+   */
+invoke(channel: string, data?: unknown) {
     return ipcRenderer.invoke(channel, data);
   },
 });
@@ -251,7 +299,13 @@ const settingsHandler = {
 
   /** Listen for settings changes pushed from the main process. */
   onChange: (callback: (settings: any) => void) => {
-    const subscription = (_event: IpcRendererEvent, settings: any) =>
+        /**
+     * Functionality: subscription performs the subscription workflow used by main/preload.ts.
+     * Parameters: _event (IpcRendererEvent); settings (any).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call subscription from the owning module or component when this behavior is required.
+     */
+const subscription = (_event: IpcRendererEvent, settings: any) =>
       callback(settings);
     ipcRenderer.on("settings:changed", subscription);
     return () => {
@@ -274,7 +328,13 @@ const quizHandler = {
   nextQuestion: (code: string) => ipcRenderer.invoke("quiz:nextQuestion", code),
   endQuiz: (code: string) => ipcRenderer.invoke("quiz:endQuiz", code),
   onSessionUpdated: (callback: (payload: { code: string; snapshot: any }) => void) => {
-    const listener = (_event: IpcRendererEvent, payload: { code: string; snapshot: any }) => {
+        /**
+     * Functionality: listener performs the listener workflow used by main/preload.ts.
+     * Parameters: _event (IpcRendererEvent); payload ({ code: string; snapshot: any }).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call listener from the owning module or component when this behavior is required.
+     */
+const listener = (_event: IpcRendererEvent, payload: { code: string; snapshot: any }) => {
       callback(payload);
     };
     ipcRenderer.on("quiz:sessionUpdated", listener);
@@ -342,22 +402,22 @@ contextBridge.exposeInMainWorld("llm", llmHandler);
 
 // Project Settings API
 const projectSettingsHandler = {
-  load: (projectRoot: string) => 
+  load: (projectRoot: string) =>
     ipcRenderer.invoke("projectSettings:load", projectRoot),
-  save: (projectRoot: string, settings: any) => 
+  save: (projectRoot: string, settings: any) =>
     ipcRenderer.invoke("projectSettings:save", projectRoot, settings),
-  update: (projectRoot: string, updates: any) => 
+  update: (projectRoot: string, updates: any) =>
     ipcRenderer.invoke("projectSettings:update", projectRoot, updates),
-  addRecentFile: (projectRoot: string, filePath: string) => 
+  addRecentFile: (projectRoot: string, filePath: string) =>
     ipcRenderer.invoke("projectSettings:addRecentFile", projectRoot, filePath),
-  togglePinnedFile: (projectRoot: string, filePath: string) => 
+  togglePinnedFile: (projectRoot: string, filePath: string) =>
     ipcRenderer.invoke("projectSettings:togglePinnedFile", projectRoot, filePath),
 };
 
 contextBridge.exposeInMainWorld("projectSettings", projectSettingsHandler);
 
 const ragHandler = {
-    retrieveContext: (directoryId: string, query: string, topK?: number) => 
+    retrieveContext: (directoryId: string, query: string, topK?: number) =>
         ipcRenderer.invoke("rag:retrieveContext", { directoryId, query, topK })
 };
 contextBridge.exposeInMainWorld("rag", ragHandler);

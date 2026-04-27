@@ -6,6 +6,7 @@
  * - Exposes a useErrorToast hook for showing short-lived error toasts.
  * - Avoids introducing an additional dependency for notifications.
  * Author: Malek Kchaou
+ * Git-history contributors: Malek Kchaou
  * Date: 2026-03-28
  * Housekeeping note:
  * - This is intentionally limited to error toasts for now to keep the implementation low-overhead.
@@ -39,6 +40,12 @@ const ErrorToastContext = createContext<ErrorToastContextValue | null>(null);
 /**
  * Provides global error-toast state and renders the active toast list.
  * The provider is meant to be mounted once at the top of the renderer tree.
+ */
+/**
+ * Functionality: ErrorToastProvider performs the error toast provider workflow used by renderer/components/feedback/ErrorToastProvider.tsx.
+ * Parameters: { children, } ({ children: React.ReactNode; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call ErrorToastProvider from the owning module or component when this behavior is required.
  */
 export function ErrorToastProvider({
     children,
@@ -75,7 +82,7 @@ export function ErrorToastProvider({
         <ErrorToastContext.Provider value={value}>
             {children}
 
-            {/* 
+            {/*
         Fixed-position toast container rendered once for the entire app.
         Pointer events are disabled so it does not interfere with the editor UI.
       */}
@@ -117,6 +124,12 @@ export function ErrorToastProvider({
 /**
  * Hook used by renderer components to show user-facing error toasts.
  * It must be called from within the mounted provider tree.
+ */
+/**
+ * Functionality: useErrorToast performs the use error toast workflow used by renderer/components/feedback/ErrorToastProvider.tsx.
+ * Parameters: None.
+ * Returns: Returns ErrorToastContextValue.
+ * Usage: Call useErrorToast from the owning module or component when this behavior is required.
  */
 export function useErrorToast(): ErrorToastContextValue {
     const context = useContext(ErrorToastContext);

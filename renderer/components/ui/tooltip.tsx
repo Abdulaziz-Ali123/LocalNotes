@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/components/ui/tooltip.tsx
+ * Brief description: Defines reusable renderer UI primitives used throughout the LocalNotes interface.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Wesley McDougal; Malek Kchaou
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 "use client";
 
 import * as React from "react";

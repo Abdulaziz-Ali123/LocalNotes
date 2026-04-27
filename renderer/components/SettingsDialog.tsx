@@ -4,6 +4,7 @@
  * Full-screen modal dialog for managing global settings.
  * Contains three tabs: Appearance, Editor, and Keybindings.
  *
+ * Git-history contributors: Wesley McDougal; Abdulaziz Ali; Shaun
  * Revision History:
  *  • Wesley McDougal - 29 MAR 2026 - Updated Appearance tab to include custom themes in dropdown
  *  • Wesley McDougal - 05APR2026 - Added Sidebar tab controls for layout scope, panel position, and layout reset
@@ -30,6 +31,8 @@ import {
   type SidebarPosition,
 } from "@/renderer/store/settings-slice";
 
+const MAX_AUTO_PURGE_DAYS = 3650;
+
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
@@ -38,7 +41,9 @@ interface SettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
   /** Which tab to show when the dialog opens (defaults to "appearance"). */
-  defaultTab?: "appearance" | "editor" | "keybindings" | "ai" | "sidebar";
+  defaultTab?: "appearance" | "editor" | "keybindings" | "ai" | "sidebar" | "help";
+  /** Called when the user clicks the Replay Tutorial button in the Help tab. */
+  onStartTutorial: () => void;
   sidebarLayout: SidebarLayoutSettings;
   layoutScope: SidebarLayoutScope;
   isProjectScopeAvailable: boolean;
@@ -51,6 +56,12 @@ interface SettingsDialogProps {
 // Main component
 // ---------------------------------------------------------------------------
 
+/**
+ * Functionality: SettingsDialog performs the settings dialog workflow used by renderer/components/SettingsDialog.tsx.
+ * Parameters: { isOpen, onClose, defaultTab = "appearance", sidebarLayout, layoutScope, isProjectScopeAvailable, onSidebarPositionChange, onSidebarScopeChange, onResetSidebarLayout, } (SettingsDialogProps).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SettingsDialog from the owning module or component when this behavior is required.
+ */
 export default function SettingsDialog({
   isOpen,
   onClose,
@@ -61,20 +72,35 @@ export default function SettingsDialog({
   onSidebarPositionChange,
   onSidebarScopeChange,
   onResetSidebarLayout,
+  onStartTutorial,
 }: SettingsDialogProps) {
+  // Hooks must run before any early return (Rules of Hooks)
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: MouseEvent) => {
+      // Node.contains() is a pure DOM check — reliable regardless of what
+      // Radix UI or any other library does with synthetic events internally.
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    // Use mousedown (not click) so we intercept before Radix processes the event.
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div
-        className="bg-background border border-border rounded-lg shadow-lg w-[680px] max-h-[80vh] flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
+        ref={modalRef}
+        className="bg-background border border-border rounded-lg shadow-lg w-[680px] h-[500px] flex flex-col overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
           <h2 className="text-lg font-semibold">Settings</h2>
           <button
             onClick={onClose}
@@ -85,16 +111,17 @@ export default function SettingsDialog({
         </div>
 
         {/* Tabs */}
-        <Tabs.Root defaultValue={defaultTab} className="flex-1 flex flex-col overflow-hidden">
-          <Tabs.List className="flex border-b border-border px-6 gap-1">
+        <Tabs.Root defaultValue={defaultTab} className="flex-1 flex flex-col min-h-0">
+          <Tabs.List className="flex border-b border-border px-6 gap-1 flex-shrink-0">
             <TabTrigger value="appearance">Appearance</TabTrigger>
             <TabTrigger value="sidebar">Sidebar</TabTrigger>
             <TabTrigger value="editor">Editor</TabTrigger>
             <TabTrigger value="keybindings">Keybindings</TabTrigger>
             <TabTrigger value="ai">AI</TabTrigger>
+            <TabTrigger value="help">Help</TabTrigger>
           </Tabs.List>
 
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 min-h-0 overflow-y-auto p-6">
             <Tabs.Content value="appearance" className="outline-none">
               <AppearanceTab />
             </Tabs.Content>
@@ -117,6 +144,9 @@ export default function SettingsDialog({
             <Tabs.Content value="ai" className="outline-none">
               <AiTab />
             </Tabs.Content>
+            <Tabs.Content value="help" className="outline-none">
+              <HelpTab onStartTutorial={onStartTutorial} />
+            </Tabs.Content>
           </div>
         </Tabs.Root>
       </div>
@@ -124,6 +154,12 @@ export default function SettingsDialog({
   );
 }
 
+/**
+ * Functionality: SidebarTab performs the sidebar tab workflow used by renderer/components/SettingsDialog.tsx.
+ * Parameters: { sidebarLayout, layoutScope, isProjectScopeAvailable, onSidebarPositionChange, onSidebarScopeChange, onResetSidebarLayout, } ({ sidebarLayout: SidebarLayoutSettings; layoutScope: SidebarLayoutScope; isProjectScopeAvailable: boolean; onSidebarPositionChange: (position: SidebarPosition) => void; onSidebarScopeChange: (scope: SidebarLayoutScope) => void; onResetSidebarLayout: () => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarTab from the owning module or component when this behavior is required.
+ */
 function SidebarTab({
   sidebarLayout,
   layoutScope,
@@ -215,6 +251,12 @@ function SidebarTab({
 // Tab trigger helper
 // ---------------------------------------------------------------------------
 
+/**
+ * Functionality: TabTrigger performs the tab trigger workflow used by renderer/components/SettingsDialog.tsx.
+ * Parameters: { value, children } ({ value: string; children: React.ReactNode }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call TabTrigger from the owning module or component when this behavior is required.
+ */
 function TabTrigger({ value, children }: { value: string; children: React.ReactNode }) {
   return (
     <Tabs.Trigger
@@ -230,6 +272,12 @@ function TabTrigger({ value, children }: { value: string; children: React.ReactN
 // Appearance tab
 // ---------------------------------------------------------------------------
 
+/**
+ * Functionality: AppearanceTab performs the appearance tab workflow used by renderer/components/SettingsDialog.tsx.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call AppearanceTab from the owning module or component when this behavior is required.
+ */
 function AppearanceTab() {
   const { theme, setTheme } = useTheme();
   const globalSettings = useBoundStore((s) => s.settings.global);
@@ -306,12 +354,25 @@ function AppearanceTab() {
 // Editor tab
 // ---------------------------------------------------------------------------
 
+/**
+ * Functionality: EditorTab performs the editor tab workflow used by renderer/components/SettingsDialog.tsx.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call EditorTab from the owning module or component when this behavior is required.
+ */
 function EditorTab() {
   const globalSettings = useBoundStore((s) => s.settings.global);
   const setGlobal = useBoundStore((s) => s.settings.setGlobal);
 
-  const { autosaveEnabled, autosaveIntervalMs, wordWrap, showLineNumbers } =
-    globalSettings.editor;
+  const {
+    autosaveEnabled,
+    autosaveIntervalMs,
+    wordWrap,
+    showLineNumbers,
+    focusModeMaxWidth,
+    focusModeDimLevel,
+  } = globalSettings.editor;
+  const autoPurgeDays = Number(globalSettings.trash?.autoPurgeDays ?? 30);
 
   return (
     <div className="space-y-6">
@@ -380,6 +441,74 @@ function EditorTab() {
           <Label className="text-sm">Show</Label>
         </div>
       </SettingRow>
+
+      <SettingRow
+        label="Trash Auto-Purge"
+        description="Automatically permanently delete trashed items older than this many days (0 disables auto-purge)"
+      >
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={0}
+            max={MAX_AUTO_PURGE_DAYS}
+            value={autoPurgeDays}
+            onChange={(e) =>
+              setGlobal(
+                "trash.autoPurgeDays",
+                Math.max(0, Math.min(MAX_AUTO_PURGE_DAYS, Number(e.target.value) || 0))
+              )
+            }
+            className="w-24 p-2 rounded-md bg-secondary text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+          />
+          <span className="text-sm text-muted-foreground">days</span>
+        </div>
+      </SettingRow>
+
+      <div className="pt-4 border-t border-border">
+        <h3 className="text-sm font-semibold mb-4">Focus Mode</h3>
+
+        <SettingRow
+          label="Maximum Content Width"
+          description="The maximum width of the editor in Focus Mode (pixels)"
+        >
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={400}
+              max={2000}
+              step={50}
+              value={focusModeMaxWidth ?? 800}
+              onChange={(e) =>
+                setGlobal("editor.focusModeMaxWidth", Number(e.target.value))
+              }
+              className="w-24 p-2 rounded-md bg-secondary text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+            />
+            <span className="text-sm text-muted-foreground">px</span>
+          </div>
+        </SettingRow>
+
+        <SettingRow
+          label="Background Dim Level"
+          description="How much to dim the background in Focus Mode (0-1)"
+        >
+          <div className="flex items-center gap-4 w-56">
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={focusModeDimLevel ?? 0.8}
+              onChange={(e) =>
+                setGlobal("editor.focusModeDimLevel", parseFloat(e.target.value))
+              }
+              className="flex-1 accent-foreground"
+            />
+            <span className="text-xs font-mono w-8">
+              {Math.round((focusModeDimLevel ?? 0.8) * 100)}%
+            </span>
+          </div>
+        </SettingRow>
+      </div>
     </div>
   );
 }
@@ -388,6 +517,12 @@ function EditorTab() {
 // Keybindings tab
 // ---------------------------------------------------------------------------
 
+/**
+ * Functionality: KeybindingsTab performs the keybindings tab workflow used by renderer/components/SettingsDialog.tsx.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call KeybindingsTab from the owning module or component when this behavior is required.
+ */
 function KeybindingsTab() {
   const keybindingActions = useBoundStore((s) => s.settings.keybindingActions);
   const keybindings = useBoundStore((s) => s.settings.global.keybindings);
@@ -417,7 +552,13 @@ function KeybindingsTab() {
   }, [keybindingActions, keybindings]);
 
   /** Return the label of the OTHER action that conflicts, or null. */
-  const getConflict = (actionId: string): string | null => {
+    /**
+   * Functionality: getConflict performs the get conflict workflow used by renderer/components/SettingsDialog.tsx.
+   * Parameters: actionId (string).
+   * Returns: Returns string | null.
+   * Usage: Call getConflict from the owning module or component when this behavior is required.
+   */
+const getConflict = (actionId: string): string | null => {
     const accel = (keybindings[actionId] ?? keybindingActions.find((a) => a.id === actionId)?.defaultAccelerator ?? "").toLowerCase();
     if (!accel) return null;
     const siblings = accelToActions[accel];
@@ -469,7 +610,13 @@ function KeybindingsTab() {
   useEffect(() => {
     if (!rebindingId) return;
 
-    const handler = (e: KeyboardEvent) => {
+        /**
+     * Functionality: handler performs the handle r workflow used by renderer/components/SettingsDialog.tsx.
+     * Parameters: e (KeyboardEvent).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handler from the owning module or component when this behavior is required.
+     */
+const handler = (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopPropagation();
 
@@ -485,7 +632,13 @@ function KeybindingsTab() {
   }, [rebindingId, eventToAccelerator, setGlobal]);
 
   /** Format accelerator for display. */
-  const displayAccelerator = (accel: unknown): string => {
+    /**
+   * Functionality: displayAccelerator performs the display accelerator workflow used by renderer/components/SettingsDialog.tsx.
+   * Parameters: accel (unknown).
+   * Returns: Returns string.
+   * Usage: Call displayAccelerator from the owning module or component when this behavior is required.
+   */
+const displayAccelerator = (accel: unknown): string => {
     if (!accel || typeof accel !== "string") return "—";
     return accel
       .replace(/CommandOrControl/g, isMac ? "Cmd" : "Ctrl")
@@ -594,6 +747,12 @@ function KeybindingsTab() {
 // AI tab
 // ---------------------------------------------------------------------------
 
+/**
+ * Functionality: AiTab performs the ai tab workflow used by renderer/components/SettingsDialog.tsx.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call AiTab from the owning module or component when this behavior is required.
+ */
 function AiTab() {
   const aiSettings = useBoundStore((s) => s.settings.global.ai);
   const setGlobal = useBoundStore((s) => s.settings.setGlobal);
@@ -610,7 +769,13 @@ function AiTab() {
 
   const modelIds = aiSettings?.customModels?.map(m => m.id) || [];
 
-  const getCaps = (modelId: string): ModelCapabilities => {
+    /**
+   * Functionality: getCaps performs the get caps workflow used by renderer/components/SettingsDialog.tsx.
+   * Parameters: modelId (string).
+   * Returns: Returns ModelCapabilities.
+   * Usage: Call getCaps from the owning module or component when this behavior is required.
+   */
+const getCaps = (modelId: string): ModelCapabilities => {
     return (
       aiSettings?.modelConfigs?.[modelId]?.capabilities ??
       aiSettings?.customModels?.find(m => m.id === modelId)?.capabilities ??
@@ -618,7 +783,13 @@ function AiTab() {
     );
   };
 
-  const toggleCap = (modelId: string, cap: keyof ModelCapabilities, val: boolean) => {
+    /**
+   * Functionality: toggleCap performs the toggle cap workflow used by renderer/components/SettingsDialog.tsx.
+   * Parameters: modelId (string); cap (keyof ModelCapabilities); val (boolean).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call toggleCap from the owning module or component when this behavior is required.
+   */
+const toggleCap = (modelId: string, cap: keyof ModelCapabilities, val: boolean) => {
     const currentCaps = getCaps(modelId);
     const updatedConfigs = {
       ...(aiSettings?.modelConfigs ?? {}),
@@ -787,9 +958,34 @@ function AiTab() {
 }
 
 // ---------------------------------------------------------------------------
+// Help tab
+// ---------------------------------------------------------------------------
+
+function HelpTab({ onStartTutorial }: { onStartTutorial: () => void }) {
+  return (
+    <div className="space-y-6">
+      <SettingRow
+        label="App Tour"
+        description="Replay the guided first-time tutorial that highlights the main features of LocalNotes."
+      >
+        <Button variant="outline" size="sm" onClick={onStartTutorial}>
+          Replay Tutorial
+        </Button>
+      </SettingRow>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Shared layout helper
 // ---------------------------------------------------------------------------
 
+/**
+ * Functionality: SettingRow performs the setting row workflow used by renderer/components/SettingsDialog.tsx.
+ * Parameters: { label, description, children, } ({ label: string; description: string; children: React.ReactNode; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SettingRow from the owning module or component when this behavior is required.
+ */
 function SettingRow({
   label,
   description,

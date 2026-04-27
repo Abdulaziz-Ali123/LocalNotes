@@ -12,9 +12,13 @@
  *   1. Bump LATEST_SCHEMA_VERSION in defaults.ts
  *   2. Add a new entry here with the target version as key
  *   3. Update the TypeScript interfaces in schema.ts if the shape changed
+ * Git-history contributors: Shaun
+ *
+ * Revision History:
+ *  • Wesley McDougal - 19APR2026 - Added v6 migration to backfill editor.statusBar visibility defaults
  */
 
-import { LATEST_SCHEMA_VERSION } from "./defaults";
+import { DEFAULT_TRASH, LATEST_SCHEMA_VERSION } from "./defaults";
 
 type MigrationFn = (settings: Record<string, any>) => Record<string, any>;
 
@@ -40,6 +44,28 @@ const migrations: Record<number, MigrationFn> = {
   //   settings.editor.spellcheck = settings.editor?.spellcheck ?? false;
   //   return settings;
   // },
+
+   6: (settings) => {
+    // v5 -> v6: Added statusBar visibility settings to editor
+    settings.editor = settings.editor ?? {};
+    settings.editor.statusBar = settings.editor.statusBar ?? {
+      showWordCount: true,
+      showCharCount: true,
+      showSentenceCount: true,
+      showReadingTime: true,
+    };
+    return settings;
+  },
+  7: (settings) => {
+    const next = { ...settings };
+    next.trash = {
+      autoPurgeDays:
+        typeof settings?.trash?.autoPurgeDays === "number"
+          ? settings.trash.autoPurgeDays
+          : DEFAULT_TRASH.autoPurgeDays,
+    };
+    return next;
+  },
 };
 
 /**
@@ -48,6 +74,12 @@ const migrations: Record<number, MigrationFn> = {
  * @param settings  The raw settings object (without the version wrapper)
  * @param fromVersion  The version the settings are currently at
  * @returns The migrated settings object, now at LATEST_SCHEMA_VERSION
+ */
+/**
+ * Functionality: migrateSettings performs the migrate settings workflow used by main/settings/migrations.ts.
+ * Parameters: settings (Record<string, any>); fromVersion (number).
+ * Returns: Returns Record<string, any>.
+ * Usage: Call migrateSettings from the owning module or component when this behavior is required.
  */
 export function migrateSettings(
   settings: Record<string, any>,

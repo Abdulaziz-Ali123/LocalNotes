@@ -1,5 +1,6 @@
 /**
  * File: renderer/pages/home.tsx
+ * Git-history contributors: a157p624; Wesley McDougal; Abdulaziz-Ali123; Abdulaziz Ali; Shaun; Malek Kchaou
  * Update Log:
  *  - 2026-04-12: Atharva Patil - Home page now includes quiz host/join launch actions.
  * Purpose:
@@ -19,18 +20,30 @@ import { Button } from "@/renderer/components/ui/button";
 import InputDialog from "@/renderer/components/InputDialog";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 
+/**
+ * Functionality: HomePage performs the home page workflow used by renderer/pages/home.tsx.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call HomePage from the owning module or component when this behavior is required.
+ */
 export default function HomePage() {
   const router = useRouter();
   const globalAiSettings = useBoundStore((s) => s.settings.global.ai);
   const defaultRagEnabled = globalAiSettings?.defaultRagEnabled ?? false;
 
-  const handleLocalNotesEnv = async (folderPath: string) => {
+    /**
+   * Functionality: handleLocalNotesEnv performs the handle local notes env workflow used by renderer/pages/home.tsx.
+   * Parameters: folderPath (string).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleLocalNotesEnv from the owning module or component when this behavior is required.
+   */
+const handleLocalNotesEnv = async (folderPath: string) => {
     const localNotesDir = window.fs.join(folderPath, ".localnotes");
     const envPath = window.fs.join(localNotesDir, ".env");
-    
+
     const localNotesRes = await window.fs.exists(localNotesDir);
     const hasLocalNotes = localNotesRes.success ? localNotesRes.data : false;
-    
+
     if (!hasLocalNotes) {
       await window.fs.createFolder(localNotesDir);
     }
@@ -76,7 +89,7 @@ export default function HomePage() {
       const newEnvContent = `DIRECTORY_ID=${uuid}\\nRAG_ENABLED=${ragEnabledStr}\\nINDEXED=${indexedStr}`;
       await window.fs.writeFile(envPath, newEnvContent);
     }
-    
+
     return { uuid, ragEnabledStr, indexedStr };
   };
 
@@ -100,7 +113,13 @@ export default function HomePage() {
   const [showRagModal, setShowRagModal] = useState(false);
   const [pendingRagInit, setPendingRagInit] = useState<{uuid: string, path: string} | null>(null);
 
-  const ensureDirectoryRegistered = async (uuid: string, path: string) => {
+    /**
+   * Functionality: ensureDirectoryRegistered performs the ensure directory registered workflow used by renderer/pages/home.tsx.
+   * Parameters: uuid (string); path (string).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call ensureDirectoryRegistered from the owning module or component when this behavior is required.
+   */
+const ensureDirectoryRegistered = async (uuid: string, path: string) => {
     const existingDir = await window.db.getDirectoryIdByPath(path);
 
     if (existingDir.success && typeof existingDir.data === "string" && existingDir.data.length > 0) {
@@ -115,7 +134,13 @@ export default function HomePage() {
     return uuid;
   };
 
-  const handleOpenFolder = async () => {
+    /**
+   * Functionality: handleOpenFolder performs the handle open folder workflow used by renderer/pages/home.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleOpenFolder from the owning module or component when this behavior is required.
+   */
+const handleOpenFolder = async () => {
     if (!window.fs?.openFolderDialog || !window.db?.addDirectory || !window.db?.getDirectoryIdByPath || !window.indexer?.indexDirectory) {
       alert("App APIs are not available. Please restart the app to reload preload scripts.");
       return;
@@ -129,14 +154,14 @@ export default function HomePage() {
 
         setIsIndexing(true);
         setIndexingStatus("Searching for existing repository...");
-        
+
         // Store the folder path in localStorage
         localStorage.setItem("currentFolderPath", result.data);
 
         const directoryId = await ensureDirectoryRegistered(uuid, result.data);
 
         console.log("Directory ready with ID:", directoryId);
-        
+
         // Index the directory if RAG is enabled
         if (ragEnabledStr === "true") {
           setIndexingStatus("Indexing files...");
@@ -146,9 +171,9 @@ export default function HomePage() {
             console.log(`✓ Indexing complete!`);
             console.log(`Files processed: ${storeResult.data.filesProcessed}`);
             console.log(`Chunks created: ${storeResult.data.chunksCreated}`);
-            
+
             setIndexingStatus("Complete!");
-            
+
             // Navigate to editor page
             setTimeout(() => {
               router.push("/editor");
@@ -168,7 +193,13 @@ export default function HomePage() {
     }
   };
 
-  const handleCreateFolder = async () => {
+    /**
+   * Functionality: handleCreateFolder performs the handle create folder workflow used by renderer/pages/home.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleCreateFolder from the owning module or component when this behavior is required.
+   */
+const handleCreateFolder = async () => {
     if (!window.fs?.openFolderDialog || !window.fs?.createFolder || !window.db?.addDirectory || !window.db?.getDirectoryIdByPath) {
       alert("App APIs are not available. Please restart the app to reload preload scripts.");
       return;
@@ -181,19 +212,19 @@ export default function HomePage() {
       defaultValue: "",
       onConfirm: async (folderName) => {
         setInputDialog((prev) => ({ ...prev, isOpen: false }));
-        
+
         const result = await window.fs.openFolderDialog();
         if (result.success && result.data) {
           try {
             const parentPath = result.data;
             const newFolderPath = `${parentPath}/${folderName}`;
-            
+
             // Create the folder
             const createResult = await window.fs.createFolder(newFolderPath);
             if (!createResult.success) {
               throw new Error(createResult.error || "Failed to create folder");
             }
-            
+
             // Store the folder path in localStorage
             localStorage.setItem("currentFolderPath", newFolderPath);
 
@@ -204,7 +235,7 @@ export default function HomePage() {
 
             if (directoryId) {
               console.log("Directory ready in database with ID:", directoryId);
-              
+
               if (ragEnabledStr === "true") {
                 setIsIndexing(true);
                 setIndexingStatus("Initializing index...");
@@ -233,13 +264,19 @@ export default function HomePage() {
     });
   };
 
-  const startRagInitialization = async () => {
+    /**
+   * Functionality: startRagInitialization performs the start rag initialization workflow used by renderer/pages/home.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call startRagInitialization from the owning module or component when this behavior is required.
+   */
+const startRagInitialization = async () => {
     if (!pendingRagInit) return;
-    
+
     try {
       setIsIndexing(true);
       setIndexingStatus("Registering folder...");
-      
+
       const { uuid, path } = pendingRagInit;
 
       const directoryId = await ensureDirectoryRegistered(uuid, path);
@@ -248,7 +285,7 @@ export default function HomePage() {
       const localNotesDir = window.fs.join(path, ".Local Notes");
       await window.fs.createFolder(localNotesDir);
       await window.fs.writeFile(window.fs.join(localNotesDir, ".env"), `DIRECTORY_ID=${uuid}`);
-      
+
       setIndexingStatus("Indexing files (this may take a moment)...");
       const storeResult = await window.indexer.indexDirectory(directoryId, path);
 
@@ -285,14 +322,14 @@ export default function HomePage() {
                 height={256}
               />
             </div>
-            
+
             {/* Show indexing status */}
             {isIndexing && (
               <div className="w-4/5 mb-4 p-4 bg-accent/20 rounded-lg text-center">
                 <p className="text-lg font-semibold">{indexingStatus}</p>
               </div>
             )}
-            
+
             <div className="grid grid-col-1 text-2xl w-4/5 ">
               <div className="flex flex-row justify-between items-center py-3">
                 <span>
@@ -326,21 +363,6 @@ export default function HomePage() {
               <hr className="border-foreground/20" />
               <div className="flex flex-row justify-between items-center py-3">
                 <span>
-                  Host a Quiz Session
-                  <p className="text-sm pb-3">Start a local multiplayer quiz lobby</p>
-                </span>
-                <button
-                  disabled={isIndexing}
-                  onClick={() => router.push("/quiz/host")}
-                  className="bg-accent rounded-md text-base p-2 h-12 w-32 shadow-neumorph-sm active:shadow-neumorph-insert transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Host Quiz
-                </button>
-              </div>
-
-              <hr className="border-foreground/20" />
-              <div className="flex flex-row justify-between items-center py-3">
-                <span>
                   Join a Quiz Session
                   <p className="text-sm pb-3">Join by game code, link, or QR address</p>
                 </span>
@@ -359,7 +381,7 @@ export default function HomePage() {
                   Configure Settings
                   <p className="text-sm pb-3">Edit settings like themes</p>
                 </span>
-                <button 
+                <button
                   disabled={isIndexing}
                   className="bg-accent rounded-md text-base p-2 h-12 w-32 shadow-neumorph-sm active:shadow-neumorph-insert transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >

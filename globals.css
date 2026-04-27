@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: globals.css
+ * Brief description: Defines global styles, theme tokens, and component styling used by the renderer.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Wesley McDougal; Abdulaziz-Ali123; a157p624; Malek Kchaou
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -79,7 +90,7 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius: 0.5rem; 
+  --radius: 0.5rem;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);

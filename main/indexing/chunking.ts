@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: main/indexing/chunking.ts
+ * Brief description: Implements note chunking and indexing routines used by the local RAG workflow.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Abdulaziz-Ali123
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import * as crypto from "crypto";
 
 /**
@@ -28,12 +39,24 @@ const DEFAULT_CONFIG: ChunkingConfig = {
 /**
  * Estimate token count (rough approximation: ~4 chars per token)
  */
+/**
+ * Functionality: estimateTokens performs the estimate tokens workflow used by main/indexing/chunking.ts.
+ * Parameters: text (string).
+ * Returns: Returns number.
+ * Usage: Call estimateTokens from the owning module or component when this behavior is required.
+ */
 function estimateTokens(text: string): number {
     return Math.ceil(text.length / 4);
 }
 
 /**
  * Generate SHA256 hash of content
+ */
+/**
+ * Functionality: generateContentHash performs the generate content hash workflow used by main/indexing/chunking.ts.
+ * Parameters: content (string).
+ * Returns: Returns string.
+ * Usage: Call generateContentHash from the owning module or component when this behavior is required.
  */
 function generateContentHash(content: string): string {
     return crypto.createHash("sha256").update(content, "utf8").digest("hex");
@@ -42,18 +65,24 @@ function generateContentHash(content: string): string {
 /**
  * Split text by markdown headings
  */
+/**
+ * Functionality: splitByHeadings performs the split by headings workflow used by main/indexing/chunking.ts.
+ * Parameters: text (string).
+ * Returns: Returns Array<{ heading: string; content: string; startLine: number }>.
+ * Usage: Call splitByHeadings from the owning module or component when this behavior is required.
+ */
 function splitByHeadings(text: string): Array<{ heading: string; content: string; startLine: number }> {
     const lines = text.split("\n");
     const sections: Array<{ heading: string; content: string; startLine: number }> = [];
-    
+
     let currentHeading = "";
     let currentContent: string[] = [];
     let currentStartLine = 0;
-    
+
     lines.forEach((line, index) => {
         // Check if line is a markdown heading (# ## ### etc.)
         const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
-        
+
         if (headingMatch) {
             // Save previous section if it has content
             if (currentContent.length > 0) {
@@ -63,7 +92,7 @@ function splitByHeadings(text: string): Array<{ heading: string; content: string
                     startLine: currentStartLine,
                 });
             }
-            
+
             // Start new section
             currentHeading = headingMatch[2];
             currentContent = [line];
@@ -72,7 +101,7 @@ function splitByHeadings(text: string): Array<{ heading: string; content: string
             currentContent.push(line);
         }
     });
-    
+
     // Add final section
     if (currentContent.length > 0) {
         sections.push({
@@ -81,12 +110,18 @@ function splitByHeadings(text: string): Array<{ heading: string; content: string
             startLine: currentStartLine,
         });
     }
-    
+
     return sections;
 }
 
 /**
  * Split text by paragraphs (double newline)
+ */
+/**
+ * Functionality: splitByParagraphs performs the split by paragraphs workflow used by main/indexing/chunking.ts.
+ * Parameters: text (string).
+ * Returns: Returns string[].
+ * Usage: Call splitByParagraphs from the owning module or component when this behavior is required.
  */
 function splitByParagraphs(text: string): string[] {
     return text
@@ -98,23 +133,29 @@ function splitByParagraphs(text: string): string[] {
 /**
  * Split large text into smaller chunks respecting token limits
  */
+/**
+ * Functionality: splitByTokenLimit performs the split by token limit workflow used by main/indexing/chunking.ts.
+ * Parameters: text (string); maxTokens (number); overlapTokens (number).
+ * Returns: Returns string[].
+ * Usage: Call splitByTokenLimit from the owning module or component when this behavior is required.
+ */
 function splitByTokenLimit(text: string, maxTokens: number, overlapTokens: number): string[] {
     const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
     const chunks: string[] = [];
     let currentChunk: string[] = [];
     let currentTokens = 0;
-    
+
     for (const sentence of sentences) {
         const sentenceTokens = estimateTokens(sentence);
-        
+
         if (currentTokens + sentenceTokens > maxTokens && currentChunk.length > 0) {
             // Save current chunk
             chunks.push(currentChunk.join(" "));
-            
+
             // Start new chunk with overlap
             const overlapSentences: string[] = [];
             let overlapCount = 0;
-            
+
             for (let i = currentChunk.length - 1; i >= 0; i--) {
                 const tokens = estimateTokens(currentChunk[i]);
                 if (overlapCount + tokens <= overlapTokens) {
@@ -124,35 +165,41 @@ function splitByTokenLimit(text: string, maxTokens: number, overlapTokens: numbe
                     break;
                 }
             }
-            
+
             currentChunk = overlapSentences;
             currentTokens = overlapCount;
         }
-        
+
         currentChunk.push(sentence);
         currentTokens += sentenceTokens;
     }
-    
+
     // Add final chunk
     if (currentChunk.length > 0) {
         chunks.push(currentChunk.join(" "));
     }
-    
+
     return chunks;
 }
 
 /**
  * Main chunking function for markdown files
  */
+/**
+ * Functionality: chunkMarkdown performs the chunk markdown workflow used by main/indexing/chunking.ts.
+ * Parameters: text (string); config (ChunkingConfig).
+ * Returns: Returns Chunk[].
+ * Usage: Call chunkMarkdown from the owning module or component when this behavior is required.
+ */
 export function chunkMarkdown(text: string, config: ChunkingConfig = DEFAULT_CONFIG): Chunk[] {
     const chunks: Chunk[] = [];
-    
+
     // First, split by headings
     const sections = splitByHeadings(text);
-    
+
     for (const section of sections) {
         const sectionTokens = estimateTokens(section.content);
-        
+
         if (sectionTokens <= config.maxTokens) {
             // Section fits in one chunk
             if (sectionTokens >= config.minTokens || sections.length === 1) {
@@ -170,10 +217,10 @@ export function chunkMarkdown(text: string, config: ChunkingConfig = DEFAULT_CON
             const paragraphs = splitByParagraphs(section.content);
             let currentChunk = "";
             let currentTokens = 0;
-            
+
             for (const paragraph of paragraphs) {
                 const paragraphTokens = estimateTokens(paragraph);
-                
+
                 if (currentTokens + paragraphTokens > config.maxTokens && currentChunk.length > 0) {
                     // Save current chunk
                     chunks.push({
@@ -184,15 +231,15 @@ export function chunkMarkdown(text: string, config: ChunkingConfig = DEFAULT_CON
                             startLine: section.startLine,
                         },
                     });
-                    
+
                     currentChunk = "";
                     currentTokens = 0;
                 }
-                
+
                 if (paragraphTokens > config.maxTokens) {
                     // Paragraph itself is too large, split by token limit
                     const subChunks = splitByTokenLimit(paragraph, config.maxTokens, config.overlapTokens);
-                    
+
                     for (const subChunk of subChunks) {
                         chunks.push({
                             content: subChunk.trim(),
@@ -208,7 +255,7 @@ export function chunkMarkdown(text: string, config: ChunkingConfig = DEFAULT_CON
                     currentTokens += paragraphTokens;
                 }
             }
-            
+
             // Add remaining chunk
             if (currentChunk.trim().length > 0 && currentTokens >= config.minTokens) {
                 chunks.push({
@@ -222,24 +269,30 @@ export function chunkMarkdown(text: string, config: ChunkingConfig = DEFAULT_CON
             }
         }
     }
-    
+
     return chunks;
 }
 
 /**
  * Generic text chunking (for non-markdown files)
  */
+/**
+ * Functionality: chunkPlainText performs the chunk plain text workflow used by main/indexing/chunking.ts.
+ * Parameters: text (string); config (ChunkingConfig).
+ * Returns: Returns Chunk[].
+ * Usage: Call chunkPlainText from the owning module or component when this behavior is required.
+ */
 export function chunkPlainText(text: string, config: ChunkingConfig = DEFAULT_CONFIG): Chunk[] {
     const chunks: Chunk[] = [];
-    
+
     // Split by paragraphs first
     const paragraphs = splitByParagraphs(text);
     let currentChunk = "";
     let currentTokens = 0;
-    
+
     for (const paragraph of paragraphs) {
         const paragraphTokens = estimateTokens(paragraph);
-        
+
         if (currentTokens + paragraphTokens > config.maxTokens && currentChunk.length > 0) {
             // Save current chunk
             chunks.push({
@@ -247,15 +300,15 @@ export function chunkPlainText(text: string, config: ChunkingConfig = DEFAULT_CO
                 contentHash: generateContentHash(currentChunk.trim()),
                 metadata: {},
             });
-            
+
             currentChunk = "";
             currentTokens = 0;
         }
-        
+
         if (paragraphTokens > config.maxTokens) {
             // Paragraph too large, split by token limit
             const subChunks = splitByTokenLimit(paragraph, config.maxTokens, config.overlapTokens);
-            
+
             for (const subChunk of subChunks) {
                 chunks.push({
                     content: subChunk.trim(),
@@ -268,7 +321,7 @@ export function chunkPlainText(text: string, config: ChunkingConfig = DEFAULT_CO
             currentTokens += paragraphTokens;
         }
     }
-    
+
     // Add final chunk
     if (currentChunk.trim().length > 0 && currentTokens >= config.minTokens) {
         chunks.push({
@@ -277,16 +330,22 @@ export function chunkPlainText(text: string, config: ChunkingConfig = DEFAULT_CO
             metadata: {},
         });
     }
-    
+
     return chunks;
 }
 
 /**
  * Smart chunking that detects file type
  */
+/**
+ * Functionality: chunkText performs the chunk text workflow used by main/indexing/chunking.ts.
+ * Parameters: text (string); filePath (string); config (ChunkingConfig).
+ * Returns: Returns Chunk[].
+ * Usage: Call chunkText from the owning module or component when this behavior is required.
+ */
 export function chunkText(text: string, filePath: string, config: ChunkingConfig = DEFAULT_CONFIG): Chunk[] {
     const isMarkdown = filePath.endsWith(".md") || filePath.endsWith(".markdown");
-    
+
     if (isMarkdown) {
         return chunkMarkdown(text, config);
     } else {

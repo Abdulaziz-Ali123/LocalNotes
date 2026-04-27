@@ -5,6 +5,7 @@
  * - Added strongly typed schemas that mirror the agreed JSON contract.
  * - Added helper union types for quiz items and flashcards.
  * Author: Malek Kchaou
+ * Git-history contributors: Malek Kchaou
  * Date: 2026-04-12
  * Note: Keep this file aligned with the quiz-generation prompt contract.
  */

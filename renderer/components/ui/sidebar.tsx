@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/components/ui/sidebar.tsx
+ * Brief description: Defines reusable renderer UI primitives used throughout the LocalNotes interface.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Wesley McDougal; m518n748; Malek Kchaou; Abdulaziz-Ali123
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 "use client";
 
 import * as React from "react";
@@ -35,6 +46,12 @@ type SidebarContextProps = {
 
 const SidebarContext = React.createContext<SidebarContextProps | null>(null);
 
+/**
+ * Functionality: useSidebar performs the use sidebar workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: None.
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call useSidebar from the owning module or component when this behavior is required.
+ */
 function useSidebar() {
   const context = React.useContext(SidebarContext);
   if (!context) {
@@ -44,6 +61,12 @@ function useSidebar() {
   return context;
 }
 
+/**
+ * Functionality: SidebarProvider performs the sidebar provider workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { defaultOpen = true, open: openProp, onOpenChange: setOpenProp, className, style, children, ...props } (React.ComponentProps<"div"> & { defaultOpen?: boolean; open?: boolean; onOpenChange?: (open: boolean) => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarProvider from the owning module or component when this behavior is required.
+ */
 function SidebarProvider({
   defaultOpen = true,
   open: openProp,
@@ -86,7 +109,13 @@ function SidebarProvider({
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
+        /**
+     * Functionality: handleKeyDown performs the handle key down workflow used by renderer/components/ui/sidebar.tsx.
+     * Parameters: event (KeyboardEvent).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleKeyDown from the owning module or component when this behavior is required.
+     */
+const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === SIDEBAR_KEYBOARD_SHORTCUT && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         toggleSidebar();
@@ -136,6 +165,12 @@ function SidebarProvider({
   );
 }
 
+/**
+ * Functionality: Sidebar performs the sidebar workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { side = "left", variant = "sidebar", collapsible = "offcanvas", className, children, ...props } (React.ComponentProps<"div"> & { side?: "left" | "right"; variant?: "sidebar" | "floating" | "inset"; collapsible?: "offcanvas" | "icon" | "none"; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call Sidebar from the owning module or component when this behavior is required.
+ */
 function Sidebar({
   side = "left",
   variant = "sidebar",
@@ -238,6 +273,12 @@ function Sidebar({
   );
 }
 
+/**
+ * Functionality: SidebarTrigger performs the sidebar trigger workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { className, onClick, ...props } (React.ComponentProps<typeof Button>).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarTrigger from the owning module or component when this behavior is required.
+ */
 function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<typeof Button>) {
   const { toggleSidebar } = useSidebar();
 
@@ -260,6 +301,12 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
   );
 }
 
+/**
+ * Functionality: SidebarRail performs the sidebar rail workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { className, ...props } (React.ComponentProps<"button">).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarRail from the owning module or component when this behavior is required.
+ */
 function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
   const { toggleSidebar } = useSidebar();
 
@@ -285,6 +332,12 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
   );
 }
 
+/**
+ * Functionality: SidebarInset performs the sidebar inset workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { className, ...props } (React.ComponentProps<"main">).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarInset from the owning module or component when this behavior is required.
+ */
 function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
   return (
     <main
@@ -299,6 +352,12 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
   );
 }
 
+/**
+ * Functionality: SidebarInput performs the sidebar input workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { className, ...props } (React.ComponentProps<typeof Input>).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarInput from the owning module or component when this behavior is required.
+ */
 function SidebarInput({ className, ...props }: React.ComponentProps<typeof Input>) {
   return (
     <Input
@@ -310,6 +369,12 @@ function SidebarInput({ className, ...props }: React.ComponentProps<typeof Input
   );
 }
 
+/**
+ * Functionality: SidebarHeader performs the sidebar header workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { className, ...props } (React.ComponentProps<"div">).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarHeader from the owning module or component when this behavior is required.
+ */
 function SidebarHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -321,9 +386,21 @@ function SidebarHeader({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
+/**
+ * Functionality: SidebarFooter performs the sidebar footer workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { className, ...props } (React.ComponentProps<"div">).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarFooter from the owning module or component when this behavior is required.
+ */
 function SidebarFooter({ className, ...props }: React.ComponentProps<"div">) {
   const { theme, setTheme } = require("@/renderer/lib/theme").useTheme();
-  const toggleTheme = () => {
+    /**
+   * Functionality: toggleTheme performs the toggle theme workflow used by renderer/components/ui/sidebar.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call toggleTheme from the owning module or component when this behavior is required.
+   */
+const toggleTheme = () => {
     // Cycle through nord -> light -> dark -> nord
     if (theme === "nord") setTheme("light");
     else if (theme === "light") setTheme("dark");
@@ -348,6 +425,12 @@ function SidebarFooter({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
+/**
+ * Functionality: SidebarSeparator performs the sidebar separator workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { className, ...props } (React.ComponentProps<typeof Separator>).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarSeparator from the owning module or component when this behavior is required.
+ */
 function SidebarSeparator({ className, ...props }: React.ComponentProps<typeof Separator>) {
   return (
     <Separator
@@ -359,6 +442,12 @@ function SidebarSeparator({ className, ...props }: React.ComponentProps<typeof S
   );
 }
 
+/**
+ * Functionality: SidebarContent performs the sidebar content workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { className, ...props } (React.ComponentProps<"div">).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarContent from the owning module or component when this behavior is required.
+ */
 function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -373,6 +462,12 @@ function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
+/**
+ * Functionality: SidebarGroup performs the sidebar group workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { className, ...props } (React.ComponentProps<"div">).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarGroup from the owning module or component when this behavior is required.
+ */
 function SidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -384,6 +479,12 @@ function SidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
+/**
+ * Functionality: SidebarGroupLabel performs the sidebar group label workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { className, asChild = false, ...props } (React.ComponentProps<"div"> & { asChild?: boolean }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarGroupLabel from the owning module or component when this behavior is required.
+ */
 function SidebarGroupLabel({
   className,
   asChild = false,
@@ -405,6 +506,12 @@ function SidebarGroupLabel({
   );
 }
 
+/**
+ * Functionality: SidebarGroupAction performs the sidebar group action workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { className, asChild = false, ...props } (React.ComponentProps<"button"> & { asChild?: boolean }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarGroupAction from the owning module or component when this behavior is required.
+ */
 function SidebarGroupAction({
   className,
   asChild = false,
@@ -428,6 +535,12 @@ function SidebarGroupAction({
   );
 }
 
+/**
+ * Functionality: SidebarGroupContent performs the sidebar group content workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { className, ...props } (React.ComponentProps<"div">).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarGroupContent from the owning module or component when this behavior is required.
+ */
 function SidebarGroupContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -439,6 +552,12 @@ function SidebarGroupContent({ className, ...props }: React.ComponentProps<"div"
   );
 }
 
+/**
+ * Functionality: SidebarMenu performs the sidebar menu workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { className, ...props } (React.ComponentProps<"ul">).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarMenu from the owning module or component when this behavior is required.
+ */
 function SidebarMenu({ className, ...props }: React.ComponentProps<"ul">) {
   return (
     <ul
@@ -450,6 +569,12 @@ function SidebarMenu({ className, ...props }: React.ComponentProps<"ul">) {
   );
 }
 
+/**
+ * Functionality: SidebarMenuItem performs the sidebar menu item workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { className, ...props } (React.ComponentProps<"li">).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarMenuItem from the owning module or component when this behavior is required.
+ */
 function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
   return (
     <li
@@ -483,6 +608,12 @@ const sidebarMenuButtonVariants = cva(
   }
 );
 
+/**
+ * Functionality: SidebarMenuButton performs the sidebar menu button workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { asChild = false, isActive = false, variant = "default", size = "default", tooltip, className, ...props } (React.ComponentProps<"button"> & { asChild?: boolean; isActive?: boolean; tooltip?: string | React.ComponentProps<typeof TooltipContent>; } & VariantProps<typeof sidebarMenuButtonVariants>).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarMenuButton from the owning module or component when this behavior is required.
+ */
 function SidebarMenuButton({
   asChild = false,
   isActive = false,
@@ -533,6 +664,12 @@ function SidebarMenuButton({
   );
 }
 
+/**
+ * Functionality: SidebarMenuAction performs the sidebar menu action workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { className, asChild = false, showOnHover = false, ...props } (React.ComponentProps<"button"> & { asChild?: boolean; showOnHover?: boolean; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarMenuAction from the owning module or component when this behavior is required.
+ */
 function SidebarMenuAction({
   className,
   asChild = false,
@@ -565,6 +702,12 @@ function SidebarMenuAction({
   );
 }
 
+/**
+ * Functionality: SidebarMenuBadge performs the sidebar menu badge workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { className, ...props } (React.ComponentProps<"div">).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarMenuBadge from the owning module or component when this behavior is required.
+ */
 function SidebarMenuBadge({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -584,6 +727,12 @@ function SidebarMenuBadge({ className, ...props }: React.ComponentProps<"div">) 
   );
 }
 
+/**
+ * Functionality: SidebarMenuSkeleton performs the sidebar menu skeleton workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { className, showIcon = false, ...props } (React.ComponentProps<"div"> & { showIcon?: boolean; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarMenuSkeleton from the owning module or component when this behavior is required.
+ */
 function SidebarMenuSkeleton({
   className,
   showIcon = false,
@@ -617,6 +766,12 @@ function SidebarMenuSkeleton({
   );
 }
 
+/**
+ * Functionality: SidebarMenuSub performs the sidebar menu sub workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { className, ...props } (React.ComponentProps<"ul">).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarMenuSub from the owning module or component when this behavior is required.
+ */
 function SidebarMenuSub({ className, ...props }: React.ComponentProps<"ul">) {
   return (
     <ul
@@ -632,6 +787,12 @@ function SidebarMenuSub({ className, ...props }: React.ComponentProps<"ul">) {
   );
 }
 
+/**
+ * Functionality: SidebarMenuSubItem performs the sidebar menu sub item workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { className, ...props } (React.ComponentProps<"li">).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarMenuSubItem from the owning module or component when this behavior is required.
+ */
 function SidebarMenuSubItem({ className, ...props }: React.ComponentProps<"li">) {
   return (
     <li
@@ -643,6 +804,12 @@ function SidebarMenuSubItem({ className, ...props }: React.ComponentProps<"li">)
   );
 }
 
+/**
+ * Functionality: SidebarMenuSubButton performs the sidebar menu sub button workflow used by renderer/components/ui/sidebar.tsx.
+ * Parameters: { asChild = false, size = "md", isActive = false, className, ...props } (React.ComponentProps<"a"> & { asChild?: boolean; size?: "sm" | "md"; isActive?: boolean; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SidebarMenuSubButton from the owning module or component when this behavior is required.
+ */
 function SidebarMenuSubButton({
   asChild = false,
   size = "md",

@@ -8,6 +8,7 @@
  *   card-based interaction flow, and a results summary.
  * - Uses only existing project UI primitives and native browser drag-and-drop.
  * Author: Malek Kchaou
+ * Git-history contributors: Malek Kchaou
  * Date: 2026-04-12
  * Note: This implementation is intentionally self-contained for the first pass.
  */
@@ -41,6 +42,12 @@ import {
  * Small utility used to compare strings in a forgiving way for quiz checking.
  * This helps avoid false negatives due to casing or accidental spacing.
  */
+/**
+ * Functionality: normalizeText performs the normalize text workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: value (string).
+ * Returns: Returns string.
+ * Usage: Call normalizeText from the owning module or component when this behavior is required.
+ */
 function normalizeText(value: string): string {
     return value.trim().replace(/\s+/g, " ").toLowerCase();
 }
@@ -54,7 +61,24 @@ interface QuizRendererProps {
 /**
  * Top-level renderer that delegates to either quiz mode or flashcards mode.
  */
+/**
+ * Functionality: QuizRenderer performs the quiz renderer workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { payload } (QuizRendererProps).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call QuizRenderer from the owning module or component when this behavior is required.
+ */
 export default function QuizRenderer({ payload }: QuizRendererProps) {
+    if (!payload?.items?.length) {
+        return (
+            <div className="mx-auto flex h-full w-full max-w-5xl flex-col items-center justify-center gap-4 py-20 text-center">
+                <Brain className="h-12 w-12 text-muted-foreground" />
+                <h2 className="text-xl font-semibold">No questions available</h2>
+                <p className="text-sm text-muted-foreground max-w-md">
+                    Generate a quiz using the button above, or the quiz data may have been incomplete.
+                </p>
+            </div>
+        );
+    }
     if (payload.type === "flashcards") {
         return <FlashcardsView payload={payload} />;
     }
@@ -66,6 +90,12 @@ export default function QuizRenderer({ payload }: QuizRendererProps) {
  * Flashcards mode.
  * This keeps the page flexible because the LLM contract allows either "quiz" or "flashcards".
  */
+/**
+ * Functionality: FlashcardsView performs the flashcards view workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { payload } ({ payload: FlashcardsDocument }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call FlashcardsView from the owning module or component when this behavior is required.
+ */
 function FlashcardsView({ payload }: { payload: FlashcardsDocument }) {
     const [index, setIndex] = useState(0);
     const [revealed, setRevealed] = useState(false);
@@ -74,7 +104,7 @@ function FlashcardsView({ payload }: { payload: FlashcardsDocument }) {
     const progressPercent = Math.round(((index + 1) / payload.items.length) * 100);
 
     return (
-        <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-6">
+        <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-4 sm:gap-6 px-3 sm:px-0">
             <QuizHeader
                 title={payload.meta.topic}
                 subtitle={`Flashcards | ${payload.meta.difficulty}`}
@@ -82,8 +112,8 @@ function FlashcardsView({ payload }: { payload: FlashcardsDocument }) {
                 progressPercent={progressPercent}
             />
 
-            <div className="rounded-2xl border bg-card p-6 shadow-sm">
-                <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="rounded-2xl border bg-card p-4 sm:p-6 shadow-sm">
+                <div className="mb-4 flex items-center justify-center gap-2 text-xs sm:text-sm text-muted-foreground">
                     <Brain className="h-4 w-4" />
                     <span>Flashcard mode</span>
                 </div>
@@ -91,20 +121,20 @@ function FlashcardsView({ payload }: { payload: FlashcardsDocument }) {
                 <button
                     type="button"
                     onClick={() => setRevealed((prev) => !prev)}
-                    className="flex min-h-[320px] w-full flex-col items-center justify-center rounded-2xl border border-border bg-background p-8 text-center transition-colors hover:bg-accent/20"
+                    className="flex min-h-[240px] sm:min-h-[320px] w-full max-w-2xl mx-auto flex-col items-center justify-center rounded-2xl border border-border bg-background p-4 sm:p-8 text-center transition-colors hover:bg-accent/20"
                 >
                     <div className="mb-4 text-xs uppercase tracking-[0.2em] text-muted-foreground">
                         {revealed ? "Back" : "Front"}
                     </div>
-                    <div className="max-w-3xl text-xl font-semibold leading-relaxed">
+                    <div className="max-w-2xl text-lg sm:text-xl font-semibold leading-relaxed">
                         {revealed ? current.back : current.front}
                     </div>
-                    <div className="mt-8 text-sm text-muted-foreground">
+                    <div className="mt-4 sm:mt-8 text-xs sm:text-sm text-muted-foreground">
                         Click the card to flip
                     </div>
                 </button>
 
-                <div className="mt-6 flex items-center justify-between">
+                <div className="mt-4 sm:mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
                     <Button
                         variant="outline"
                         onClick={() => {
@@ -112,16 +142,19 @@ function FlashcardsView({ payload }: { payload: FlashcardsDocument }) {
                             setIndex((prev) => Math.max(0, prev - 1));
                         }}
                         disabled={index === 0}
+                        className="text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4"
                     >
-                        <ChevronLeft className="h-4 w-4" />
-                        Previous
+                        <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="hidden sm:inline ml-1">Previous</span>
                     </Button>
 
                     <Button
                         variant="outline"
                         onClick={() => setRevealed((prev) => !prev)}
+                        className="text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4"
                     >
-                        Flip card
+                        <span className="hidden sm:inline">Flip</span>
+                        <span className="sm:hidden">Flip card</span>
                     </Button>
 
                     <Button
@@ -130,9 +163,10 @@ function FlashcardsView({ payload }: { payload: FlashcardsDocument }) {
                             setIndex((prev) => Math.min(payload.items.length - 1, prev + 1));
                         }}
                         disabled={index === payload.items.length - 1}
+                        className="text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4"
                     >
-                        Next
-                        <ChevronRight className="h-4 w-4" />
+                        <span className="hidden sm:inline">Next</span>
+                        <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 ml-1" />
                     </Button>
                 </div>
             </div>
@@ -143,6 +177,12 @@ function FlashcardsView({ payload }: { payload: FlashcardsDocument }) {
 /**
  * Main quiz mode with one-question-at-a-time interaction, immediate feedback,
  * progress tracking, and an end-of-quiz summary.
+ */
+/**
+ * Functionality: QuizView performs the quiz view workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { payload } ({ payload: QuizDocument }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call QuizView from the owning module or component when this behavior is required.
  */
 function QuizView({ payload }: { payload: QuizDocument }) {
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -170,7 +210,13 @@ function QuizView({ payload }: { payload: QuizDocument }) {
      * Central answer submission handler.
      * Each question subcomponent computes correctness and passes its answer payload upward.
      */
-    const handleSubmit = (itemId: number, answerValue: unknown, isCorrect: boolean) => {
+        /**
+     * Functionality: handleSubmit performs the handle submit workflow used by renderer/components/quiz/QuizRenderer.tsx.
+     * Parameters: itemId (number); answerValue (unknown); isCorrect (boolean).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleSubmit from the owning module or component when this behavior is required.
+     */
+const handleSubmit = (itemId: number, answerValue: unknown, isCorrect: boolean) => {
         setSelectedAnswers((prev) => ({ ...prev, [itemId]: answerValue }));
         setStatusMap((prev) => ({
             ...prev,
@@ -182,7 +228,13 @@ function QuizView({ payload }: { payload: QuizDocument }) {
     /**
      * Allows retrying the current question by clearing only its local state.
      */
-    const handleRetryCurrent = () => {
+        /**
+     * Functionality: handleRetryCurrent performs the handle retry current workflow used by renderer/components/quiz/QuizRenderer.tsx.
+     * Parameters: None.
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleRetryCurrent from the owning module or component when this behavior is required.
+     */
+const handleRetryCurrent = () => {
         setStatusMap((prev) => ({ ...prev, [currentItem.id]: "unanswered" }));
         setLockedMap((prev) => ({ ...prev, [currentItem.id]: false }));
         setSelectedAnswers((prev) => {
@@ -195,7 +247,13 @@ function QuizView({ payload }: { payload: QuizDocument }) {
     /**
      * Resets the entire quiz session without touching any global app state.
      */
-    const handleRestart = () => {
+        /**
+     * Functionality: handleRestart performs the handle restart workflow used by renderer/components/quiz/QuizRenderer.tsx.
+     * Parameters: None.
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleRestart from the owning module or component when this behavior is required.
+     */
+const handleRestart = () => {
         setCurrentIndex(0);
         setStatusMap({});
         setLockedMap({});
@@ -208,11 +266,12 @@ function QuizView({ payload }: { payload: QuizDocument }) {
      */
     const allAnswered = total > 0 && answeredCount === total;
 
+
     if (showSummary) {
         const scorePercent = total === 0 ? 0 : Math.round((correctCount / total) * 100);
 
         return (
-            <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-6">
+            <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-4 sm:gap-6 px-3 sm:px-0">
                 <QuizHeader
                     title={payload.meta.topic}
                     subtitle={`Results | ${payload.meta.difficulty}`}
@@ -220,41 +279,41 @@ function QuizView({ payload }: { payload: QuizDocument }) {
                     progressPercent={scorePercent}
                 />
 
-                <div className="rounded-2xl border bg-card p-8 shadow-sm">
-                    <div className="mb-6 flex items-center gap-3">
-                        <Trophy className="h-6 w-6 text-primary" />
+                <div className="rounded-2xl border bg-card p-4 sm:p-8 shadow-sm">
+                    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center items-center justify-center text-center sm:text-left">
+                        <Trophy className="h-6 w-6 text-primary flex-shrink-0" />
                         <div>
-                            <h2 className="text-2xl font-semibold">Session complete</h2>
-                            <p className="text-sm text-muted-foreground">
+                            <h2 className="text-xl sm:text-2xl font-semibold">Session complete</h2>
+                            <p className="text-xs sm:text-sm text-muted-foreground">
                                 Review your score and restart if you want another pass.
                             </p>
                         </div>
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-3">
+                    <div className="grid gap-3 sm:gap-4 grid-cols-3">
                         <SummaryStat label="Score" value={`${scorePercent}%`} />
                         <SummaryStat label="Correct" value={`${correctCount}`} />
                         <SummaryStat label="Reviewed" value={`${answeredCount}`} />
                     </div>
 
-                    <div className="mt-8 rounded-xl border bg-background p-4">
-                        <div className="mb-3 text-sm font-medium">Question status</div>
-                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="mt-6 sm:mt-8 rounded-xl border bg-background p-3 sm:p-4">
+                        <div className="mb-3 text-xs sm:text-sm font-medium">Question status</div>
+                        <div className="grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
                             {payload.items.map((item) => {
                                 const status = statusMap[item.id] ?? "unanswered";
 
                                 return (
                                     <div
                                         key={item.id}
-                                        className="rounded-lg border border-border bg-card p-3"
+                                        className="rounded-lg border border-border bg-card p-2 sm:p-3"
                                     >
                                         <div className="mb-2 flex items-center justify-between">
-                                            <span className="text-sm font-medium">
+                                            <span className="text-xs sm:text-sm font-medium">
                                                 Q{item.id}
                                             </span>
                                             <StatusPill status={status} />
                                         </div>
-                                        <div className="line-clamp-3 text-sm text-muted-foreground">
+                                        <div className="line-clamp-3 text-xs sm:text-sm text-muted-foreground">
                                             {"question" in item ? item.question : "Flashcard"}
                                         </div>
                                     </div>
@@ -263,10 +322,11 @@ function QuizView({ payload }: { payload: QuizDocument }) {
                         </div>
                     </div>
 
-                    <div className="mt-6 flex items-center gap-3">
-                        <Button onClick={handleRestart}>
-                            <RotateCcw className="h-4 w-4" />
-                            Restart quiz
+                    <div className="mt-4 sm:mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+                        <Button onClick={handleRestart} className="text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4">
+                            <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                            <span className="hidden sm:inline">Restart quiz</span>
+                            <span className="sm:hidden">Restart</span>
                         </Button>
                         <Button
                             variant="outline"
@@ -274,8 +334,10 @@ function QuizView({ payload }: { payload: QuizDocument }) {
                                 setShowSummary(false);
                                 setCurrentIndex(0);
                             }}
+                            className="text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4"
                         >
-                            Review questions
+                            <span className="hidden sm:inline">Review questions</span>
+                            <span className="sm:hidden">Review</span>
                         </Button>
                     </div>
                 </div>
@@ -284,7 +346,7 @@ function QuizView({ payload }: { payload: QuizDocument }) {
     }
 
     return (
-        <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-6">
+        <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-4 sm:gap-6 px-3 sm:px-0">
             <QuizHeader
                 title={payload.meta.topic}
                 subtitle={`Quiz | ${payload.meta.difficulty}`}
@@ -292,12 +354,12 @@ function QuizView({ payload }: { payload: QuizDocument }) {
                 progressPercent={progressPercent}
             />
 
-            <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-                <aside className="rounded-2xl border bg-card p-4 shadow-sm">
-                    <div className="mb-4 text-sm font-medium text-muted-foreground">
+            <div className="grid gap-4 sm:gap-6 lg:grid-cols-[200px_minmax(0,1fr)]">
+                <aside className="rounded-2xl border bg-card p-3 sm:p-4 shadow-sm overflow-hidden">
+                    <div className="mb-3 text-xs sm:text-sm font-medium text-muted-foreground">
                         Progress
                     </div>
-                    <div className="grid grid-cols-5 gap-2 lg:grid-cols-4">
+                    <div className="grid grid-cols-6 sm:grid-cols-5 lg:grid-cols-4 gap-1 sm:gap-2">
                         {payload.items.map((item, idx) => {
                             const status = statusMap[item.id] ?? "unanswered";
 
@@ -307,7 +369,7 @@ function QuizView({ payload }: { payload: QuizDocument }) {
                                     type="button"
                                     onClick={() => setCurrentIndex(idx)}
                                     className={cn(
-                                        "flex h-10 items-center justify-center rounded-lg border text-sm font-medium transition-colors",
+                                        "flex h-8 sm:h-10 items-center justify-center rounded-lg border text-xs sm:text-sm font-medium transition-colors",
                                         idx === currentIndex && "border-primary ring-2 ring-primary/20",
                                         status === "correct" && "bg-primary/15 text-foreground",
                                         status === "incorrect" && "bg-destructive/10 text-foreground",
@@ -320,7 +382,7 @@ function QuizView({ payload }: { payload: QuizDocument }) {
                         })}
                     </div>
 
-                    <div className="mt-4 space-y-2 text-xs text-muted-foreground">
+                    <div className="mt-3 sm:mt-4 space-y-1 sm:space-y-2 text-xs text-muted-foreground hidden sm:block">
                         <div className="flex items-center gap-2">
                             <Circle className="h-3.5 w-3.5" />
                             <span>Not checked</span>
@@ -332,50 +394,57 @@ function QuizView({ payload }: { payload: QuizDocument }) {
                     </div>
                 </aside>
 
-                <div className="rounded-2xl border bg-card p-6 shadow-sm">
-                    <div className="mb-6 flex items-start justify-between gap-4">
-                        <div>
+                <div className="rounded-2xl border bg-card p-4 sm:p-6 shadow-sm">
+                    <div className="mb-4 sm:mb-6 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4 items-center text-center">
+                        <div className="flex-1">
                             <div className="mb-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
                                 Question {currentIndex + 1}
                             </div>
-                            <h2 className="text-2xl font-semibold">
+                            <h2 className="text-lg sm:text-2xl font-semibold max-w-2xl mx-auto">
                                 {"question" in currentItem ? currentItem.question : ""}
                             </h2>
                         </div>
-                        <StatusPill status={statusMap[currentItem.id] ?? "unanswered"} />
+                        <div className="flex-shrink-0">
+                            <StatusPill status={statusMap[currentItem.id] ?? "unanswered"} />
+                        </div>
                     </div>
 
-                    <QuestionBody
-                        item={currentItem}
-                        locked={lockedMap[currentItem.id] ?? false}
-                        savedAnswer={selectedAnswers[currentItem.id]}
-                        onSubmit={handleSubmit}
-                    />
+                    <div className="max-w-2xl mx-auto">
+                        <QuestionBody
+                            item={currentItem}
+                            locked={lockedMap[currentItem.id] ?? false}
+                            savedAnswer={selectedAnswers[currentItem.id]}
+                            onSubmit={handleSubmit}
+                        />
+                    </div>
 
-                    <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t pt-6">
-                        <div className="flex items-center gap-3">
+                    <div className="mt-6 sm:mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center border-t pt-4 sm:pt-6">
+                        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto">
                             <Button
                                 variant="outline"
                                 onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
                                 disabled={currentIndex === 0}
+                                className="text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4 flex-1 sm:flex-initial"
                             >
-                                <ChevronLeft className="h-4 w-4" />
-                                Previous
+                                <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+                                <span className="hidden sm:inline ml-1">Previous</span>
                             </Button>
 
                             <Button
                                 variant="outline"
                                 onClick={handleRetryCurrent}
+                                className="text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4 flex-1 sm:flex-initial"
                             >
                                 Retry
                             </Button>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto">
                             {allAnswered && (
                                 <Button
                                     variant="outline"
                                     onClick={() => setShowSummary(true)}
+                                    className="text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4 flex-1 sm:flex-initial"
                                 >
                                     Finish
                                 </Button>
@@ -384,9 +453,10 @@ function QuizView({ payload }: { payload: QuizDocument }) {
                             <Button
                                 onClick={() => setCurrentIndex((prev) => Math.min(total - 1, prev + 1))}
                                 disabled={currentIndex === total - 1}
+                                className="text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4 flex-1 sm:flex-initial"
                             >
-                                Next
-                                <ChevronRight className="h-4 w-4" />
+                                <span className="hidden sm:inline">Next</span>
+                                <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 ml-1" />
                             </Button>
                         </div>
                     </div>
@@ -398,6 +468,12 @@ function QuizView({ payload }: { payload: QuizDocument }) {
 
 /**
  * Shared header used by both quiz mode and flashcard mode.
+ */
+/**
+ * Functionality: QuizHeader performs the quiz header workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { title, subtitle, progressLabel, progressPercent, } ({ title: string; subtitle: string; progressLabel: string; progressPercent: number; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call QuizHeader from the owning module or component when this behavior is required.
  */
 function QuizHeader({
     title,
@@ -411,15 +487,15 @@ function QuizHeader({
     progressPercent: number;
 }) {
     return (
-        <div className="rounded-2xl border bg-card p-5 shadow-sm">
-            <div className="mb-4 flex flex-col justify-between gap-4 md:flex-row md:items-center">
+        <div className="rounded-2xl border bg-card p-3 sm:p-5 shadow-sm">
+            <div className="mb-3 sm:mb-4 flex flex-col justify-center gap-3 sm:gap-4 items-center text-center md:flex-row md:justify-between md:text-left md:items-center">
                 <div>
-                    <div className="text-sm text-muted-foreground">{subtitle}</div>
-                    <h1 className="text-3xl font-semibold">{title}</h1>
+                    <div className="text-xs sm:text-sm text-muted-foreground">{subtitle}</div>
+                    <h1 className="text-2xl sm:text-3xl font-semibold">{title}</h1>
                 </div>
 
-                <div className="min-w-[180px] text-right">
-                    <div className="text-sm font-medium">{progressLabel}</div>
+                <div className="min-w-[160px] text-center text-xs sm:text-sm md:text-right">
+                    <div className="font-medium">{progressLabel}</div>
                     <div className="text-xs text-muted-foreground">{progressPercent}% complete</div>
                 </div>
             </div>
@@ -436,6 +512,12 @@ function QuizHeader({
 
 /**
  * Compact status badge.
+ */
+/**
+ * Functionality: StatusPill performs the status pill workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { status } ({ status: ItemStatus }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call StatusPill from the owning module or component when this behavior is required.
  */
 function StatusPill({ status }: { status: ItemStatus }) {
     const label =
@@ -461,6 +543,12 @@ function StatusPill({ status }: { status: ItemStatus }) {
 
 /**
  * Generic wrapper that routes each quiz item to the correct interaction component.
+ */
+/**
+ * Functionality: QuestionBody performs the question body workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { item, locked, savedAnswer, onSubmit, } ({ item: QuizItem; locked: boolean; savedAnswer: unknown; onSubmit: (itemId: number, answerValue: unknown, isCorrect: boolean) => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call QuestionBody from the owning module or component when this behavior is required.
  */
 function QuestionBody({
     item,
@@ -536,6 +624,12 @@ function QuestionBody({
 /**
  * Multiple choice with immediate correctness checking.
  */
+/**
+ * Functionality: MultipleChoiceQuestion performs the multiple choice question workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { item, locked, savedAnswer, onSubmit, } ({ item: Extract<QuizItem, { kind: "multiple_choice" }>; locked: boolean; savedAnswer?: string; onSubmit: (itemId: number, answerValue: unknown, isCorrect: boolean) => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call MultipleChoiceQuestion from the owning module or component when this behavior is required.
+ */
 function MultipleChoiceQuestion({
     item,
     locked,
@@ -595,6 +689,12 @@ function MultipleChoiceQuestion({
 
 /**
  * True/false question using the same immediate feedback pattern.
+ */
+/**
+ * Functionality: TrueFalseQuestion performs the true false question workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { item, locked, savedAnswer, onSubmit, } ({ item: Extract<QuizItem, { kind: "true_false" }>; locked: boolean; savedAnswer?: boolean; onSubmit: (itemId: number, answerValue: unknown, isCorrect: boolean) => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call TrueFalseQuestion from the owning module or component when this behavior is required.
  */
 function TrueFalseQuestion({
     item,
@@ -656,6 +756,12 @@ function TrueFalseQuestion({
  * Fill-in-the-blank question.
  * Because the schema provides correct words in order but not explicit placeholder markers,
  * the UI renders one input per expected blank.
+ */
+/**
+ * Functionality: FillInBlankQuestion performs the fill in blank question workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { item, locked, savedAnswer, onSubmit, } ({ item: FillInBlankItem; locked: boolean; savedAnswer?: string[]; onSubmit: (itemId: number, answerValue: unknown, isCorrect: boolean) => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call FillInBlankQuestion from the owning module or component when this behavior is required.
  */
 function FillInBlankQuestion({
     item,
@@ -720,6 +826,12 @@ function FillInBlankQuestion({
  * Native drag-and-drop ordering interaction.
  * Users drag tokens from the bank into ordered slots. They can also move tokens back.
  */
+/**
+ * Functionality: DragAndDropQuestion performs the drag and drop question workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { item, locked, savedAnswer, onSubmit, } ({ item: DragAndDropItem; locked: boolean; savedAnswer?: string[]; onSubmit: (itemId: number, answerValue: unknown, isCorrect: boolean) => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call DragAndDropQuestion from the owning module or component when this behavior is required.
+ */
 function DragAndDropQuestion({
     item,
     locked,
@@ -736,7 +848,13 @@ function DragAndDropQuestion({
 
     const availableBank = item.items.filter((token) => !slots.includes(token));
 
-    const handleDropIntoSlot = (targetIndex: number, token: string) => {
+        /**
+     * Functionality: handleDropIntoSlot performs the handle drop into slot workflow used by renderer/components/quiz/QuizRenderer.tsx.
+     * Parameters: targetIndex (number); token (string).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleDropIntoSlot from the owning module or component when this behavior is required.
+     */
+const handleDropIntoSlot = (targetIndex: number, token: string) => {
         if (locked) return;
 
         setSlots((prev) => {
@@ -753,7 +871,13 @@ function DragAndDropQuestion({
         });
     };
 
-    const handleClearSlot = (targetIndex: number) => {
+        /**
+     * Functionality: handleClearSlot performs the handle clear slot workflow used by renderer/components/quiz/QuizRenderer.tsx.
+     * Parameters: targetIndex (number).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleClearSlot from the owning module or component when this behavior is required.
+     */
+const handleClearSlot = (targetIndex: number) => {
         if (locked) return;
         setSlots((prev) => {
             const next = [...prev];
@@ -815,6 +939,12 @@ function DragAndDropQuestion({
 /**
  * Matching question using lightweight select elements.
  * This is intentionally low-overhead while still being interactive and clear.
+ */
+/**
+ * Functionality: MatchingQuestion performs the matching question workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { item, locked, savedAnswer, onSubmit, } ({ item: MatchingItem; locked: boolean; savedAnswer?: Record<string, string>; onSubmit: (itemId: number, answerValue: unknown, isCorrect: boolean) => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call MatchingQuestion from the owning module or component when this behavior is required.
  */
 function MatchingQuestion({
     item,
@@ -880,6 +1010,12 @@ function MatchingQuestion({
 /**
  * Free-response question with rubric reveal and self-evaluation.
  * The current schema does not provide a canonical answer, so this uses self-check.
+ */
+/**
+ * Functionality: FreeResponseQuestion performs the free response question workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { item, locked, savedAnswer, onSubmit, } ({ item: FreeResponseItem; locked: boolean; savedAnswer?: { response: string; selfScore: boolean }; onSubmit: (itemId: number, answerValue: unknown, isCorrect: boolean) => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call FreeResponseQuestion from the owning module or component when this behavior is required.
  */
 function FreeResponseQuestion({
     item,
@@ -962,6 +1098,12 @@ function FreeResponseQuestion({
 /**
  * Small draggable chip used by the drag-and-drop question.
  */
+/**
+ * Functionality: DragToken performs the drag token workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { token, disabled } ({ token: string; disabled?: boolean }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call DragToken from the owning module or component when this behavior is required.
+ */
 function DragToken({ token, disabled }: { token: string; disabled?: boolean }) {
     return (
         <div
@@ -983,6 +1125,12 @@ function DragToken({ token, disabled }: { token: string; disabled?: boolean }) {
 /**
  * Drop target for each ordered slot.
  * It accepts native drag-and-drop text payloads and allows quick clearing.
+ */
+/**
+ * Functionality: DropSlot performs the drop slot workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { index, value, expected, locked, onDropToken, onClear, } ({ index: number; value: string; expected?: string; locked: boolean; onDropToken: (token: string) => void; onClear: () => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call DropSlot from the owning module or component when this behavior is required.
  */
 function DropSlot({
     index,
@@ -1052,11 +1200,17 @@ function DropSlot({
 /**
  * Summary card stat for the end-screen.
  */
+/**
+ * Functionality: SummaryStat performs the summary stat workflow used by renderer/components/quiz/QuizRenderer.tsx.
+ * Parameters: { label, value } ({ label: string; value: string }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call SummaryStat from the owning module or component when this behavior is required.
+ */
 function SummaryStat({ label, value }: { label: string; value: string }) {
     return (
-        <div className="rounded-xl border bg-background p-4">
-            <div className="text-sm text-muted-foreground">{label}</div>
-            <div className="mt-1 text-2xl font-semibold">{value}</div>
+        <div className="rounded-xl border bg-background p-2 sm:p-4">
+            <div className="text-xs sm:text-sm text-muted-foreground">{label}</div>
+            <div className="mt-1 text-xl sm:text-2xl font-semibold">{value}</div>
         </div>
     );
 }

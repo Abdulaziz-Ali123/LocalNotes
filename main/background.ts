@@ -5,9 +5,10 @@
  * - Added central IPC handler for renderer error reporting.
  * - Added process-level fallback logging for uncaught exceptions and unhandled rejections.
  * Author: Malek Kchaou (add your name if you made changes here)
+ * Git-history contributors: a157p624; Abdulaziz-Ali123; Abdulaziz Ali; Malek Kchaou; Wesley McDougal; Shaun; m518n748
  * Update Log:
  *  - 2026-04-12: Atharva Patil - Added code for quiz integration.
- * Date Created: 
+ * Date Created:
  * Last Updated: 2026-04-12
  */
 
@@ -45,11 +46,11 @@ import { getQueue } from "./fsQueue";
 import { withRetry } from "./fsRetry";
 import { debouncedWriter } from "./helpers/debounced-writer";
 import { closeDB, initializeDB } from "./database/sqllite";
-import { 
-    addDirectory, 
-    updateDirectory, 
-    deleteDirectory, 
-    getDirectory, 
+import {
+    addDirectory,
+    updateDirectory,
+    deleteDirectory,
+    getDirectory,
     getAllDirectories,
     addFile,
     updateFileHash,
@@ -62,7 +63,7 @@ import {
     addEmbedding
 } from "./database/documentRepository";
 import { chunkDirectory, chunkSingleFile, getChunkStats, DirectoryChunkerConfig, chunkAndStoreDirectory, chunkAndStoreFile } from "./indexing/DirectoryChuncker";
-import { UUID } from "crypto";
+import { UUID, randomUUID } from "crypto";
 import { startWatching, stopWatching, stopAllWatchers, getActiveWatchers, isWatching } from "./watcher/fileWatcher";
 import {
     logMainError,
@@ -72,6 +73,7 @@ import { registerErrorLoggingIpc } from "./logging/registerErrorLoggingIpc";
 import { QuizSessionManager } from "./quiz/quizSessionManager";
 import { QuizWebSocketServer } from "./quiz/quizWebSocketServer";
 import { registerQuizIpc } from "./quiz/ipc-handlers";
+import { LOCAL_NOTES_FOLDER } from "./helpers/project-settings";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -85,6 +87,12 @@ interface TabData {
   content: string;
 }
 
+/**
+ * Class functionality: Defines the TabManager class used by main/background.ts.
+ * Parameters: Constructor parameters are documented on the constructor when applicable.
+ * Returns: Returns the class constructor for creating or organizing related behavior.
+ * Usage: Instantiate or reference TabManager from modules that need this grouped behavior.
+ */
 class TabManager {
   private tabs: TabData[] = [
     {
@@ -96,45 +104,93 @@ class TabManager {
   private selectedTabId: number = 0;
   private nextTabId: number = 1;
 
-  getAllTabIds(): number[] {
+    /**
+   * Functionality: getAllTabIds performs the get all tab ids workflow used by main/background.ts.
+   * Parameters: None.
+   * Returns: Returns number[].
+   * Usage: Call getAllTabIds from the owning module or component when this behavior is required.
+   */
+getAllTabIds(): number[] {
     return this.tabs.map((tab) => tab.id);
   }
 
-  getSelectedTabId(): number {
+    /**
+   * Functionality: getSelectedTabId performs the get selected tab id workflow used by main/background.ts.
+   * Parameters: None.
+   * Returns: Returns number.
+   * Usage: Call getSelectedTabId from the owning module or component when this behavior is required.
+   */
+getSelectedTabId(): number {
     return this.selectedTabId;
   }
 
-  getTabContent(id: number): string {
+    /**
+   * Functionality: getTabContent performs the get tab content workflow used by main/background.ts.
+   * Parameters: id (number).
+   * Returns: Returns string.
+   * Usage: Call getTabContent from the owning module or component when this behavior is required.
+   */
+getTabContent(id: number): string {
     const tab = this.tabs.find((t) => t.id === id);
     return tab ? tab.content : "";
   }
 
-  getTabFilePath(id: number): string | null {
+    /**
+   * Functionality: getTabFilePath performs the get tab file path workflow used by main/background.ts.
+   * Parameters: id (number).
+   * Returns: Returns string | null.
+   * Usage: Call getTabFilePath from the owning module or component when this behavior is required.
+   */
+getTabFilePath(id: number): string | null {
     const tab = this.tabs.find((t) => t.id === id);
     return tab ? tab.filePath : null;
   }
 
-  setTabContent(id: number, content: string): void {
+    /**
+   * Functionality: setTabContent performs the set tab content workflow used by main/background.ts.
+   * Parameters: id (number); content (string).
+   * Returns: Returns void.
+   * Usage: Call setTabContent from the owning module or component when this behavior is required.
+   */
+setTabContent(id: number, content: string): void {
     const tab = this.tabs.find((t) => t.id === id);
     if (tab) {
       tab.content = content;
     }
   }
 
-  setTabFilePath(id: number, filePath: string | null): void {
+    /**
+   * Functionality: setTabFilePath performs the set tab file path workflow used by main/background.ts.
+   * Parameters: id (number); filePath (string | null).
+   * Returns: Returns void.
+   * Usage: Call setTabFilePath from the owning module or component when this behavior is required.
+   */
+setTabFilePath(id: number, filePath: string | null): void {
     const tab = this.tabs.find((t) => t.id === id);
     if (tab) {
       tab.filePath = filePath;
     }
   }
 
-  select(id: number): void {
+    /**
+   * Functionality: select performs the select workflow used by main/background.ts.
+   * Parameters: id (number).
+   * Returns: Returns void.
+   * Usage: Call select from the owning module or component when this behavior is required.
+   */
+select(id: number): void {
     if (this.tabs.some((tab) => tab.id === id)) {
       this.selectedTabId = id;
     }
   }
 
-  close(id: number): void {
+    /**
+   * Functionality: close performs the close workflow used by main/background.ts.
+   * Parameters: id (number).
+   * Returns: Returns void.
+   * Usage: Call close from the owning module or component when this behavior is required.
+   */
+close(id: number): void {
     const index = this.tabs.findIndex((tab) => tab.id === id);
     if (index !== -1) {
       this.tabs.splice(index, 1);
@@ -152,7 +208,13 @@ class TabManager {
     }
   }
 
-  new(): number {
+    /**
+   * Functionality: new performs the new workflow used by main/background.ts.
+   * Parameters: None.
+   * Returns: Returns number.
+   * Usage: Call new from the owning module or component when this behavior is required.
+   */
+new(): number {
     const newId = this.nextTabId++;
     this.tabs.push({
       id: newId,
@@ -163,7 +225,13 @@ class TabManager {
     return newId;
   }
 
-  reorder(ids: number[]): void {
+    /**
+   * Functionality: reorder performs the reorder workflow used by main/background.ts.
+   * Parameters: ids (number[]).
+   * Returns: Returns void.
+   * Usage: Call reorder from the owning module or component when this behavior is required.
+   */
+reorder(ids: number[]): void {
     if (
       ids.length === this.tabs.length &&
       ids.every((id) => this.tabs.some((tab) => tab.id === id))
@@ -201,6 +269,12 @@ if (isProd) {
  * Adds top-level safety nets so catastrophic main-process issues
  * still get written to the same log file.
  */
+/**
+ * Functionality: registerProcessLevelErrorHandlers performs the register process level error handlers workflow used by main/background.ts.
+ * Parameters: None.
+ * Returns: Returns void.
+ * Usage: Call registerProcessLevelErrorHandlers from the owning module or component when this behavior is required.
+ */
 function registerProcessLevelErrorHandlers(): void {
     process.on("uncaughtException", (error) => {
         logMainError(error, "process.uncaughtException");
@@ -218,6 +292,117 @@ const settingsManager = new SettingsManager();
 let mainWindowRef: Electron.BrowserWindow | null = null;
 const quizSessionManager = new QuizSessionManager();
 const quizWebSocketServer = new QuizWebSocketServer(quizSessionManager, 9898);
+const TRASH_FOLDER_NAME = ".trash";
+const TRASH_INDEX_FILE = "index.json";
+
+interface TrashIndexEntry {
+  id: string;
+  name: string;
+  originalPath: string;
+  trashedPath: string;
+  isDirectory: boolean;
+  deletedAt: string;
+}
+
+function getTrashRoot(projectRoot: string): string {
+  return path.join(projectRoot, LOCAL_NOTES_FOLDER, TRASH_FOLDER_NAME);
+}
+
+function getTrashIndexPath(projectRoot: string): string {
+  return path.join(getTrashRoot(projectRoot), TRASH_INDEX_FILE);
+}
+
+async function ensureTrashDirectory(projectRoot: string): Promise<string> {
+  const trashRoot = getTrashRoot(projectRoot);
+  await fs.mkdir(trashRoot, { recursive: true });
+  return trashRoot;
+}
+
+async function readTrashIndex(projectRoot: string): Promise<TrashIndexEntry[]> {
+  const indexPath = getTrashIndexPath(projectRoot);
+  try {
+    const raw = await fs.readFile(indexPath, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((entry) => entry && typeof entry.id === "string");
+  } catch {
+    return [];
+  }
+}
+
+async function writeTrashIndex(projectRoot: string, items: TrashIndexEntry[]): Promise<void> {
+  await ensureTrashDirectory(projectRoot);
+  await fs.writeFile(getTrashIndexPath(projectRoot), JSON.stringify(items, null, 2), "utf-8");
+}
+
+function isWithinPath(targetPath: string, parentPath: string): boolean {
+  const target = path.normalize(targetPath);
+  const parent = path.normalize(parentPath);
+  if (process.platform === "win32") {
+    return target.toLowerCase() === parent.toLowerCase() || target.toLowerCase().startsWith(`${parent.toLowerCase()}${path.sep}`);
+  }
+  return target === parent || target.startsWith(`${parent}${path.sep}`);
+}
+
+async function resolveProjectRoot(itemPath: string, explicitProjectRoot?: string): Promise<string> {
+  if (explicitProjectRoot) return path.normalize(explicitProjectRoot);
+
+  let current = path.normalize(path.dirname(itemPath));
+  while (true) {
+    const localNotesCandidate = path.join(current, LOCAL_NOTES_FOLDER);
+    const localNotesCompatCandidate = path.join(current, ".localnotes");
+    if (fsSync.existsSync(localNotesCandidate) || fsSync.existsSync(localNotesCompatCandidate)) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+
+  return path.dirname(path.normalize(itemPath));
+}
+
+function buildNonConflictingRestorePath(originalPath: string): string {
+  const dir = path.dirname(originalPath);
+  const ext = path.extname(originalPath);
+  const base = path.basename(originalPath, ext);
+  const restoredDateString = new Date().toISOString().replace(/[T:.Z]/g, "-");
+  const suffix = ` (restored ${restoredDateString})`;
+  return path.join(dir, ext ? `${base}${suffix}${ext}` : `${base}${suffix}`);
+}
+
+async function applyTrashAutoPurge(projectRoot: string): Promise<void> {
+  const settings = settingsManager.getResolvedGlobal();
+  const autoPurgeDays = Number(settings?.trash?.autoPurgeDays ?? 30);
+  if (!Number.isFinite(autoPurgeDays) || autoPurgeDays <= 0) return;
+
+  const cutoff = Date.now() - autoPurgeDays * 24 * 60 * 60 * 1000;
+  const index = await readTrashIndex(projectRoot);
+  const retained: TrashIndexEntry[] = [];
+
+  for (const entry of index) {
+    const deletedAtMs = new Date(entry.deletedAt).getTime();
+    const hasValidTimestamp = Number.isFinite(deletedAtMs);
+    if (!hasValidTimestamp) {
+      console.warn(`[Trash] Purging item with invalid deletedAt timestamp: ${entry.id}`);
+    }
+    const shouldPurge = !hasValidTimestamp || deletedAtMs < cutoff;
+    if (!shouldPurge) {
+      retained.push(entry);
+      continue;
+    }
+
+    try {
+      const stat = await fs.stat(entry.trashedPath);
+      if (stat.isDirectory()) await fs.rm(entry.trashedPath, { recursive: true, force: true });
+      else await fs.unlink(entry.trashedPath);
+    } catch {
+      // Keep index cleanup best-effort.
+    }
+  }
+
+  await writeTrashIndex(projectRoot, retained);
+}
 
 (async () => {
     try {
@@ -294,7 +479,13 @@ const quizWebSocketServer = new QuizWebSocketServer(quizSessionManager, 9898);
   Menu.setApplicationMenu(menu);
 
   if (process.platform === "win32") {
-    const keepMenuBarVisible = () => {
+        /**
+     * Functionality: keepMenuBarVisible performs the keep menu bar visible workflow used by main/background.ts.
+     * Parameters: None.
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call keepMenuBarVisible from the owning module or component when this behavior is required.
+     */
+const keepMenuBarVisible = () => {
       if (mainWindow.isDestroyed() || mainWindow.isMenuBarAutoHide()) {
         return;
       }
@@ -479,24 +670,136 @@ ipcMain.handle(
     }
 );
 
-ipcMain.handle("fs:deleteItem", async (_event, itemPath: string) => {
+ipcMain.handle("fs:deleteItem", async (_event, itemPath: string, projectRoot?: string) => {
     const start = Date.now();
     try {
         const p = path.normalize(itemPath);
+        const resolvedProjectRoot = await resolveProjectRoot(p, projectRoot);
+        const trashRoot = await ensureTrashDirectory(resolvedProjectRoot);
         const queue = getQueue(path.dirname(p));
 
         await queue.enqueue(async () => {
             const stats = await fs.stat(p);
+            await applyTrashAutoPurge(resolvedProjectRoot);
+
+            if (isWithinPath(p, trashRoot)) {
+                await withRetry(async () => {
+                    if (stats.isDirectory()) await fs.rm(p, { recursive: true, force: true });
+                    else await fs.unlink(p);
+                });
+                return;
+            }
+
+            const id = randomUUID();
+            const trashedPath = path.join(trashRoot, `${id}__${path.basename(p)}`);
+
             await withRetry(async () => {
-                if (stats.isDirectory()) await fs.rm(p, { recursive: true, force: true });
-                else await fs.unlink(p);
+                await fs.rename(p, trashedPath);
             });
+
+            const index = await readTrashIndex(resolvedProjectRoot);
+            index.push({
+              id,
+              name: path.basename(p),
+              originalPath: p,
+              trashedPath,
+              isDirectory: stats.isDirectory(),
+              deletedAt: new Date().toISOString(),
+            });
+            await writeTrashIndex(resolvedProjectRoot, index);
         });
 
         return { success: true, data: { ms: Date.now() - start } };
     } catch (error: any) {
         return { success: false, error: error.message, code: error.code, ms: Date.now() - start };
     }
+});
+
+ipcMain.handle("fs:listTrash", async (_event, projectRoot: string) => {
+  try {
+    const resolvedProjectRoot = path.normalize(projectRoot);
+    await ensureTrashDirectory(resolvedProjectRoot);
+    await applyTrashAutoPurge(resolvedProjectRoot);
+
+    const index = await readTrashIndex(resolvedProjectRoot);
+    const existing: TrashIndexEntry[] = [];
+    for (const entry of index) {
+      if (fsSync.existsSync(entry.trashedPath)) {
+        existing.push(entry);
+      }
+    }
+
+    if (existing.length !== index.length) {
+      await writeTrashIndex(resolvedProjectRoot, existing);
+    }
+
+    existing.sort((a, b) => new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime());
+    return { success: true, data: existing };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("fs:restoreTrashItem", async (_event, projectRoot: string, itemId: string) => {
+  try {
+    const resolvedProjectRoot = path.normalize(projectRoot);
+    const index = await readTrashIndex(resolvedProjectRoot);
+    const item = index.find((entry) => entry.id === itemId);
+    if (!item) {
+      return { success: false, error: "Trash item not found." };
+    }
+
+    const itemExists = fsSync.existsSync(item.trashedPath);
+    if (!itemExists) {
+      await writeTrashIndex(resolvedProjectRoot, index.filter((entry) => entry.id !== itemId));
+      return { success: false, error: "Trashed file no longer exists." };
+    }
+
+    let restorePath = item.originalPath;
+    if (fsSync.existsSync(restorePath)) {
+      restorePath = buildNonConflictingRestorePath(restorePath);
+    }
+
+    await fs.mkdir(path.dirname(restorePath), { recursive: true });
+    await withRetry(async () => {
+      await fs.rename(item.trashedPath, restorePath);
+    });
+
+    await writeTrashIndex(
+      resolvedProjectRoot,
+      index.filter((entry) => entry.id !== itemId)
+    );
+
+    return { success: true, data: { restoredPath: restorePath } };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("fs:deleteTrashItem", async (_event, projectRoot: string, itemId: string) => {
+  try {
+    const resolvedProjectRoot = path.normalize(projectRoot);
+    const index = await readTrashIndex(resolvedProjectRoot);
+    const item = index.find((entry) => entry.id === itemId);
+    if (!item) {
+      return { success: false, error: "Trash item not found." };
+    }
+
+    if (fsSync.existsSync(item.trashedPath)) {
+      const stats = await fs.stat(item.trashedPath);
+      if (stats.isDirectory()) await fs.rm(item.trashedPath, { recursive: true, force: true });
+      else await fs.unlink(item.trashedPath);
+    }
+
+    await writeTrashIndex(
+      resolvedProjectRoot,
+      index.filter((entry) => entry.id !== itemId)
+    );
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
 });
 
 
@@ -535,9 +838,6 @@ ipcMain.handle("fs:readFile", async (event, filePath: string) => {
 
         // Read as binary (base64) for images
         if (imageExtensions.includes(ext)) {
-            const buffer = await fs.readFile(filePath);
-            const base64 = buffer.toString('base64');
-
             // Map extensions to proper MIME types
             const mimeTypes: { [key: string]: string } = {
                 '.png': 'image/png',
@@ -549,12 +849,32 @@ ipcMain.handle("fs:readFile", async (event, filePath: string) => {
                 '.webp': 'image/webp',
                 '.ico': 'image/x-icon'
             };
+            const mime = mimeTypes[ext] || 'image/png';
 
+            let buffer = await fs.readFile(filePath);
+
+            // Self-heal: if the file was corrupted by a previous autosave writing a
+            // data URL as text, decode it back to the original binary and restore the file.
+            const asText = buffer.toString('utf-8');
+            const dataUrlPrefix = asText.match(/^data:([^;]+);base64,/);
+            if (dataUrlPrefix) {
+                const cleanBase64 = asText.slice(dataUrlPrefix[0].length).trim();
+                const restored = Buffer.from(cleanBase64, 'base64');
+                await fs.writeFile(filePath, restored);
+                return {
+                    success: true,
+                    data: cleanBase64,
+                    type: 'binary',
+                    mimeType: dataUrlPrefix[1] || mime,
+                };
+            }
+
+            const base64 = buffer.toString('base64');
             return {
                 success: true,
                 data: base64,
                 type: 'binary',
-                mimeType: mimeTypes[ext] || 'image/png'
+                mimeType: mime,
             };
         }
 
@@ -720,7 +1040,13 @@ ipcMain.handle("fs:importFolder", async (event, sourcePath: string, targetPath: 
         }
 
         // Recursively copy folder contents
-        const copyFolderRecursive = async (src: string, dest: string) => {
+                /**
+         * Functionality: copyFolderRecursive performs the copy folder recursive workflow used by main/background.ts.
+         * Parameters: src (string); dest (string).
+         * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+         * Usage: Call copyFolderRecursive from the owning module or component when this behavior is required.
+         */
+const copyFolderRecursive = async (src: string, dest: string) => {
             // Create destination directory if it doesn't exist
             if (!fsSync.existsSync(dest)) {
                 await fs.mkdir(dest, { recursive: true });
@@ -783,7 +1109,13 @@ ipcMain.handle("fs:exportFolder", async (_, sourceFolder: string, targetFolder: 
         const folderName = path.basename(sourceFolder);
         const destination = path.join(targetFolder, folderName);
 
-        const copyFolderRecursiveSync = (src: string, dest: string) => {
+                /**
+         * Functionality: copyFolderRecursiveSync performs the copy folder recursive sync workflow used by main/background.ts.
+         * Parameters: src (string); dest (string).
+         * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+         * Usage: Call copyFolderRecursiveSync from the owning module or component when this behavior is required.
+         */
+const copyFolderRecursiveSync = (src: string, dest: string) => {
             // Create destination folder if missing
             if (!fsSync.existsSync(dest)) {
                 fsSync.mkdirSync(dest, { recursive: true });
@@ -1028,7 +1360,7 @@ ipcMain.handle("indexer:indexDirectory", async (_, directoryId: string, director
     if (!isWatching(directoryId)) {
       startWatching(directoryId, directoryPath);
     }
-        
+
         const stats = await chunkAndStoreDirectory(directoryId, directoryPath, config);
         return { success: true, data: stats };
     } catch (error) {

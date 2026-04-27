@@ -1,3 +1,14 @@
+/**
+ * Name of code artifact: renderer/pages/_app.tsx
+ * Brief description: Defines a Next.js renderer page for a LocalNotes application route.
+ * Programmer's name: LocalNotes development team
+ * Git-history contributors: Wesley McDougal; Malek Kchaou; Shaun; Abdulaziz-Ali123; m518n748
+ * Date created: See repository history.
+ * Dates revised: 2026-04-27
+ * Revision history: Codex - 2026-04-27 - Added sprint-required prolog documentation and function comments.
+ * Implementation notes: Keep this artifact aligned with the surrounding LocalNotes IPC, renderer, persistence, or styling contracts.
+ */
+
 import React, { useEffect } from "react";
 import type { AppProps } from "next/app";
 
@@ -11,6 +22,12 @@ import { ErrorToastProvider } from "@/renderer/components/feedback/ErrorToastPro
 
 // App Component
 
+/**
+ * Functionality: MyApp performs the my app workflow used by renderer/pages/_app.tsx.
+ * Parameters: { Component, pageProps } (AppProps).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call MyApp from the owning module or component when this behavior is required.
+ */
 function MyApp({ Component, pageProps }: AppProps) {
   const initializeSettings = useBoundStore((s) => s.settings.initialize);
 

@@ -4,6 +4,7 @@
  * AI chat interface embedded in the editor sidebar. Allows users to converse
  * with a configured LLM model using their open notes as optional RAG context.
  *
+ * Git-history contributors: Wesley McDougal; Abdulaziz-Ali123; Abdulaziz Ali; Shaun
  * Revision History:
  *  • Wesley McDougal - 07APR2026 - Initial implementation:
  *    - Model dropdown reads from ai.customModels (Zustand).
@@ -67,12 +68,24 @@ interface Conversation {
   createdAt: Date;
 }
 
+/**
+ * Functionality: generateId performs the generate id workflow used by renderer/components/AIChatPanel.tsx.
+ * Parameters: None.
+ * Returns: Returns string.
+ * Usage: Call generateId from the owning module or component when this behavior is required.
+ */
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
 // ─── Model Selector ──────────────────────────────────────────────────────────
 
+/**
+ * Functionality: ModelSelector performs the model selector workflow used by renderer/components/AIChatPanel.tsx.
+ * Parameters: { selectedModel, onSelect, } ({ selectedModel: string; onSelect: (id: string) => void; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call ModelSelector from the owning module or component when this behavior is required.
+ */
 function ModelSelector({
   selectedModel,
   onSelect,
@@ -85,7 +98,13 @@ function ModelSelector({
   const aiSettings = useBoundStore((s) => s.settings.global?.ai);
 
   useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
+        /**
+     * Functionality: handleClick performs the handle click workflow used by renderer/components/AIChatPanel.tsx.
+     * Parameters: e (MouseEvent).
+     * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+     * Usage: Call handleClick from the owning module or component when this behavior is required.
+     */
+const handleClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", handleClick);
@@ -96,7 +115,7 @@ function ModelSelector({
   const current = customModels.find((m) => m.id === selectedModel);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} data-tutorial="ai-model-selector" className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
         disabled={customModels.length === 0}
@@ -135,6 +154,12 @@ function ModelSelector({
 
 // ─── Thinking Block ──────────────────────────────────────────────────────────
 
+/**
+ * Functionality: ThinkingBlock performs the thinking block workflow used by renderer/components/AIChatPanel.tsx.
+ * Parameters: { content } ({ content: string }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call ThinkingBlock from the owning module or component when this behavior is required.
+ */
 function ThinkingBlock({ content }: { content: string }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -161,6 +186,12 @@ function ThinkingBlock({ content }: { content: string }) {
 
 // ─── Chat Message Bubble ─────────────────────────────────────────────────────
 
+/**
+ * Functionality: MessageBubble performs the message bubble workflow used by renderer/components/AIChatPanel.tsx.
+ * Parameters: { message, thinkingEnabled, } ({ message: ChatMessage; thinkingEnabled: boolean; }).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call MessageBubble from the owning module or component when this behavior is required.
+ */
 function MessageBubble({
   message,
   thinkingEnabled,
@@ -241,6 +272,12 @@ interface AIChatPanelProps {
   onOpenAiSettings?: () => void;
 }
 
+/**
+ * Functionality: AIChatPanel performs the aichat panel workflow used by renderer/components/AIChatPanel.tsx.
+ * Parameters: { onOpenAiSettings } (AIChatPanelProps).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call AIChatPanel from the owning module or component when this behavior is required.
+ */
 export default function AIChatPanel({ onOpenAiSettings }: AIChatPanelProps = {}) {
   const aiSettings = useBoundStore((s) => s.settings.global?.ai);
   // error string set by settings-slice when initialization fails
@@ -295,7 +332,13 @@ export default function AIChatPanel({ onOpenAiSettings }: AIChatPanelProps = {})
     }
   }, []);
 
-  const executeRAG = async (convoId: string, userText: string) => {
+    /**
+   * Functionality: executeRAG performs the execute rag workflow used by renderer/components/AIChatPanel.tsx.
+   * Parameters: convoId (string); userText (string).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call executeRAG from the owning module or component when this behavior is required.
+   */
+const executeRAG = async (convoId: string, userText: string) => {
     // Scaffold UI
     const assistantId = generateId();
     updateConversation(convoId, (c) => ({
@@ -316,7 +359,7 @@ export default function AIChatPanel({ onOpenAiSettings }: AIChatPanelProps = {})
       // 1. Get current directory UUID
       const currentFolderPath = localStorage.getItem("currentFolderPath");
       if (!currentFolderPath) throw new Error("No folder open.");
-      
+
       let directoryId = "";
       let debugInfo = "";
 
@@ -327,14 +370,14 @@ export default function AIChatPanel({ onOpenAiSettings }: AIChatPanelProps = {})
         debugInfo += `DB Match Found | `;
       } else {
         debugInfo += `DB Lookup Failed: ${idRes.error || "Not found"} | `;
-        
+
         // Fallback: Read from .Local Notes/.env
         const localNotesDir = window.fs.join(currentFolderPath, ".Local Notes");
         const envPath = window.fs.join(localNotesDir, ".env");
-        
+
         const envRes = await window.fs.exists(envPath);
         debugInfo += `Env Path: ${envPath} | Env Exists: ${envRes.success ? envRes.data : envRes.error} | `;
-        
+
         if (envRes.success && envRes.data) {
            const contentRes = await window.fs.readFile(envPath);
            if (contentRes.success) {
@@ -350,7 +393,7 @@ export default function AIChatPanel({ onOpenAiSettings }: AIChatPanelProps = {})
            }
         }
       }
-      
+
       if (!directoryId) {
         setPendingUserText(userText);
         setShowRagInitDialog(true);
@@ -362,10 +405,10 @@ export default function AIChatPanel({ onOpenAiSettings }: AIChatPanelProps = {})
         ...c,
         messages: c.messages.map(m => m.id === assistantId ? { ...m, thinking: "Retrieving relevant notes from local database..." } : m)
       }));
-      
+
       const contextRes = await window.rag.retrieveContext(directoryId, userText, 5);
-      const contextAugmentation = contextRes.success && contextRes.contextText 
-        ? contextRes.contextText 
+      const contextAugmentation = contextRes.success && contextRes.contextText
+        ? contextRes.contextText
         : "No relevant local notes found.";
 
       updateConversation(convoId, (c) => ({
@@ -378,7 +421,7 @@ export default function AIChatPanel({ onOpenAiSettings }: AIChatPanelProps = {})
       if (!c) return;
 
       const systemPrompt = `You are a helpful assistant assisting the user with their local markdown notes repository.
-      
+
 ${contextAugmentation}
 
 Use the above context to answer the user accurately. If the context does not answer the question, say so, but try to be helpful based on your general knowledge if applicable.`;
@@ -531,11 +574,23 @@ Use the above context to answer the user accurately. If the context does not ans
     updateConversation(activeConvoId, (c) => ({ ...c, model: aiSettings.defaultModelId! }));
   }, [activeConvo, activeConvoId, aiSettings?.customModels, aiSettings?.defaultModelId]);
 
-  const updateConversation = (id: string, updater: (c: Conversation) => Conversation) => {
+    /**
+   * Functionality: updateConversation performs the update conversation workflow used by renderer/components/AIChatPanel.tsx.
+   * Parameters: id (string); updater ((c: Conversation) => Conversation).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call updateConversation from the owning module or component when this behavior is required.
+   */
+const updateConversation = (id: string, updater: (c: Conversation) => Conversation) => {
     setConversations((prev) => prev.map((c) => (c.id === id ? updater(c) : c)));
   };
 
-  const handleSend = () => {
+    /**
+   * Functionality: handleSend performs the handle send workflow used by renderer/components/AIChatPanel.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleSend from the owning module or component when this behavior is required.
+   */
+const handleSend = () => {
     const trimmed = input.trim();
     if (!trimmed && attachments.length === 0) return;
     if (isGenerating) return;
@@ -572,7 +627,13 @@ Use the above context to answer the user accurately. If the context does not ans
     setTimeout(() => executeRAG(convoId, trimmed), 50);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+    /**
+   * Functionality: handleKeyDown performs the handle key down workflow used by renderer/components/AIChatPanel.tsx.
+   * Parameters: e (React.KeyboardEvent).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleKeyDown from the owning module or component when this behavior is required.
+   */
+const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -591,7 +652,13 @@ Use the above context to answer the user accurately. If the context does not ans
     }));
   };
 
-  const handleNewChat = () => {
+    /**
+   * Functionality: handleNewChat performs the handle new chat workflow used by renderer/components/AIChatPanel.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleNewChat from the owning module or component when this behavior is required.
+   */
+const handleNewChat = () => {
     const newConvo: Conversation = {
       id: generateId(),
       title: "New Chat",
@@ -606,7 +673,13 @@ Use the above context to answer the user accurately. If the context does not ans
     setIsGenerating(false);
   };
 
-  const handleFileUpload = async () => {
+    /**
+   * Functionality: handleFileUpload performs the handle file upload workflow used by renderer/components/AIChatPanel.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleFileUpload from the owning module or component when this behavior is required.
+   */
+const handleFileUpload = async () => {
     try {
       const result = await window.fs.selectImportFiles();
       if (result.success && result.paths) {
@@ -622,12 +695,24 @@ Use the above context to answer the user accurately. If the context does not ans
     }
   };
 
-  const removeAttachment = (index: number) => {
+    /**
+   * Functionality: removeAttachment performs the remove attachment workflow used by renderer/components/AIChatPanel.tsx.
+   * Parameters: index (number).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call removeAttachment from the owning module or component when this behavior is required.
+   */
+const removeAttachment = (index: number) => {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Voice-to-text using Web Speech API
-  const toggleDictation = () => {
+    /**
+   * Functionality: toggleDictation performs the toggle dictation workflow used by renderer/components/AIChatPanel.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call toggleDictation from the owning module or component when this behavior is required.
+   */
+const toggleDictation = () => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) return;
@@ -662,14 +747,26 @@ Use the above context to answer the user accurately. If the context does not ans
     setIsListening(true);
   };
 
-  const handleModelSelect = (modelId: string) => {
+    /**
+   * Functionality: handleModelSelect performs the handle model select workflow used by renderer/components/AIChatPanel.tsx.
+   * Parameters: modelId (string).
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleModelSelect from the owning module or component when this behavior is required.
+   */
+const handleModelSelect = (modelId: string) => {
     updateConversation(activeConvoId, (c) => ({ ...c, model: modelId }));
     // Persist selection so new chats and Settings reflect the choice
     const setGlobal = useBoundStore.getState().settings.setGlobal;
     setGlobal("ai.defaultModelId", modelId);
   };
 
-  const handleInitializeRag = async () => {
+    /**
+   * Functionality: handleInitializeRag performs the handle initialize rag workflow used by renderer/components/AIChatPanel.tsx.
+   * Parameters: None.
+   * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+   * Usage: Call handleInitializeRag from the owning module or component when this behavior is required.
+   */
+const handleInitializeRag = async () => {
     const currentFolderPath = localStorage.getItem("currentFolderPath");
     if (!currentFolderPath) {
       alert("No folder open to initialize RAG.");
@@ -742,13 +839,14 @@ Use the above context to answer the user accurately. If the context does not ans
       )}
 
       {/* ── Header ── */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border bg-secondary">
+      <div data-tutorial="ai-header" className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border bg-secondary">
         <div className="flex items-center gap-3">
           <ModelSelector selectedModel={activeConvo.model} onSelect={handleModelSelect} />
 
           {/* Thinking Toggle — only shown if model supports it */}
           {caps.thinking && (
             <button
+              data-tutorial="ai-thinking"
               onClick={() => setThinkingEnabled((t) => !t)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
                 thinkingEnabled
@@ -769,6 +867,7 @@ Use the above context to answer the user accurately. If the context does not ans
 
         {/* New Chat */}
         <button
+          data-tutorial="ai-new-chat"
           onClick={handleNewChat}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background border border-border text-sm font-medium hover:bg-muted transition-colors"
           title="New Chat"
@@ -805,7 +904,7 @@ Use the above context to answer the user accurately. If the context does not ans
       )}
 
       {/* ── Messages ── */}
-      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 py-4">
+      <div ref={scrollRef} data-tutorial="ai-messages" className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 py-4">
         {aiSettings?.customModels?.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center text-destructive">
@@ -908,7 +1007,7 @@ Use the above context to answer the user accurately. If the context does not ans
           </div>
         </div>
       )}
-      <div className="flex-shrink-0 px-4 pb-3 pt-2">
+      <div data-tutorial="ai-input" className="flex-shrink-0 px-4 pb-3 pt-2">
         <div className="flex items-end gap-2 bg-background border border-border rounded-2xl px-3 py-2 focus-within:ring-1 focus-within:ring-accent/40 transition-shadow">
           {/* File Upload — only shown if model supports it */}
           {caps.fileUpload && (
@@ -978,11 +1077,11 @@ Use the above context to answer the user accurately. If the context does not ans
 
       {/* RAG Initialization Modal */}
       {showRagInitDialog && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
           onClick={() => !isInitializingRag && setShowRagInitDialog(false)}
         >
-          <div 
+          <div
             className="bg-background border border-border rounded-lg shadow-xl w-[450px] overflow-hidden animate-in fade-in zoom-in duration-200"
             onClick={(e) => e.stopPropagation()}
           >
@@ -1017,7 +1116,7 @@ Use the above context to answer the user accurately. If the context does not ans
                 <div className="p-3 bg-muted/50 rounded-lg flex gap-3 border border-border">
                   <RiInformationLine className="w-5 h-5 text-accent shrink-0 mt-0.5" />
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Indexing involves breaking your notes into small chunks and generating 
+                    Indexing involves breaking your notes into small chunks and generating
                     embeddings (mathematical representations) for each. This stays 100% local.
                   </p>
                 </div>
@@ -1026,15 +1125,15 @@ Use the above context to answer the user accurately. If the context does not ans
 
             {/* Footer */}
             <div className="px-6 py-4 bg-muted/20 border-t border-border flex justify-end gap-3">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setShowRagInitDialog(false)}
                 disabled={isInitializingRag}
                 className="h-9"
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={handleInitializeRag}
                 disabled={isInitializingRag}
                 className="h-9 min-w-[120px]"
