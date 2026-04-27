@@ -2,7 +2,7 @@
   "private": true,
   "name": "local-notes",
   "description": "LocalNotes is a lightweight, offline-first note-taking app. Your notes are stored entirely on your device — no accounts, no cloud, no tracking. Just open it and write.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "abdulazizAli <abdulazizali476@gmail.com>",
   "main": "app/background.js",
   "scripts": {
