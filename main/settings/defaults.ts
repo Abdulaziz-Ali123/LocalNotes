@@ -31,6 +31,7 @@ export const DEFAULT_SIDEBAR_ICON_ORDER = [
   "ai",
   "theme",
   "tags",
+  "trash",
   "share",
   "settings",
   "history",
@@ -124,6 +125,10 @@ export const DEFAULT_AI = {
   customModels: [],
 };
 
+export const DEFAULT_TRASH = {
+  autoPurgeDays: 30,
+};
+
 // ---------------------------------------------------------------------------
 // Composite defaults
 // ---------------------------------------------------------------------------
@@ -131,6 +136,7 @@ export const DEFAULT_AI = {
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   appearance: { ...DEFAULT_APPEARANCE },
   editor: { ...DEFAULT_EDITOR },
+  trash: { ...DEFAULT_TRASH },
   keybindings: { ...DEFAULT_KEYBINDINGS },
   llm: {
     defaultModelId: DEFAULT_LLM.defaultModelId,

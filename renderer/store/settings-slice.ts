@@ -111,9 +111,14 @@ export interface AiSettings {
   customModels: CustomModel[];
 }
 
+export interface TrashSettings {
+  autoPurgeDays: number;
+}
+
 export interface GlobalSettings {
   appearance: AppearanceSettings;
   editor: EditorSettings;
+  trash: TrashSettings;
   keybindings: KeybindingMap;
   ai: AiSettings;
 }
@@ -212,6 +217,7 @@ const DEFAULT_SIDEBAR_ICON_ORDER = [
   "ai",
   "theme",
   "tags",
+  "trash",
   "share",
   "settings",
   "history",
@@ -261,6 +267,9 @@ const INITIAL_GLOBAL: GlobalSettings = {
     autosaveIntervalMs: 10_000,
     wordWrap: true,
     showLineNumbers: false,
+  },
+  trash: {
+    autoPurgeDays: 30,
   },
   keybindings: DEFAULT_KEYBINDINGS,
   ai: INITIAL_AI,

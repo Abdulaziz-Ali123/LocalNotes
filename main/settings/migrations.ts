@@ -17,7 +17,7 @@
  *  • Wesley McDougal - 19APR2026 - Added v6 migration to backfill editor.statusBar visibility defaults
  */
 
-import { LATEST_SCHEMA_VERSION } from "./defaults";
+import { DEFAULT_TRASH, LATEST_SCHEMA_VERSION } from "./defaults";
 
 type MigrationFn = (settings: Record<string, any>) => Record<string, any>;
 
@@ -37,7 +37,14 @@ type MigrationFn = (settings: Record<string, any>) => Record<string, any>;
  *   };
  */
 const migrations: Record<number, MigrationFn> = {
-  6: (settings) => {
+  // No migrations needed yet — we're starting at version 1.
+  // Future example:
+  // 2: (settings) => {
+  //   settings.editor.spellcheck = settings.editor?.spellcheck ?? false;
+  //   return settings;
+  // },
+
+   6: (settings) => {
     // v5 -> v6: Added statusBar visibility settings to editor
     settings.editor = settings.editor ?? {};
     settings.editor.statusBar = settings.editor.statusBar ?? {
@@ -47,6 +54,16 @@ const migrations: Record<number, MigrationFn> = {
       showReadingTime: true,
     };
     return settings;
+  },
+  7: (settings) => {
+    const next = { ...settings };
+    next.trash = {
+      autoPurgeDays:
+        typeof settings?.trash?.autoPurgeDays === "number"
+          ? settings.trash.autoPurgeDays
+          : DEFAULT_TRASH.autoPurgeDays,
+    };
+    return next;
   },
 };
 

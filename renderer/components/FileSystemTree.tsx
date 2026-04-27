@@ -495,9 +495,9 @@ const FileSystemTree = forwardRef<FileSystemTreeRef, FileSystemTreeProps>(
     };
 
     const deleteItem = async (itemPath: string) => {
-      const confirmed = confirm(`Are you sure you want to delete this item?`);
+      const confirmed = confirm(`Move this item to Trash?`);
       if (confirmed) {
-        const result = await window.fs.deleteItem(itemPath);
+        const result = await window.fs.deleteItem(itemPath, rootPath ?? undefined);
         if (result.success) {
           const parentPath = itemPath.substring(0, itemPath.lastIndexOf("/"));
           const reloadPath = parentPath || rootPath!;

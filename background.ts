@@ -1,5 +1,40 @@
+/**
+ * File: main/background.ts
+ * Purpose: Main Electron process bootstrap and IPC registration.
+ * Summary of what was added/changed:
+ * - Added central IPC handler for renderer error reporting.
+ * - Added process-level fallback logging for uncaught exceptions and unhandled rejections.
+ * Author: Malek Kchaou (add your name if you made changes here)
+ * Update Log:
+ *  - 2026-04-12: Atharva Patil - Added code for quiz integration.
+ * Date Created: 
+ * Last Updated: 2026-04-12
+ */
+
+/**
+ * Main Electron Process (background.ts)
+ *
+ * Serves as the primary entry point for the application's main process. Responsibilities include:
+ * - App lifecycle management (ready, quit, navigation)
+ * - Creating and managing the main BrowserWindow with persistent window state
+ * - Initializing the settings system (SettingsManager) and loading global config
+ * - Building and managing the native application menu (File, Edit, View, Window, Help)
+ * - Enforcing Windows menu visibility behavior and auto-hide toggle support
+ * - Registering IPC handlers for renderer ↔ main communication
+ * - Initializing and managing the SQLite database
+ * - Managing tab state across renderer lifecycle
+ * - Handling file system operations (create, read, write, delete, rename, watch)
+ * - Managing file chunking, indexing, and embedding operations
+ * - Coordinating autosave and file persist operations
+ * - Providing context menu and native dialogues
+ *
+ * Revision History:
+ *  • Wesley McDougal - 29MAR2026 - Windows menu visibility enforcement and title bar adjustments
+ *  • Atharva Patil - 12APR2026 - Bootstraps local quiz session services (IPC + WebSocket server). Ensures graceful shutdown of quiz resources on app exit.
+ */
 import path from "path";
-import { app, ipcMain, Menu, dialog, shell } from "electron";
+import { app, ipcMain, BrowserWindow, Menu, dialog, shell } from "electron";
+app.disableHardwareAcceleration();
 import serve from "electron-serve";
 import { createWindow, ensureConfigDirectory, getConfigDirectoryPath } from "./helpers";
 import fs from "fs/promises";
@@ -10,13 +45,6 @@ import { getQueue } from "./fsQueue";
 import { withRetry } from "./fsRetry";
 import { debouncedWriter } from "./helpers/debounced-writer";
 import { closeDB, initializeDB } from "./database/sqllite";
-import { 
-    startWatching, 
-    stopWatching, 
-    stopAllWatchers, 
-    getActiveWatchers, 
-    isWatching 
-} from "./watcher/fileWatcher";
 import { 
     addDirectory, 
     updateDirectory, 
@@ -30,10 +58,21 @@ import {
     addChunk,
     deleteChunksByFile,
     getChunksByDirectory,
-    getChunksByFile
+    getChunksByFile,
+    addEmbedding
 } from "./database/documentRepository";
 import { chunkDirectory, chunkSingleFile, getChunkStats, DirectoryChunkerConfig, chunkAndStoreDirectory, chunkAndStoreFile } from "./indexing/DirectoryChuncker";
-import { UUID } from "crypto";
+import { UUID, randomUUID } from "crypto";
+import { startWatching, stopWatching, stopAllWatchers, getActiveWatchers, isWatching } from "./watcher/fileWatcher";
+import {
+    logMainError,
+    logRendererError,
+} from "./logging/errorLogger";
+import { registerErrorLoggingIpc } from "./logging/registerErrorLoggingIpc";
+import { QuizSessionManager } from "./quiz/quizSessionManager";
+import { QuizWebSocketServer } from "./quiz/quizWebSocketServer";
+import { registerQuizIpc } from "./quiz/ipc-handlers";
+import { LOCAL_NOTES_FOLDER } from "./helpers/project-settings";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -159,108 +198,291 @@ if (isProd) {
   app.setPath("userData", `${app.getPath("userData")} (development)`);
 }
 
+/**
+ * Adds top-level safety nets so catastrophic main-process issues
+ * still get written to the same log file.
+ */
+function registerProcessLevelErrorHandlers(): void {
+    process.on("uncaughtException", (error) => {
+        logMainError(error, "process.uncaughtException");
+    });
+
+    process.on("unhandledRejection", (reason) => {
+        logMainError(reason, "process.unhandledRejection");
+    });
+}
+
 // ---------------------------------------------------------------------------
 // Settings manager (singleton)
 // ---------------------------------------------------------------------------
 const settingsManager = new SettingsManager();
 let mainWindowRef: Electron.BrowserWindow | null = null;
+const quizSessionManager = new QuizSessionManager();
+const quizWebSocketServer = new QuizWebSocketServer(quizSessionManager, 9898);
+const TRASH_FOLDER_NAME = ".trash";
+const TRASH_INDEX_FILE = "index.json";
+
+interface TrashIndexEntry {
+  id: string;
+  name: string;
+  originalPath: string;
+  trashedPath: string;
+  isDirectory: boolean;
+  deletedAt: string;
+}
+
+function getTrashRoot(projectRoot: string): string {
+  return path.join(projectRoot, LOCAL_NOTES_FOLDER, TRASH_FOLDER_NAME);
+}
+
+function getTrashIndexPath(projectRoot: string): string {
+  return path.join(getTrashRoot(projectRoot), TRASH_INDEX_FILE);
+}
+
+async function ensureTrashDirectory(projectRoot: string): Promise<string> {
+  const trashRoot = getTrashRoot(projectRoot);
+  await fs.mkdir(trashRoot, { recursive: true });
+  return trashRoot;
+}
+
+async function readTrashIndex(projectRoot: string): Promise<TrashIndexEntry[]> {
+  const indexPath = getTrashIndexPath(projectRoot);
+  try {
+    const raw = await fs.readFile(indexPath, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((entry) => entry && typeof entry.id === "string");
+  } catch {
+    return [];
+  }
+}
+
+async function writeTrashIndex(projectRoot: string, items: TrashIndexEntry[]): Promise<void> {
+  await ensureTrashDirectory(projectRoot);
+  await fs.writeFile(getTrashIndexPath(projectRoot), JSON.stringify(items, null, 2), "utf-8");
+}
+
+function isWithinPath(targetPath: string, parentPath: string): boolean {
+  const target = path.normalize(targetPath);
+  const parent = path.normalize(parentPath);
+  if (process.platform === "win32") {
+    return target.toLowerCase() === parent.toLowerCase() || target.toLowerCase().startsWith(`${parent.toLowerCase()}${path.sep}`);
+  }
+  return target === parent || target.startsWith(`${parent}${path.sep}`);
+}
+
+async function resolveProjectRoot(itemPath: string, explicitProjectRoot?: string): Promise<string> {
+  if (explicitProjectRoot) return path.normalize(explicitProjectRoot);
+
+  let current = path.normalize(path.dirname(itemPath));
+  while (true) {
+    const localNotesCandidate = path.join(current, LOCAL_NOTES_FOLDER);
+    const localNotesCompatCandidate = path.join(current, ".localnotes");
+    if (fsSync.existsSync(localNotesCandidate) || fsSync.existsSync(localNotesCompatCandidate)) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+
+  return path.dirname(path.normalize(itemPath));
+}
+
+function buildNonConflictingRestorePath(originalPath: string): string {
+  const dir = path.dirname(originalPath);
+  const ext = path.extname(originalPath);
+  const base = path.basename(originalPath, ext);
+  const restoredDateString = new Date().toISOString().replace(/[T:.Z]/g, "-");
+  const suffix = ` (restored ${restoredDateString})`;
+  return path.join(dir, ext ? `${base}${suffix}${ext}` : `${base}${suffix}`);
+}
+
+async function applyTrashAutoPurge(projectRoot: string): Promise<void> {
+  const settings = settingsManager.getResolvedGlobal();
+  const autoPurgeDays = Number(settings?.trash?.autoPurgeDays ?? 30);
+  if (!Number.isFinite(autoPurgeDays) || autoPurgeDays <= 0) return;
+
+  const cutoff = Date.now() - autoPurgeDays * 24 * 60 * 60 * 1000;
+  const index = await readTrashIndex(projectRoot);
+  const retained: TrashIndexEntry[] = [];
+
+  for (const entry of index) {
+    const deletedAtMs = new Date(entry.deletedAt).getTime();
+    const hasValidTimestamp = Number.isFinite(deletedAtMs);
+    if (!hasValidTimestamp) {
+      console.warn(`[Trash] Purging item with invalid deletedAt timestamp: ${entry.id}`);
+    }
+    const shouldPurge = !hasValidTimestamp || deletedAtMs < cutoff;
+    if (!shouldPurge) {
+      retained.push(entry);
+      continue;
+    }
+
+    try {
+      const stat = await fs.stat(entry.trashedPath);
+      if (stat.isDirectory()) await fs.rm(entry.trashedPath, { recursive: true, force: true });
+      else await fs.unlink(entry.trashedPath);
+    } catch {
+      // Keep index cleanup best-effort.
+    }
+  }
+
+  await writeTrashIndex(projectRoot, retained);
+}
 
 (async () => {
-  await app.whenReady();
-  process.stderr.write("[Local Notes] Initializing config directory...\n");
-  const configDirectoryPath = await ensureConfigDirectory();
-  process.stderr.write(`[Local Notes] Config directory ready at: ${configDirectoryPath}\n`);
+    try {
+        /**
+         * Wait for Electron to finish initialization before using app APIs.
+         */
+        await app.whenReady();
 
-  // Load global settings before creating the window
-  const globalSettings = await settingsManager.loadGlobal();
+        /**
+         * Register centralized error plumbing as early as possible.
+         * This ensures both renderer-reported errors and startup/runtime crashes
+         * can be captured consistently.
+         */
+        registerErrorLoggingIpc();
+        registerProcessLevelErrorHandlers();
+
+        process.stderr.write("[Local Notes] Initializing config directory...\n");
+        const configDirectoryPath = await ensureConfigDirectory();
+        process.stderr.write(
+            `[Local Notes] Config directory ready at: ${configDirectoryPath}\n`
+        );
+
+        /**
+         * Load global settings before creating the main window so the initial
+         * UI and menu state reflect the saved configuration.
+         */
+        const globalSettings = await settingsManager.loadGlobal();
 
   const mainWindow = createWindow("main", {
     width: 1000,
     height: 600,
+    autoHideMenuBar: false,
     webPreferences: {
       preload: path.join(app.getAppPath(), "app", "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
     },
-    // remove the default titlebar
-    titleBarStyle: "hidden",
-    // expose window controls in Windows/Linux
-    ...(process.platform !== "darwin" ? { titleBarOverlay: true } : {}),
+    // Keep custom titlebar behavior only on macOS. On Windows, use native frame/titlebar
+    // so the menu bar is visible and follows platform conventions.
+    ...(process.platform === "darwin" ? { titleBarStyle: "hidden" as const } : {}),
   });
 
-  mainWindowRef = mainWindow;
+        mainWindowRef = mainWindow;
 
-  // Register settings IPC handlers
-  registerSettingsIpc(settingsManager, () => mainWindowRef);
+        /**
+         * Register settings IPC handlers after the window reference exists.
+         * This preserves the current app architecture and avoids unnecessary changes.
+         */
+        registerSettingsIpc(settingsManager, () => mainWindowRef);
+        registerQuizIpc(quizSessionManager, quizWebSocketServer, () => mainWindowRef);
 
-  // Context menu
-  const contextTemplate: any = [
-    { role: "copy" },
-    { role: "cut" },
-    { role: "paste" },
-    { role: "selectall" },
-  ];
+        try {
+          await quizWebSocketServer.start();
+          console.log("✓ Quiz session server ready");
+        } catch (error) {
+          logMainError(error, "quiz.server.start");
+          console.error("✗ Failed to start quiz session server:", error);
+        }
+
+        /**
+         * Context menu definition for standard text actions.
+         */
+        const contextTemplate: any = [
+            { role: "copy" },
+            { role: "cut" },
+            { role: "paste" },
+            { role: "selectall" },
+        ];
 
   // Build menu from settings (keybindings-driven instead of hardcoded)
   const menuTemplate = buildMenuTemplate(globalSettings, mainWindow);
   const menu = Menu.buildFromTemplate(menuTemplate);
   Menu.setApplicationMenu(menu);
 
-  const contextMenu = Menu.buildFromTemplate(contextTemplate);
+  if (process.platform === "win32") {
+    const keepMenuBarVisible = () => {
+      if (mainWindow.isDestroyed() || mainWindow.isMenuBarAutoHide()) {
+        return;
+      }
 
-  mainWindow.webContents.on("context-menu", (_event, params) => {
-    contextMenu.popup();
-  });
+      mainWindow.setMenuBarVisibility(true);
+    };
 
-  if (isProd) {
-    await mainWindow.loadURL("app://./home");
-  } else {
-    const port = process.argv[2];
-    await mainWindow.loadURL(`http://localhost:${port}/home`);
-    
+    keepMenuBarVisible();
+    mainWindow.on("restore", keepMenuBarVisible);
+    mainWindow.on("maximize", keepMenuBarVisible);
+    mainWindow.on("unmaximize", keepMenuBarVisible);
   }
 
-    try {
-        initializeDB();
-        console.log("✓ Database ready");
+        const contextMenu = Menu.buildFromTemplate(contextTemplate);
 
-        // Initialize file watchers for all existing directories
+        mainWindow.webContents.on("context-menu", (_event, _params) => {
+            contextMenu.popup();
+        });
+
+        /**
+         * Load the correct renderer entry depending on environment.
+         */
+        if (isProd) {
+            await mainWindow.loadURL("app://./home");
+        } else {
+            const port = process.argv[2];
+            await mainWindow.loadURL(`http://localhost:${port}/home`);
+        }
+
+        /**
+         * Initialize the database after the app window is ready.
+         * If this fails, log through the central logger and then exit cleanly.
+         */
         try {
-            const directories = getAllDirectories() as any[];
-            console.log(`Initializing watchers for ${directories.length} directories...`);
-            
-            for (const dir of directories) {
-                if (dir.path && fsSync.existsSync(dir.path)) {
-                    startWatching(dir.id, dir.path);
-                } else {
-                    console.warn(`Directory not found, skipping watcher: ${dir.path}`);
-                }
-            }
-            
-            console.log(`✓ Watchers initialized for ${directories.length} directories`);
+            initializeDB();
+            console.log("✓ Database ready");
         } catch (error) {
-            console.error("Failed to initialize watchers:", error);
+            logMainError(error, "database.initialize");
+            console.error("✗ Failed to initialize database:", error);
+            app.quit();
+            return;
         }
     } catch (error) {
-        console.error("✗ Failed to initialize database:", error);
+        /**
+         * Final startup safety net.
+         * Any failure during bootstrap gets logged to the same central system.
+         */
+        logMainError(error, "background.bootstrap");
+        console.error("✗ Fatal startup error:", error);
         app.quit();
-        return;
+    }
+
+    try {
+        const { registerRagIpc } = require("./rag/ragService");
+        registerRagIpc();
+        console.log("✓ RAG service ready");
+    } catch (error) {
+        console.error("✗ Failed to load RAG service:", error);
     }
 })();
 
 
 app.on("window-all-closed", () => {
     if (process.platform !== "darwin") {
-        void stopAllWatchers().then(() => {
-            closeDB();
-            app.quit();
-        });
+  quizWebSocketServer.stop();
+  quizSessionManager.shutdown();
+    void stopAllWatchers();
+        closeDB();
+        app.quit();
     }
 });
 
 app.on("will-quit", () => {
-    void stopAllWatchers();
+  quizWebSocketServer.stop();
+  quizSessionManager.shutdown();
+  void stopAllWatchers();
     closeDB();
 });
 
@@ -281,10 +503,8 @@ app.on("before-quit", (event) => {
         console.error("Failed to flush pending writes before quit:", error);
       })
       .finally(() => {
-        void stopAllWatchers().then(() => {
-            closeDB();
-            app.quit();
-        });
+        closeDB();
+        app.quit();
       });
 });
 
@@ -371,24 +591,136 @@ ipcMain.handle(
     }
 );
 
-ipcMain.handle("fs:deleteItem", async (_event, itemPath: string) => {
+ipcMain.handle("fs:deleteItem", async (_event, itemPath: string, projectRoot?: string) => {
     const start = Date.now();
     try {
         const p = path.normalize(itemPath);
+        const resolvedProjectRoot = await resolveProjectRoot(p, projectRoot);
+        const trashRoot = await ensureTrashDirectory(resolvedProjectRoot);
         const queue = getQueue(path.dirname(p));
 
         await queue.enqueue(async () => {
             const stats = await fs.stat(p);
+            await applyTrashAutoPurge(resolvedProjectRoot);
+
+            if (isWithinPath(p, trashRoot)) {
+                await withRetry(async () => {
+                    if (stats.isDirectory()) await fs.rm(p, { recursive: true, force: true });
+                    else await fs.unlink(p);
+                });
+                return;
+            }
+
+            const id = randomUUID();
+            const trashedPath = path.join(trashRoot, `${id}__${path.basename(p)}`);
+
             await withRetry(async () => {
-                if (stats.isDirectory()) await fs.rm(p, { recursive: true, force: true });
-                else await fs.unlink(p);
+                await fs.rename(p, trashedPath);
             });
+
+            const index = await readTrashIndex(resolvedProjectRoot);
+            index.push({
+              id,
+              name: path.basename(p),
+              originalPath: p,
+              trashedPath,
+              isDirectory: stats.isDirectory(),
+              deletedAt: new Date().toISOString(),
+            });
+            await writeTrashIndex(resolvedProjectRoot, index);
         });
 
         return { success: true, data: { ms: Date.now() - start } };
     } catch (error: any) {
         return { success: false, error: error.message, code: error.code, ms: Date.now() - start };
     }
+});
+
+ipcMain.handle("fs:listTrash", async (_event, projectRoot: string) => {
+  try {
+    const resolvedProjectRoot = path.normalize(projectRoot);
+    await ensureTrashDirectory(resolvedProjectRoot);
+    await applyTrashAutoPurge(resolvedProjectRoot);
+
+    const index = await readTrashIndex(resolvedProjectRoot);
+    const existing: TrashIndexEntry[] = [];
+    for (const entry of index) {
+      if (fsSync.existsSync(entry.trashedPath)) {
+        existing.push(entry);
+      }
+    }
+
+    if (existing.length !== index.length) {
+      await writeTrashIndex(resolvedProjectRoot, existing);
+    }
+
+    existing.sort((a, b) => new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime());
+    return { success: true, data: existing };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("fs:restoreTrashItem", async (_event, projectRoot: string, itemId: string) => {
+  try {
+    const resolvedProjectRoot = path.normalize(projectRoot);
+    const index = await readTrashIndex(resolvedProjectRoot);
+    const item = index.find((entry) => entry.id === itemId);
+    if (!item) {
+      return { success: false, error: "Trash item not found." };
+    }
+
+    const itemExists = fsSync.existsSync(item.trashedPath);
+    if (!itemExists) {
+      await writeTrashIndex(resolvedProjectRoot, index.filter((entry) => entry.id !== itemId));
+      return { success: false, error: "Trashed file no longer exists." };
+    }
+
+    let restorePath = item.originalPath;
+    if (fsSync.existsSync(restorePath)) {
+      restorePath = buildNonConflictingRestorePath(restorePath);
+    }
+
+    await fs.mkdir(path.dirname(restorePath), { recursive: true });
+    await withRetry(async () => {
+      await fs.rename(item.trashedPath, restorePath);
+    });
+
+    await writeTrashIndex(
+      resolvedProjectRoot,
+      index.filter((entry) => entry.id !== itemId)
+    );
+
+    return { success: true, data: { restoredPath: restorePath } };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("fs:deleteTrashItem", async (_event, projectRoot: string, itemId: string) => {
+  try {
+    const resolvedProjectRoot = path.normalize(projectRoot);
+    const index = await readTrashIndex(resolvedProjectRoot);
+    const item = index.find((entry) => entry.id === itemId);
+    if (!item) {
+      return { success: false, error: "Trash item not found." };
+    }
+
+    if (fsSync.existsSync(item.trashedPath)) {
+      const stats = await fs.stat(item.trashedPath);
+      if (stats.isDirectory()) await fs.rm(item.trashedPath, { recursive: true, force: true });
+      else await fs.unlink(item.trashedPath);
+    }
+
+    await writeTrashIndex(
+      resolvedProjectRoot,
+      index.filter((entry) => entry.id !== itemId)
+    );
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
 });
 
 
@@ -413,13 +745,14 @@ ipcMain.handle("fs:renameItem", async (_event, oldPath: string, newPath: string)
 ipcMain.handle("fs:readFile", async (event, filePath: string) => {
   try {
         const ext = path.extname(filePath).toLowerCase();
+        const baseName = path.basename(filePath).toLowerCase();
 
         // Define file types
         const textExtensions = ['.md', '.txt', '.tex', '.json', '.js', '.ts', '.css', '.html', '.canvas', '.xml', '.yaml', '.yml'];
         const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.ico'];
 
         // Read as text
-        if (textExtensions.includes(ext)) {
+        if (textExtensions.includes(ext) || baseName === '.env') {
     const content = await fs.readFile(filePath, "utf-8");
             return { success: true, data: content, type: 'text' };
         }
@@ -707,22 +1040,14 @@ ipcMain.handle("fs:exportFolder", async (_, sourceFolder: string, targetFolder: 
 ipcMain.handle("db:addDirectory", async (_, uuid: string, path: string) => {
     try {
         const result = addDirectory(uuid, path);
-        
-        // Start watching the directory
-        if (fsSync.existsSync(path)) {
-            startWatching(uuid, path);
-            console.log(`Started watching directory: ${path}`);
-        } else {
-            console.warn(`Directory not found, skipping watcher: ${path}`);
-        }
-        
+    startWatching(uuid, path);
         return { success: true, data: result };
     } catch (error) {
         return { success: false, error: (error as Error).message };
     }
 });
 
-ipcMain.handle("db:updateDirectory", async (_, id: UUID, path?: string) => {
+ipcMain.handle("db:updateDirectory", async (_, id: UUID, name?: string, path?: string) => {
     try {
         const result = updateDirectory(id, path);
         return { success: true, data: result };
@@ -733,10 +1058,7 @@ ipcMain.handle("db:updateDirectory", async (_, id: UUID, path?: string) => {
 
 ipcMain.handle("db:deleteDirectory", async (_, id: UUID) => {
     try {
-        // Stop watching the directory first
-        await stopWatching(id);
-        console.log(`Stopped watching directory: ${id}`);
-        
+    await stopWatching(id);
         deleteDirectory(id);
         return { success: true };
     } catch (error) {
@@ -757,6 +1079,16 @@ ipcMain.handle("db:getAllDirectories", async () => {
     try {
         const data = getAllDirectories();
         return { success: true, data };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:getDirectoryIdByPath", async (_, path: string) => {
+    try {
+        const { getDirectoryIdByPath } = require("./database/documentRepository");
+        const id = getDirectoryIdByPath(path);
+        return { success: true, data: id };
     } catch (error) {
         return { success: false, error: (error as Error).message };
     }
@@ -800,20 +1132,48 @@ ipcMain.handle("db:getFilesByDirectory", async (_, directoryId: UUID) => {
 });
 
 // ========== CHUNKS ==========
-ipcMain.handle("db:addChunk", async (_, fileId: UUID, contentHash: string, content: string, embedding: Buffer) => {
+ipcMain.handle("db:addChunk", async (_, fileId: UUID, contentHash: string, content: string) => {
     try {
-        const result = addChunk(fileId, contentHash, content, embedding);
+        const result = addChunk(fileId, contentHash, content);
         return { success: true, data: result };
     } catch (error) {
         return { success: false, error: (error as Error).message };
     }
 });
 
+ipcMain.handle("db:addEmbedding", async (_, embedding: Float32Array | number[]) => {
+    try {
+        const result = addEmbedding(embedding);
+        return { success: true, data: result };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+ipcMain.handle("db:addEmbeddings", async (_, embeddings: Array<{
+    embedding: Float32Array | number[];
+}>) => {
+    try {
+        // Use existing addChunk in a loop
+        const results = [];
+        for (const embedding of embeddings) {
+            const result = addEmbedding(
+                embedding.embedding
+            );
+            results.push(result);
+        }
+        return { success: true, data: results };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+});
+
+
 ipcMain.handle("db:addChunks", async (_, chunks: Array<{
     fileId: UUID;
+    directoryId: UUID;
     contentHash: string;
     content: string;
-    embedding: Buffer;
 }>) => {
     try {
         // Use existing addChunk in a loop
@@ -823,7 +1183,6 @@ ipcMain.handle("db:addChunks", async (_, chunks: Array<{
                 chunk.fileId,
                 chunk.contentHash,
                 chunk.content,
-                chunk.embedding
             );
             results.push(result);
         }
@@ -889,6 +1248,10 @@ ipcMain.handle("indexer:indexDirectory", async (_, directoryId: string, director
     try {
         console.log(`Starting indexing for directory: ${directoryPath}`);
         console.log("Using placeholder embeddings (384-dimensional vectors)");
+
+    if (!isWatching(directoryId)) {
+      startWatching(directoryId, directoryPath);
+    }
         
         const stats = await chunkAndStoreDirectory(directoryId, directoryPath, config);
         return { success: true, data: stats };
@@ -914,73 +1277,45 @@ ipcMain.handle("indexer:indexFile", async (_, directoryId: string, filePath: str
     }
 });
 
-// ========== FILE WATCHER ==========
-
-/**
- * Start watching a directory
- */
-ipcMain.handle("watcher:start", async (_, directoryId: UUID, directoryPath: string) => {
-    try {
-        if (!fsSync.existsSync(directoryPath)) {
-            return { success: false, error: "Directory does not exist" };
-        }
-        
+    ipcMain.handle("watcher:start", async (_, directoryId: UUID, directoryPath: string) => {
+      try {
         startWatching(directoryId, directoryPath);
         return { success: true };
-    } catch (error) {
-        console.error("Failed to start watcher:", error);
+      } catch (error) {
         return { success: false, error: (error as Error).message };
-    }
-});
+      }
+    });
 
-/**
- * Stop watching a directory
- */
-ipcMain.handle("watcher:stop", async (_, directoryId: UUID) => {
-    try {
+    ipcMain.handle("watcher:stop", async (_, directoryId: UUID) => {
+      try {
         await stopWatching(directoryId);
         return { success: true };
-    } catch (error) {
-        console.error("Failed to stop watcher:", error);
+      } catch (error) {
         return { success: false, error: (error as Error).message };
-    }
-});
+      }
+    });
 
-/**
- * Stop all watchers
- */
-ipcMain.handle("watcher:stopAll", async () => {
-    try {
+    ipcMain.handle("watcher:stopAll", async () => {
+      try {
         await stopAllWatchers();
         return { success: true };
-    } catch (error) {
-        console.error("Failed to stop all watchers:", error);
+      } catch (error) {
         return { success: false, error: (error as Error).message };
-    }
-});
+      }
+    });
 
-/**
- * Get active watchers
- */
-ipcMain.handle("watcher:getActive", async () => {
-    try {
-        const watchers = getActiveWatchers();
-        return { success: true, data: watchers };
-    } catch (error) {
-        console.error("Failed to get active watchers:", error);
+    ipcMain.handle("watcher:getActive", async () => {
+      try {
+        return { success: true, data: getActiveWatchers() };
+      } catch (error) {
         return { success: false, error: (error as Error).message };
-    }
-});
+      }
+    });
 
-/**
- * Check if a directory is being watched
- */
-ipcMain.handle("watcher:isWatching", async (_, directoryId: UUID) => {
-    try {
-        const watching = isWatching(directoryId);
-        return { success: true, data: watching };
-    } catch (error) {
-        console.error("Failed to check watcher status:", error);
+    ipcMain.handle("watcher:isWatching", async (_, directoryId: UUID) => {
+      try {
+        return { success: true, data: isWatching(directoryId) };
+      } catch (error) {
         return { success: false, error: (error as Error).message };
-    }
-});
+      }
+    });
