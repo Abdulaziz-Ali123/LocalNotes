@@ -364,8 +364,14 @@ function EditorTab() {
   const globalSettings = useBoundStore((s) => s.settings.global);
   const setGlobal = useBoundStore((s) => s.settings.setGlobal);
 
-  const { autosaveEnabled, autosaveIntervalMs, wordWrap, showLineNumbers } =
-    globalSettings.editor;
+  const {
+    autosaveEnabled,
+    autosaveIntervalMs,
+    wordWrap,
+    showLineNumbers,
+    focusModeMaxWidth,
+    focusModeDimLevel,
+  } = globalSettings.editor;
   const autoPurgeDays = Number(globalSettings.trash?.autoPurgeDays ?? 30);
 
   return (
@@ -457,6 +463,52 @@ function EditorTab() {
           <span className="text-sm text-muted-foreground">days</span>
         </div>
       </SettingRow>
+
+      <div className="pt-4 border-t border-border">
+        <h3 className="text-sm font-semibold mb-4">Focus Mode</h3>
+
+        <SettingRow
+          label="Maximum Content Width"
+          description="The maximum width of the editor in Focus Mode (pixels)"
+        >
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={400}
+              max={2000}
+              step={50}
+              value={focusModeMaxWidth ?? 800}
+              onChange={(e) =>
+                setGlobal("editor.focusModeMaxWidth", Number(e.target.value))
+              }
+              className="w-24 p-2 rounded-md bg-secondary text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+            />
+            <span className="text-sm text-muted-foreground">px</span>
+          </div>
+        </SettingRow>
+
+        <SettingRow
+          label="Background Dim Level"
+          description="How much to dim the background in Focus Mode (0-1)"
+        >
+          <div className="flex items-center gap-4 w-56">
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={focusModeDimLevel ?? 0.8}
+              onChange={(e) =>
+                setGlobal("editor.focusModeDimLevel", parseFloat(e.target.value))
+              }
+              className="flex-1 accent-foreground"
+            />
+            <span className="text-xs font-mono w-8">
+              {Math.round((focusModeDimLevel ?? 0.8) * 100)}%
+            </span>
+          </div>
+        </SettingRow>
+      </div>
     </div>
   );
 }
