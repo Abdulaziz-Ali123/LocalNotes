@@ -13,7 +13,7 @@
  * - Import/export workflows for files and folders
  * - Markdown preview and live preview modes
  * - AI chat panel for assistant interactions
- * - Status bar showing file info and autosave status
+ * - Status bar showing file info, autosave status, and live document statistics
  * - Responsive sidebar collapse/expand with active panel tracking
  * - Persistence of sidebar and editor state during session
  * Git-history contributors: Malek Kchaou; Wesley McDougal; Abdulaziz-Ali123; Shaun; m518n748
@@ -22,6 +22,8 @@
  *  • Wesley McDougal - 05APR2026 - Added draggable sidebar rails, context-menu alignment, and bottom-rail layout updates
  *  • Wesley McDougal - 07APR2026 - Added "ai" to settingsDefaultTab union and handleOpenAiSettings
  *    callback so AIChatPanel can deep-link directly into the AI settings tab.
+ *  • Wesley McDougal - 19APR2026 - Added StatusBarStats to the status bar with per-stat toggle handler
+ *    (handleToggleStatVisibility) persisted via setGlobal("editor.statusBar", ...)
  */
 
 import { SidebarProvider, Sidebar, SidebarContent } from "../components/ui/sidebar";
@@ -41,10 +43,19 @@ import { produce } from "immer";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { TabsSlice } from "@/renderer/types/tab-slice";
 import { useKeybindings, KeybindingHandlers } from "@/renderer/hooks/useKeybindings";
+import { useTutorial } from "@/renderer/hooks/useTutorial";
 import SettingsDialog from "@/renderer/components/SettingsDialog";
+import CommandPalette from "@/renderer/components/CommandPalette";
+import {
+  buildCommandRegistry,
+  type SettingsTab,
+  type WorkspaceCommandFile,
+} from "@/renderer/commands/command-registry";
+import { useTheme } from "@/renderer/lib/theme";
 import { CiFileOn, CiSearch, CiExport, CiShare2, CiSettings } from "react-icons/ci";
 import {
   RiRobot2Line,
+  RiDeleteBinLine,
   RiFileHistoryLine,
   RiPaletteLine,
   RiFolderAddLine,
@@ -55,8 +66,11 @@ import {
 } from "react-icons/ri";
 import { Tag } from "lucide-react";
 import EditorSpace from "@/renderer/pages/editorSpace";
+import TrashPanel from "@/renderer/components/TrashPanel";
 import TabBar from "../components/TabBar";
 import AIChatPanel from "@/renderer/components/AIChatPanel";
+import StatusBarStats from "@/renderer/components/StatusBarStats";
+import { isImageFile } from "@/renderer/utils/fileValidation";
 import { Popover, PopoverContent, PopoverTrigger } from "@/renderer/components/ui/popover";
 import Link from "next/link";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
@@ -92,7 +106,13 @@ import type {
 // Autosave interval in milliseconds -> 10 seconds
 const AUTOSAVE_INTERVAL = 10000;
 
-type SidebarPanel = "file" | "search" | "theme" | "tags";
+type SidebarPanel = "file" | "search" | "theme" | "tags" | "trash";
+
+interface FileSystemItem {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+}
 
 type SidebarIconId =
   | "file"
@@ -101,6 +121,7 @@ type SidebarIconId =
   | "ai"
   | "theme"
   | "tags"
+  | "trash"
   | "share"
   | "settings"
   | "history";
@@ -112,6 +133,7 @@ const DEFAULT_SIDEBAR_ICON_ORDER: SidebarIconId[] = [
   "ai",
   "theme",
   "tags",
+  "trash",
   "share",
   "settings",
   "history",
@@ -436,8 +458,11 @@ export default function Editor() {
   // Tag filter states
   const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
   const [rootPath, setRootPath] = useState<string | null>(null);
+  const [workspaceFiles, setWorkspaceFiles] = useState<WorkspaceCommandFile[]>([]);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const globalSettings = useBoundStore((s) => s.settings.global);
   const setGlobalSetting = useBoundStore((s) => s.settings.setGlobal);
+  const { theme, customThemes, setTheme } = useTheme();
 
   const [layoutScope, setLayoutScope] = useState<SidebarLayoutScope>("global");
   const [sidebarLayout, setSidebarLayout] = useState<SidebarLayoutSettings>(
@@ -456,6 +481,79 @@ export default function Editor() {
     setRootPath(savedPath);
   }, []);
 
+  useEffect(() => {
+    if (!rootPath) {
+      setWorkspaceFiles([]);
+      return;
+    }
+
+    let cancelled = false;
+    const skippedDirectories = new Set([".git", ".localnotes", ".Local Notes", "node_modules"]);
+    const maxFiles = 500;
+
+    const relativePathFor = (filePath: string) => {
+      const prefix = rootPath.endsWith(window.fs.sep)
+        ? rootPath
+        : `${rootPath}${window.fs.sep}`;
+
+      return filePath.startsWith(prefix)
+        ? filePath.slice(prefix.length)
+        : window.fs.basename(filePath);
+    };
+
+    const collectFiles = async () => {
+      const files: WorkspaceCommandFile[] = [];
+      const visitedDirectories = new Set<string>();
+
+      const walk = async (dirPath: string) => {
+        if (cancelled || files.length >= maxFiles || visitedDirectories.has(dirPath)) {
+          return;
+        }
+
+        visitedDirectories.add(dirPath);
+        const result = await window.fs.readDirectory(dirPath);
+        if (!result.success || !Array.isArray(result.data)) {
+          return;
+        }
+
+        const items = result.data as FileSystemItem[];
+        for (const item of items) {
+          if (cancelled || files.length >= maxFiles) {
+            return;
+          }
+
+          if (item.isDirectory) {
+            if (!skippedDirectories.has(item.name)) {
+              await walk(item.path);
+            }
+            continue;
+          }
+
+          files.push({
+            path: item.path,
+            name: item.name,
+            relativePath: relativePathFor(item.path),
+          });
+        }
+      };
+
+      await walk(rootPath);
+      if (!cancelled) {
+        setWorkspaceFiles(
+          files.sort((a, b) =>
+            a.relativePath.localeCompare(b.relativePath, undefined, { sensitivity: "base" })
+          )
+        );
+      }
+    };
+
+    void collectFiles();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rootPath]);
+
   // keep a ref to the latest content so the interval callback doesn't need fileContent as a dep
   const contentRef = useRef<string>(fileContent);
   useEffect(() => {
@@ -464,7 +562,7 @@ export default function Editor() {
 
   // Track unsaved changes
   useEffect(() => {
-    if (selectedFile && fileContent !== "") {
+    if (selectedFile && fileContent !== "" && !isImageFile(selectedFile)) {
       setHasUnsavedChanges(true);
     }
   }, [fileContent, selectedFile]);
@@ -481,21 +579,24 @@ export default function Editor() {
    * Updates Zustand store with new filePath, content, and filename.
    * Called when user clicks file in FileSystemTree.
    */
-  const handleFileSelect = async (filePath: string) => {
+  const handleFileSelect = useCallback(async (filePath: string) => {
     const result = await window.fs.readFile(filePath);
     if (!result.success) {
       console.error("Failed to read file:", result.error);
       return;
     }
 
-    const selectedTabId = useBoundStore.getState().tabs.selectedTabId;
+    // For images, store as a data URL so editorSpace can render them directly
+    const content =
+      result.type === "binary" && result.mimeType
+        ? `data:${result.mimeType};base64,${result.data}`
+        : result.data;
 
-    // Update tab state directly
     useBoundStore.setState(
       produce((state: TabsSlice) => {
         const tab = state.tabs.items.find((t: any) => t.id === selectedTabId);
         if (tab) {
-          tab.content = result.data;
+          tab.content = content;
           tab.filePath = filePath;
           tab.name = window.fs.basename(filePath);
         }
@@ -505,7 +606,7 @@ export default function Editor() {
 
     setSelectedFile(filePath);
     setFileContent(result.data);
-  };
+  }, []);
 
   // Load content when selected tab changes
   const selectedTabId = useBoundStore((state) => state.tabs.selectedTabId);
@@ -537,6 +638,7 @@ const handleSave = async () => {
     const filePath = selectedTab?.filePath || null;
 
     if (!filePath) return;
+    if (isImageFile(filePath)) return; // Never write image data back to disk
 
     setIsSaving(true);
     const result = await window.fs.writeFile(filePath, fileContent);
@@ -855,6 +957,7 @@ const handleRailAlignmentChange = (edge: SidebarEdge, alignment: SidebarRailAlig
   // Autosave periodically
   useEffect(() => {
     if (!selectedFile) return;
+    if (isImageFile(selectedFile)) return; // Never autosave image files
 
     const interval = setInterval(async () => {
       if (!hasUnsavedChanges) return; // Don't save if no changes
@@ -891,6 +994,9 @@ const handleRailAlignmentChange = (edge: SidebarEdge, alignment: SidebarRailAlig
   const executeCommand = React.useCallback(
     async (command: string) => {
       switch (command) {
+        case "app.openCommandPalette":
+          setCommandPaletteOpen(true);
+          break;
         case "file.save":
           await handleSave();
           break;
@@ -976,6 +1082,9 @@ const handleRailAlignmentChange = (edge: SidebarEdge, alignment: SidebarRailAlig
   );
 
   const keybindingHandlers: KeybindingHandlers = {
+    "app.openCommandPalette": () => {
+      void executeCommand("app.openCommandPalette");
+    },
     "file.save": () => {
       void executeCommand("file.save");
     },
@@ -1001,6 +1110,15 @@ const handleRailAlignmentChange = (edge: SidebarEdge, alignment: SidebarRailAlig
       void executeCommand("view.search");
     },
   };
+
+  // First-time user tutorial
+  const { startTutorial } = useTutorial({
+    onReset: () => {
+      setSidebarCollapsed(false);
+      setActiveSidebarPanel("file");
+      setActiveMainView("editor");
+    },
+  });
 
   // Settings-driven keybindings (reads shortcuts from the settings store)
   useKeybindings({
@@ -1201,6 +1319,92 @@ const refreshTree = () => {
     }
   };
 
+  const openSettingsTab = useCallback((tab: SettingsTab) => {
+    setSettingsDefaultTab(tab);
+    setSettingsOpen(true);
+  }, []);
+
+  const openSidebarPanel = useCallback((panel: SidebarPanel) => {
+    setSidebarCollapsed(false);
+    setActiveSidebarPanel(panel);
+  }, []);
+
+  const commandPaletteCommands = React.useMemo(
+    () =>
+      buildCommandRegistry({
+        selectedFile,
+        rootPath,
+        workspaceFiles,
+        currentTheme: theme,
+        customThemes,
+        settings: globalSettings,
+        executeAction: executeCommand,
+        openSettings: openSettingsTab,
+        openSidebarPanel,
+        setMainView: setActiveMainView,
+        openWorkspaceFile: handleFileSelect,
+        setTheme,
+        setGlobalSetting,
+      }),
+    [
+      selectedFile,
+      rootPath,
+      workspaceFiles,
+      theme,
+      customThemes,
+      globalSettings,
+      executeCommand,
+      openSettingsTab,
+      openSidebarPanel,
+      handleFileSelect,
+      setTheme,
+      setGlobalSetting,
+    ]
+  );
+
+  const openSettingsTab = useCallback((tab: SettingsTab) => {
+    setSettingsDefaultTab(tab);
+    setSettingsOpen(true);
+  }, []);
+
+  const openSidebarPanel = useCallback((panel: SidebarPanel) => {
+    setSidebarCollapsed(false);
+    setActiveSidebarPanel(panel);
+  }, []);
+
+  const commandPaletteCommands = React.useMemo(
+    () =>
+      buildCommandRegistry({
+        selectedFile,
+        rootPath,
+        workspaceFiles,
+        currentTheme: theme,
+        customThemes,
+        settings: globalSettings,
+        executeAction: executeCommand,
+        openSettings: openSettingsTab,
+        openSidebarPanel,
+        setMainView: setActiveMainView,
+        openWorkspaceFile: handleFileSelect,
+        setTheme,
+        setGlobalSetting,
+      }),
+    [
+      selectedFile,
+      rootPath,
+      workspaceFiles,
+      theme,
+      customThemes,
+      globalSettings,
+      executeCommand,
+      openSettingsTab,
+      openSidebarPanel,
+      handleFileSelect,
+      setTheme,
+      setGlobalSetting,
+    ]
+  );
+
     /**
    * Functionality: popoverSideForEdge performs the popover side for edge workflow used by renderer/pages/editor.tsx.
    * Parameters: edge (SidebarEdge).
@@ -1241,6 +1445,7 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
         return (
           <button
             type="button"
+            data-tutorial="btn-files"
             onMouseDown={handleSidebarIconMouseDown}
             onClick={() => handleSidebarButtonClick("file")}
             className="app-nodrag-region size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
@@ -1254,6 +1459,7 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
         return (
           <button
             type="button"
+            data-tutorial="btn-search"
             onMouseDown={handleSidebarIconMouseDown}
             onClick={() => handleSidebarButtonClick("search")}
             className="app-nodrag-region size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
@@ -1269,6 +1475,7 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
             <PopoverTrigger asChild>
               <button
                 type="button"
+                data-tutorial="btn-import"
                 className="app-nodrag-region size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
                 title="Import/Export"
               >
@@ -1310,6 +1517,7 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
         return (
           <button
             type="button"
+            data-tutorial="btn-ai"
             onMouseDown={handleSidebarIconMouseDown}
             onClick={() => setActiveMainView((v) => (v === "ai" ? "editor" : "ai"))}
             className={`app-nodrag-region size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center transition-colors ${
@@ -1325,6 +1533,7 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
         return (
           <button
             type="button"
+            data-tutorial="btn-themes"
             onMouseDown={handleSidebarIconMouseDown}
             onClick={() => handleSidebarButtonClick("theme")}
             className="app-nodrag-region size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
@@ -1338,6 +1547,7 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
         return (
           <button
             type="button"
+            data-tutorial="btn-tags"
             onMouseDown={handleSidebarIconMouseDown}
             onClick={() => handleSidebarButtonClick("tags")}
             className="app-nodrag-region size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
@@ -1347,12 +1557,26 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
           </button>
         );
 
+      case "trash":
+        return (
+          <button
+            type="button"
+            onMouseDown={handleSidebarIconMouseDown}
+            onClick={() => handleSidebarButtonClick("trash")}
+            className="app-nodrag-region size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
+            title="Trash"
+          >
+            <RiDeleteBinLine className="w-12 h-12" />
+          </button>
+        );
+
       case "share":
         return (
           <Popover>
             <PopoverTrigger asChild>
               <button
                 type="button"
+                data-tutorial="btn-share"
                 onMouseDown={handleSidebarIconMouseDown}
                 className="app-nodrag-region size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
                 title="Share with Friends"
@@ -1383,6 +1607,7 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
         return (
           <button
             type="button"
+            data-tutorial="btn-settings"
             onClick={() => {
               setSettingsDefaultTab("sidebar");
               setSettingsOpen(true);
@@ -1398,6 +1623,7 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
         return (
           <button
             type="button"
+            data-tutorial="btn-files-history"
             className="app-nodrag-region size-12 rounded-md hover:bg-accent p-0.5 flex items-center justify-center"
             title="File Change History"
           >
@@ -1477,6 +1703,9 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
                                 onFiltersChange={setSelectedTagFilters}
                               />
                             )}
+                            {activeSidebarPanel === "trash" && (
+                              <TrashPanel rootPath={rootPath} onFileSelect={handleFileSelect} />
+                            )}
                           </>
                         )}
                       </SidebarContent>
@@ -1485,6 +1714,9 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
                 </ResizablePanel>
                 <ResizableHandle className="w-0 hover:bg-accent hover:w-1 z-50 cursor-col-resize" />
                 <ResizablePanel defaultSize={75} minSize={60}>
+                  {/* Hidden tutorial view-switcher triggers — always in DOM so Driver.js steps can click them */}
+                  <button data-tutorial="set-view-editor" className="hidden" aria-hidden="true" tabIndex={-1} onClick={() => setActiveMainView("editor")} />
+                  <button data-tutorial="set-view-ai"     className="hidden" aria-hidden="true" tabIndex={-1} onClick={() => setActiveMainView("ai")} />
                   {activeMainView === "ai" ? (
                     <div className="flex flex-col h-full overflow-hidden">
                       <div className="flex-shrink-0 flex items-center bg-background h-10 px-4 app-drag-region">
@@ -1520,7 +1752,7 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
                       </div>
                     </div>
                   ) : (
-                    <>
+                    <div data-tutorial="editor-area" className="flex flex-col h-full">
                       <TabBar />
                       <EditorSpace
                         selectedFile={selectedFile}
@@ -1534,13 +1766,16 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
                         setFileContent={setFileContent}
                         saveMessage={saveMessage}
                       />
-                    </>
+                    </div>
                   )}
                 </ResizablePanel>
               </>
             ) : (
               <>
                 <ResizablePanel defaultSize={75} minSize={60}>
+                  {/* Hidden tutorial view-switcher triggers — always in DOM so Driver.js steps can click them */}
+                  <button data-tutorial="set-view-editor" className="hidden" aria-hidden="true" tabIndex={-1} onClick={() => setActiveMainView("editor")} />
+                  <button data-tutorial="set-view-ai"     className="hidden" aria-hidden="true" tabIndex={-1} onClick={() => setActiveMainView("ai")} />
                   {activeMainView === "ai" ? (
                     <div className="flex flex-col h-full overflow-hidden">
                       <div className="flex-shrink-0 flex items-center bg-background h-10 px-4 app-drag-region">
@@ -1616,6 +1851,9 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
                                 rootPath={rootPath}
                                 onFiltersChange={setSelectedTagFilters}
                               />
+                            )}
+                            {activeSidebarPanel === "trash" && (
+                              <TrashPanel rootPath={rootPath} onFileSelect={handleFileSelect} />
                             )}
                           </>
                         )}
@@ -1716,6 +1954,11 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
           </DropdownMenuPrimitive.Root>
 
 
+          <CommandPalette
+            isOpen={commandPaletteOpen}
+            commands={commandPaletteCommands}
+            onClose={() => setCommandPaletteOpen(false)}
+          />
 
           {/* Settings Dialog */}
           <SettingsDialog
@@ -1728,6 +1971,7 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
             onSidebarPositionChange={handleSidebarPositionChange}
             onSidebarScopeChange={handleSidebarScopeChange}
             onResetSidebarLayout={handleResetSidebarLayout}
+            onStartTutorial={() => { setSettingsOpen(false); startTutorial(); }}
           />
 
           {/* Status Bar */}
@@ -1743,6 +1987,13 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Document stats */}
+            {selectedFile && !selectedFile.toLowerCase().endsWith(".canvas") && !isImageFile(selectedFile) && (
+              <StatusBarStats
+                content={fileContent}
+                isHtml={selectedFile.toLowerCase().endsWith(".txt")}
+              />
+            )}
             {/* File Type Button */}
             {selectedFile && (
               <Button

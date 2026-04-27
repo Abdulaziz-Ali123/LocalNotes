@@ -9,6 +9,7 @@
  * Revision History:
  *  • Wesley McDougal - 29MAR2026 - Default customThemes object and schema version bump to number 2
  *  • Wesley McDougal - 05APR2026 - Added sidebar layout defaults and updated schema version for sidebar layout persistence
+ *  • Wesley McDougal - 19APR2026 - Added statusBar defaults to DEFAULT_EDITOR; bumped LATEST_SCHEMA_VERSION to 6
  */
 
 import {
@@ -31,6 +32,7 @@ export const DEFAULT_SIDEBAR_ICON_ORDER = [
   "ai",
   "theme",
   "tags",
+  "trash",
   "share",
   "settings",
   "history",
@@ -97,6 +99,7 @@ export const DEFAULT_EDITOR: EditorSettings = {
 };
 
 export const DEFAULT_KEYBINDINGS: KeybindingMap = {
+  "app.openCommandPalette": "CommandOrControl+K",
   "file.save": "CommandOrControl+S",
   "file.open": "CommandOrControl+O",
   "file.newFile": "CommandOrControl+N",
@@ -123,6 +126,10 @@ export const DEFAULT_AI = {
   customModels: [],
 };
 
+export const DEFAULT_TRASH = {
+  autoPurgeDays: 30,
+};
+
 // ---------------------------------------------------------------------------
 // Composite defaults
 // ---------------------------------------------------------------------------
@@ -130,6 +137,7 @@ export const DEFAULT_AI = {
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   appearance: { ...DEFAULT_APPEARANCE },
   editor: { ...DEFAULT_EDITOR },
+  trash: { ...DEFAULT_TRASH },
   keybindings: { ...DEFAULT_KEYBINDINGS },
   llm: {
     defaultModelId: DEFAULT_LLM.defaultModelId,
@@ -163,4 +171,4 @@ export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
  * The current schema version. Bump this whenever the schema shape changes
  * and add a corresponding migration in migrations.ts.
  */
-export const LATEST_SCHEMA_VERSION = 5;
+export const LATEST_SCHEMA_VERSION = 6;

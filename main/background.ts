@@ -63,7 +63,7 @@ import {
     addEmbedding
 } from "./database/documentRepository";
 import { chunkDirectory, chunkSingleFile, getChunkStats, DirectoryChunkerConfig, chunkAndStoreDirectory, chunkAndStoreFile } from "./indexing/DirectoryChuncker";
-import { UUID } from "crypto";
+import { UUID, randomUUID } from "crypto";
 import { startWatching, stopWatching, stopAllWatchers, getActiveWatchers, isWatching } from "./watcher/fileWatcher";
 import {
     logMainError,
@@ -73,6 +73,7 @@ import { registerErrorLoggingIpc } from "./logging/registerErrorLoggingIpc";
 import { QuizSessionManager } from "./quiz/quizSessionManager";
 import { QuizWebSocketServer } from "./quiz/quizWebSocketServer";
 import { registerQuizIpc } from "./quiz/ipc-handlers";
+import { LOCAL_NOTES_FOLDER } from "./helpers/project-settings";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -291,6 +292,117 @@ const settingsManager = new SettingsManager();
 let mainWindowRef: Electron.BrowserWindow | null = null;
 const quizSessionManager = new QuizSessionManager();
 const quizWebSocketServer = new QuizWebSocketServer(quizSessionManager, 9898);
+const TRASH_FOLDER_NAME = ".trash";
+const TRASH_INDEX_FILE = "index.json";
+
+interface TrashIndexEntry {
+  id: string;
+  name: string;
+  originalPath: string;
+  trashedPath: string;
+  isDirectory: boolean;
+  deletedAt: string;
+}
+
+function getTrashRoot(projectRoot: string): string {
+  return path.join(projectRoot, LOCAL_NOTES_FOLDER, TRASH_FOLDER_NAME);
+}
+
+function getTrashIndexPath(projectRoot: string): string {
+  return path.join(getTrashRoot(projectRoot), TRASH_INDEX_FILE);
+}
+
+async function ensureTrashDirectory(projectRoot: string): Promise<string> {
+  const trashRoot = getTrashRoot(projectRoot);
+  await fs.mkdir(trashRoot, { recursive: true });
+  return trashRoot;
+}
+
+async function readTrashIndex(projectRoot: string): Promise<TrashIndexEntry[]> {
+  const indexPath = getTrashIndexPath(projectRoot);
+  try {
+    const raw = await fs.readFile(indexPath, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((entry) => entry && typeof entry.id === "string");
+  } catch {
+    return [];
+  }
+}
+
+async function writeTrashIndex(projectRoot: string, items: TrashIndexEntry[]): Promise<void> {
+  await ensureTrashDirectory(projectRoot);
+  await fs.writeFile(getTrashIndexPath(projectRoot), JSON.stringify(items, null, 2), "utf-8");
+}
+
+function isWithinPath(targetPath: string, parentPath: string): boolean {
+  const target = path.normalize(targetPath);
+  const parent = path.normalize(parentPath);
+  if (process.platform === "win32") {
+    return target.toLowerCase() === parent.toLowerCase() || target.toLowerCase().startsWith(`${parent.toLowerCase()}${path.sep}`);
+  }
+  return target === parent || target.startsWith(`${parent}${path.sep}`);
+}
+
+async function resolveProjectRoot(itemPath: string, explicitProjectRoot?: string): Promise<string> {
+  if (explicitProjectRoot) return path.normalize(explicitProjectRoot);
+
+  let current = path.normalize(path.dirname(itemPath));
+  while (true) {
+    const localNotesCandidate = path.join(current, LOCAL_NOTES_FOLDER);
+    const localNotesCompatCandidate = path.join(current, ".localnotes");
+    if (fsSync.existsSync(localNotesCandidate) || fsSync.existsSync(localNotesCompatCandidate)) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+
+  return path.dirname(path.normalize(itemPath));
+}
+
+function buildNonConflictingRestorePath(originalPath: string): string {
+  const dir = path.dirname(originalPath);
+  const ext = path.extname(originalPath);
+  const base = path.basename(originalPath, ext);
+  const restoredDateString = new Date().toISOString().replace(/[T:.Z]/g, "-");
+  const suffix = ` (restored ${restoredDateString})`;
+  return path.join(dir, ext ? `${base}${suffix}${ext}` : `${base}${suffix}`);
+}
+
+async function applyTrashAutoPurge(projectRoot: string): Promise<void> {
+  const settings = settingsManager.getResolvedGlobal();
+  const autoPurgeDays = Number(settings?.trash?.autoPurgeDays ?? 30);
+  if (!Number.isFinite(autoPurgeDays) || autoPurgeDays <= 0) return;
+
+  const cutoff = Date.now() - autoPurgeDays * 24 * 60 * 60 * 1000;
+  const index = await readTrashIndex(projectRoot);
+  const retained: TrashIndexEntry[] = [];
+
+  for (const entry of index) {
+    const deletedAtMs = new Date(entry.deletedAt).getTime();
+    const hasValidTimestamp = Number.isFinite(deletedAtMs);
+    if (!hasValidTimestamp) {
+      console.warn(`[Trash] Purging item with invalid deletedAt timestamp: ${entry.id}`);
+    }
+    const shouldPurge = !hasValidTimestamp || deletedAtMs < cutoff;
+    if (!shouldPurge) {
+      retained.push(entry);
+      continue;
+    }
+
+    try {
+      const stat = await fs.stat(entry.trashedPath);
+      if (stat.isDirectory()) await fs.rm(entry.trashedPath, { recursive: true, force: true });
+      else await fs.unlink(entry.trashedPath);
+    } catch {
+      // Keep index cleanup best-effort.
+    }
+  }
+
+  await writeTrashIndex(projectRoot, retained);
+}
 
 (async () => {
     try {
@@ -558,24 +670,136 @@ ipcMain.handle(
     }
 );
 
-ipcMain.handle("fs:deleteItem", async (_event, itemPath: string) => {
+ipcMain.handle("fs:deleteItem", async (_event, itemPath: string, projectRoot?: string) => {
     const start = Date.now();
     try {
         const p = path.normalize(itemPath);
+        const resolvedProjectRoot = await resolveProjectRoot(p, projectRoot);
+        const trashRoot = await ensureTrashDirectory(resolvedProjectRoot);
         const queue = getQueue(path.dirname(p));
 
         await queue.enqueue(async () => {
             const stats = await fs.stat(p);
+            await applyTrashAutoPurge(resolvedProjectRoot);
+
+            if (isWithinPath(p, trashRoot)) {
+                await withRetry(async () => {
+                    if (stats.isDirectory()) await fs.rm(p, { recursive: true, force: true });
+                    else await fs.unlink(p);
+                });
+                return;
+            }
+
+            const id = randomUUID();
+            const trashedPath = path.join(trashRoot, `${id}__${path.basename(p)}`);
+
             await withRetry(async () => {
-                if (stats.isDirectory()) await fs.rm(p, { recursive: true, force: true });
-                else await fs.unlink(p);
+                await fs.rename(p, trashedPath);
             });
+
+            const index = await readTrashIndex(resolvedProjectRoot);
+            index.push({
+              id,
+              name: path.basename(p),
+              originalPath: p,
+              trashedPath,
+              isDirectory: stats.isDirectory(),
+              deletedAt: new Date().toISOString(),
+            });
+            await writeTrashIndex(resolvedProjectRoot, index);
         });
 
         return { success: true, data: { ms: Date.now() - start } };
     } catch (error: any) {
         return { success: false, error: error.message, code: error.code, ms: Date.now() - start };
     }
+});
+
+ipcMain.handle("fs:listTrash", async (_event, projectRoot: string) => {
+  try {
+    const resolvedProjectRoot = path.normalize(projectRoot);
+    await ensureTrashDirectory(resolvedProjectRoot);
+    await applyTrashAutoPurge(resolvedProjectRoot);
+
+    const index = await readTrashIndex(resolvedProjectRoot);
+    const existing: TrashIndexEntry[] = [];
+    for (const entry of index) {
+      if (fsSync.existsSync(entry.trashedPath)) {
+        existing.push(entry);
+      }
+    }
+
+    if (existing.length !== index.length) {
+      await writeTrashIndex(resolvedProjectRoot, existing);
+    }
+
+    existing.sort((a, b) => new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime());
+    return { success: true, data: existing };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("fs:restoreTrashItem", async (_event, projectRoot: string, itemId: string) => {
+  try {
+    const resolvedProjectRoot = path.normalize(projectRoot);
+    const index = await readTrashIndex(resolvedProjectRoot);
+    const item = index.find((entry) => entry.id === itemId);
+    if (!item) {
+      return { success: false, error: "Trash item not found." };
+    }
+
+    const itemExists = fsSync.existsSync(item.trashedPath);
+    if (!itemExists) {
+      await writeTrashIndex(resolvedProjectRoot, index.filter((entry) => entry.id !== itemId));
+      return { success: false, error: "Trashed file no longer exists." };
+    }
+
+    let restorePath = item.originalPath;
+    if (fsSync.existsSync(restorePath)) {
+      restorePath = buildNonConflictingRestorePath(restorePath);
+    }
+
+    await fs.mkdir(path.dirname(restorePath), { recursive: true });
+    await withRetry(async () => {
+      await fs.rename(item.trashedPath, restorePath);
+    });
+
+    await writeTrashIndex(
+      resolvedProjectRoot,
+      index.filter((entry) => entry.id !== itemId)
+    );
+
+    return { success: true, data: { restoredPath: restorePath } };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("fs:deleteTrashItem", async (_event, projectRoot: string, itemId: string) => {
+  try {
+    const resolvedProjectRoot = path.normalize(projectRoot);
+    const index = await readTrashIndex(resolvedProjectRoot);
+    const item = index.find((entry) => entry.id === itemId);
+    if (!item) {
+      return { success: false, error: "Trash item not found." };
+    }
+
+    if (fsSync.existsSync(item.trashedPath)) {
+      const stats = await fs.stat(item.trashedPath);
+      if (stats.isDirectory()) await fs.rm(item.trashedPath, { recursive: true, force: true });
+      else await fs.unlink(item.trashedPath);
+    }
+
+    await writeTrashIndex(
+      resolvedProjectRoot,
+      index.filter((entry) => entry.id !== itemId)
+    );
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
 });
 
 
@@ -614,9 +838,6 @@ ipcMain.handle("fs:readFile", async (event, filePath: string) => {
 
         // Read as binary (base64) for images
         if (imageExtensions.includes(ext)) {
-            const buffer = await fs.readFile(filePath);
-            const base64 = buffer.toString('base64');
-
             // Map extensions to proper MIME types
             const mimeTypes: { [key: string]: string } = {
                 '.png': 'image/png',
@@ -628,12 +849,32 @@ ipcMain.handle("fs:readFile", async (event, filePath: string) => {
                 '.webp': 'image/webp',
                 '.ico': 'image/x-icon'
             };
+            const mime = mimeTypes[ext] || 'image/png';
 
+            let buffer = await fs.readFile(filePath);
+
+            // Self-heal: if the file was corrupted by a previous autosave writing a
+            // data URL as text, decode it back to the original binary and restore the file.
+            const asText = buffer.toString('utf-8');
+            const dataUrlPrefix = asText.match(/^data:([^;]+);base64,/);
+            if (dataUrlPrefix) {
+                const cleanBase64 = asText.slice(dataUrlPrefix[0].length).trim();
+                const restored = Buffer.from(cleanBase64, 'base64');
+                await fs.writeFile(filePath, restored);
+                return {
+                    success: true,
+                    data: cleanBase64,
+                    type: 'binary',
+                    mimeType: dataUrlPrefix[1] || mime,
+                };
+            }
+
+            const base64 = buffer.toString('base64');
             return {
                 success: true,
                 data: base64,
                 type: 'binary',
-                mimeType: mimeTypes[ext] || 'image/png'
+                mimeType: mime,
             };
         }
 

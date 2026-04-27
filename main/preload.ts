@@ -63,7 +63,12 @@ const fileSystemHandler = {
   createFolder: (folderPath: string) => ipcRenderer.invoke("fs:createFolder", folderPath),
   createFile: (filePath: string, content?: string) =>
     ipcRenderer.invoke("fs:createFile", filePath, content),
-  deleteItem: (itemPath: string) => ipcRenderer.invoke("fs:deleteItem", itemPath),
+  deleteItem: (itemPath: string, projectRoot?: string) => ipcRenderer.invoke("fs:deleteItem", itemPath, projectRoot),
+  listTrash: (projectRoot: string) => ipcRenderer.invoke("fs:listTrash", projectRoot),
+  restoreTrashItem: (projectRoot: string, itemId: string) =>
+    ipcRenderer.invoke("fs:restoreTrashItem", projectRoot, itemId),
+  deleteTrashItem: (projectRoot: string, itemId: string) =>
+    ipcRenderer.invoke("fs:deleteTrashItem", projectRoot, itemId),
   renameItem: (oldPath: string, newPath: string) =>
     ipcRenderer.invoke("fs:renameItem", oldPath, newPath),
   readFile: (filePath: string) => ipcRenderer.invoke("fs:readFile", filePath),

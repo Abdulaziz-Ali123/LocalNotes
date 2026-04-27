@@ -134,6 +134,12 @@ export function buildMenuTemplate(
       label: "View",
       submenu: [
         {
+          label: "Command Palette...",
+          accelerator: kb["app.openCommandPalette"] || undefined,
+          click: () => sendMenuCommand(mainWindow, "app.openCommandPalette"),
+        },
+        { type: "separator" as const },
+        {
           label: "Toggle Sidebar",
           accelerator: kb["view.toggleSidebar"] || undefined,
           click: () => sendMenuCommand(mainWindow, "view.toggleSidebar"),

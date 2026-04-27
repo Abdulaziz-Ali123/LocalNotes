@@ -79,7 +79,10 @@ declare global {
             readDirectory: (dirPath: string) => Promise<any>;
             createFolder: (folderPath: string) => Promise<DbResponse>;
             createFile: (filePath: string, content?: string) => Promise<DbResponse>;
-            deleteItem: (itemPath: string) => Promise<DbResponse>;
+            deleteItem: (itemPath: string, projectRoot?: string) => Promise<DbResponse>;
+            listTrash: (projectRoot: string) => Promise<DbResponse>;
+            restoreTrashItem: (projectRoot: string, itemId: string) => Promise<DbResponse>;
+            deleteTrashItem: (projectRoot: string, itemId: string) => Promise<DbResponse>;
             renameItem: (oldPath: string, newPath: string) => Promise<DbResponse>;
             readFile: (filePath: string) => Promise<any>;
             writeFile: (filePath: string, content: string) => Promise<DbResponse>;

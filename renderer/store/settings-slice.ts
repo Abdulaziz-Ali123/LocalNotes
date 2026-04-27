@@ -10,6 +10,8 @@
  *  • Wesley McDougal - 05APR2026 - Added sidebar layout types/defaults and persisted appearance layout state
  *  • Wesley McDougal - 07APR2026 - Added defaultModelId to AiSettings, loadError +
  *    retryLoad to SettingsSlice, and try/catch in initialize() to surface load failures.
+ *  • Wesley McDougal - 19APR2026 - Added StatusBarSettings interface and statusBar field to EditorSettings;
+ *    updated INITIAL_GLOBAL with statusBar defaults
  */
 
 import { StateCreator } from "zustand";
@@ -110,9 +112,14 @@ export interface AiSettings {
   customModels: CustomModel[];
 }
 
+export interface TrashSettings {
+  autoPurgeDays: number;
+}
+
 export interface GlobalSettings {
   appearance: AppearanceSettings;
   editor: EditorSettings;
+  trash: TrashSettings;
   keybindings: KeybindingMap;
   ai: AiSettings;
 }
@@ -171,6 +178,7 @@ export interface SettingsSlice {
 // ---------------------------------------------------------------------------
 
 const DEFAULT_KEYBINDING_ACTIONS: KeybindingAction[] = [
+  { id: "app.openCommandPalette", label: "Open Command Palette", category: "View", defaultAccelerator: "CommandOrControl+K" },
   { id: "file.save", label: "Save", category: "File", defaultAccelerator: "CommandOrControl+S" },
   { id: "file.open", label: "Open Folder", category: "File", defaultAccelerator: "CommandOrControl+O" },
   { id: "file.newFile", label: "New File", category: "File", defaultAccelerator: "CommandOrControl+N" },
@@ -210,6 +218,7 @@ const DEFAULT_SIDEBAR_ICON_ORDER = [
   "ai",
   "theme",
   "tags",
+  "trash",
   "share",
   "settings",
   "history",
@@ -259,6 +268,9 @@ const INITIAL_GLOBAL: GlobalSettings = {
     autosaveIntervalMs: 10_000,
     wordWrap: true,
     showLineNumbers: false,
+  },
+  trash: {
+    autoPurgeDays: 30,
   },
   keybindings: DEFAULT_KEYBINDINGS,
   ai: INITIAL_AI,

@@ -309,6 +309,7 @@ const deleteCurrentTheme = async () => {
       <div className="space-y-2">
         <label className="text-xs text-muted-foreground">Theme Preset / Saved Theme</label>
         <select
+          data-tutorial="theme-select"
           value={theme}
           onChange={(e) => setTheme(e.target.value as ThemeType)}
           className="w-full p-2 rounded bg-sidebar text-sidebar-foreground border border-sidebar-border focus:outline-none focus:ring-2 focus:ring-sidebar-ring"

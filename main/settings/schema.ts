@@ -8,6 +8,7 @@
  * Revision History:
  *  • Wesley McDougal - 29MAR2026 - Added CustomThemeTokens and customThemes to AppearanceSettings
  *  • Wesley McDougal - 05APR2026 - Added sidebar layout schema types and appearance/project layout support
+ *  • Wesley McDougal - 19APR2026 - Added StatusBarSettings interface and statusBar field to EditorSettings
  */
 
 // ---------------------------------------------------------------------------
@@ -86,6 +87,7 @@ export interface EditorSettings {
  * An empty string means the shortcut is unbound.
  */
 export interface KeybindingMap {
+  "app.openCommandPalette": string;
   "file.save": string;
   "file.open": string;
   "file.newFile": string;
@@ -155,6 +157,10 @@ export interface AiSettings {
   customModels: CustomModel[];
 }
 
+export interface TrashSettings {
+  autoPurgeDays: number;
+}
+
 // ---------------------------------------------------------------------------
 // Combined settings objects
 // ---------------------------------------------------------------------------
@@ -163,6 +169,7 @@ export interface AiSettings {
 export interface GlobalSettings {
   appearance: AppearanceSettings;
   editor: EditorSettings;
+  trash: TrashSettings;
   keybindings: KeybindingMap;
   llm: LLMSettings;
   ai: AiSettings;
