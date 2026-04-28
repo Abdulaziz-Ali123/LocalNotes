@@ -25,15 +25,10 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Build NextJS and Main Process
         run: npm run build
-
-      - name: Build with electron-builder
-        run: npx electron-builder ${{ matrix.args }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
