@@ -10,7 +10,7 @@
  */
 
 import { screen, BrowserWindow, BrowserWindowConstructorOptions, Rectangle } from "electron";
-import Store from "electron-store";
+import ElectronStore from "electron-store";
 
 /**
  * Functionality: createWindow performs the create window workflow used by main/helpers/create-window.ts.
@@ -24,7 +24,7 @@ export const createWindow = (
 ): BrowserWindow => {
   const key = "window-state";
   const name = `window-state-${windowName}`;
-  const store = new Store<Rectangle>({ name });
+  const store = new ElectronStore<{ [key: string]: Rectangle }>({ name }) as any;
   const defaultSize = {
     width: options.width,
     height: options.height,

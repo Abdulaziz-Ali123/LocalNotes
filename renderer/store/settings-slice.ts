@@ -75,6 +75,8 @@ export interface EditorSettings {
   autosaveIntervalMs: number;
   wordWrap: boolean;
   showLineNumbers: boolean;
+  focusModeMaxWidth:number;
+  focusModeDimLevel: number;
 }
 
 export interface KeybindingMap {
@@ -268,6 +270,8 @@ const INITIAL_GLOBAL: GlobalSettings = {
     autosaveIntervalMs: 10_000,
     wordWrap: true,
     showLineNumbers: false,
+    focusModeMaxWidth: 800,
+    focusModeDimLevel: 0.5,
   },
   trash: {
     autoPurgeDays: 30,

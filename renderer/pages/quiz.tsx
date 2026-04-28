@@ -44,7 +44,7 @@ export default function QuizPage() {
             // 3. Check llm.models registry
             const llmModels = globalSettings?.llm?.models;
             if (llmModels && Object.keys(llmModels).length > 0) {
-                return globalSettings.llm.defaultModelId || Object.values(llmModels)[0]?.id || null;
+                return globalSettings.llm.defaultModelId || null;
             }
         } catch { /* ignore */ }
 
@@ -64,14 +64,14 @@ export default function QuizPage() {
             const currentFolderPath = localStorage.getItem("currentFolderPath");
             if (!currentFolderPath) throw new Error("No folder open.");
 
-            const idRes = await window.db.getDirectoryIdByPath(currentFolderPath);
+            const idRes = await (window as any).db?.getDirectoryIdByPath(currentFolderPath);
             const directoryId = idRes?.success ? idRes.data : null;
 
             if (!directoryId) {
                 throw new Error("Directory ID not found for RAG context.");
             }
 
-            const contextRes = await window.rag.retrieveContext(directoryId, previewMode, 10);
+            const contextRes = await (window as any).rag?.retrieveContext(directoryId, previewMode, 10);
             const ragChunks = contextRes?.success && contextRes?.contextText ? contextRes.contextText : "No local notes found.";
 
             const systemPrompt = `You are a quiz generation engine. You output only valid JSON. No prose, no markdown, no explanation.

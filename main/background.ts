@@ -432,11 +432,11 @@ async function applyTrashAutoPurge(projectRoot: string): Promise<void> {
         const globalSettings = await settingsManager.loadGlobal();
 
   const mainWindow = createWindow("main", {
-    width: 1000,
-    height: 600,
+    width: 1300,
+    height: 1000,
     autoHideMenuBar: false,
     webPreferences: {
-      preload: path.join(app.getAppPath(), "app", "preload.js"),
+      preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,

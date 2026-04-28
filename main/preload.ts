@@ -15,10 +15,10 @@
 
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
 import path from "path";
-import { DirectoryChunkerConfig, DirectoryChunkResult} from "./indexing/DirectoryChuncker";
-import { Chunk } from "./indexing/chunking";
-import { UUID } from "crypto";
-import { addEmbedding } from "./database/documentRepository";
+import type { DirectoryChunkerConfig, DirectoryChunkResult } from "./indexing/DirectoryChuncker";
+import type { Chunk } from "./indexing/chunking";
+import type { UUID } from "crypto";
+
 
 interface DbResponse<T = any> {
    success: boolean;

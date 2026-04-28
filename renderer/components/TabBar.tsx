@@ -32,14 +32,13 @@ export default function TabBar() {
 
   return (
     <React.Fragment>
-      <div data-tutorial="tab-bar" className="flex flex-row  bg-background h-10 gap-10 app-drag-region w-full">
-        <div></div>
-        <div className=" flex flex-flex-row justify-between mt-2 pb-0 w-5/6 rounded-t-md app-nodrag-region">
+      <div data-tutorial="tab-bar" className="flex flex-row bg-background h-10 app-drag-region w-full border-b border-border/50">
+        <div className="flex flex-row justify-between mt-2 pb-0 w-full rounded-t-md app-nodrag-region">
           <Reorder.Group
             as="ul"
             axis="x"
             onReorder={reorderTabs}
-            className="flex-grow flex-nowrap flex justify-start items-center pr-[10px] w-full"
+            className="flex-grow flex-nowrap flex justify-start items-center pr-[10px] w-full h-8"
             values={tabs}
           >
             <AnimatePresence initial={false}>
@@ -55,7 +54,7 @@ export default function TabBar() {
               ))}
 
               <motion.button
-                className="app-nodrag-region flex items-center justify-center hover:bg-accent rounded-md h-6 w-6 transition-all duration-300 ml-2"
+                className="flex items-center justify-center hover:bg-accent rounded-md h-6 w-6 transition-all duration-300 ml-2 flex-shrink-0"
                 onClick={add}
                 whileTap={{ scale: 0.9 }}
               >

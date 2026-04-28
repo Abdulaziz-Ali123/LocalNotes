@@ -10,7 +10,7 @@
  */
 
 import Database from "better-sqlite3";
-import { load } from "sqlite-vec";
+import { getLoadablePath } from "sqlite-vec";
 import * as fs from "fs";
 import * as path from "path";
 import { app } from "electron";
@@ -27,7 +27,7 @@ let dbInstance: Database.Database | null = null;
 export function initializeDB(): void {
     const databasePath = path.join(getConfigDirectoryPath(), "database", "LocalNotes.db");
     const schemaPath = app.isPackaged
-        ? path.join(process.resourcesPath, "assets", "schema.sql")
+        ? path.join(app.getAppPath(), "assets", "schema.sql")
         : path.join(__dirname, "..", "renderer", "public", "assets", "schema.sql");
 
     console.log("Initializing database...");
@@ -51,7 +51,11 @@ export function initializeDB(): void {
         PRAGMA journal_mode = WAL;
     `);
 
-    load(dbInstance); //this enables vec0
+    let loadablePath = getLoadablePath();
+    if (app.isPackaged) {
+        loadablePath = loadablePath.replace("app.asar", "app.asar.unpacked");
+    }
+    dbInstance.loadExtension(loadablePath); //this enables vec0
 
     console.log("Database connected");
 

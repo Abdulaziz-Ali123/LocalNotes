@@ -284,17 +284,20 @@ export default function AIChatPanel({ onOpenAiSettings }: AIChatPanelProps = {})
   const settingsLoadError = useBoundStore((s) => s.settings.loadError);
   // re-runs initialize() and clears loadError; bound to Retry button
   const retrySettingsLoad = useBoundStore((s) => s.settings.retryLoad);
-
   const [conversations, setConversations] = useState<Conversation[]>([
     {
       id: generateId(),
       title: "New Chat",
       messages: [],
-  // seed the first conversation from saved default, then first model, then empty
       model: aiSettings?.defaultModelId ?? aiSettings?.customModels?.[0]?.id ?? "",
       createdAt: new Date(),
     },
   ]);
+  const conversationsRef = useRef<Conversation[]>(conversations);
+
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
   const [activeConvoId, setActiveConvoId] = useState(conversations[0].id);
   const [isInitializingRag, setIsInitializingRag] = useState(false);
   const [ragInitStatus, setRagInitStatus] = useState("");
@@ -417,7 +420,8 @@ const executeRAG = async (convoId: string, userText: string) => {
       }));
 
       // 3. Prepare Chat Prompt
-      const c = conversations.find(c => c.id === convoId);
+      const latestConvos = conversationsRef.current;
+      const c = latestConvos.find(c => c.id === convoId);
       if (!c) return;
 
       const systemPrompt = `You are a helpful assistant assisting the user with their local markdown notes repository.
