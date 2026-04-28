@@ -53,7 +53,11 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/*
+          files: |
+            artifacts/**/LocalNotes Setup *.exe
+            artifacts/**/LocalNotes Setup *.exe.blockmap
+            artifacts/**/*.dmg
+            artifacts/**/*.dmg.blockmap
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
