@@ -15,4 +15,5 @@ asarUnpack:
   - "node_modules/sqlite-vec*/**"
   - "node_modules/better-sqlite3/**"
   - "node_modules/node-llama-cpp/**"
+buildDependenciesFromSource: false
 publish: null
