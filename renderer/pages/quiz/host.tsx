@@ -12,7 +12,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { Button } from "@/renderer/components/ui/button";
 import { useRouter } from "next/router";
-import { Brain, FileText, Loader2, ArrowLeft } from "lucide-react";
+import { Brain, FileText, Loader2, ArrowLeft, Play } from "lucide-react";
 import { useBoundStore } from "@/renderer/store/useBoundStore";
 import { extractJsonFromLLMResponse } from "@/renderer/lib/extractJson";
 import QuizConfigForm, {
@@ -84,6 +84,7 @@ export default function QuizHostPage() {
 
   // Subscribes to live session updates from the main process.
   useEffect(() => {
+    if (typeof window === "undefined" || !window.quiz) return;
     const unsubscribe = window.quiz.onSessionUpdated((payload) => {
       if (payload.code !== code) return;
       setSnapshot(payload.snapshot as Snapshot);
@@ -123,7 +124,7 @@ export default function QuizHostPage() {
       }
       const llmModels = globalSettings?.llm?.models;
       if (llmModels && Object.keys(llmModels).length > 0) {
-        return globalSettings.llm.defaultModelId || Object.values(llmModels)[0]?.id || null;
+        return globalSettings.llm.defaultModelId || null;
       }
     } catch { /* ignore */ }
     return null;
@@ -200,6 +201,7 @@ export default function QuizHostPage() {
     try {
       setError("");
       const questions = JSON.parse(questionsJson);
+      if (!window.quiz) throw new Error("Quiz API not available");
       const result = await window.quiz.createSession({ hostName, questionTimeSec, questions });
       if (!result.success) {
         setError(result.error || "Failed to create session.");
@@ -217,19 +219,22 @@ export default function QuizHostPage() {
 
   const startQuiz = async () => {
     if (!code) return;
+    if (!window.quiz) return;
     const result = await window.quiz.startQuiz(code);
     if (!result.success) setError(result.error || "Unable to start quiz.");
   };
 
   const nextQuestion = async () => {
     if (!code) return;
+    if (!window.quiz) return;
     const result = await window.quiz.nextQuestion(code);
     if (!result.success) setError(result.error || "Unable to advance question.");
   };
 
   const endSession = async () => {
     if (!code) return;
-    await window.quiz.endSession(code);
+    if (!window.quiz) return;
+    await window.quiz.endQuiz(code);
     router.push("/quiz");
   };
 

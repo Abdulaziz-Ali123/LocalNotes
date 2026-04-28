@@ -96,6 +96,8 @@ export const DEFAULT_EDITOR: EditorSettings = {
   autosaveIntervalMs: 10_000,
   wordWrap: true,
   showLineNumbers: false,
+  focusModeMaxWidth: 800,
+  focusModeDimLevel: 0.5,
 };
 
 export const DEFAULT_KEYBINDINGS: KeybindingMap = {

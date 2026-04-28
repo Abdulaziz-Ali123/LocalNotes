@@ -20,6 +20,7 @@ import TagIndicators from "./TagIndicators";
 import { validateFileName } from "@/renderer/utils/fileValidation";
 import { useErrorToast } from "@/renderer/components/feedback/ErrorToastProvider";
 import { reportAppError } from "@/renderer/lib/reportAppError";
+import path from 'path-browserify';
 
 interface FileSystemItem {
   name: string;
@@ -546,10 +547,8 @@ const createNewFile = async (parentPath: string) => {
 
 
                 // Normalize parent path for consistent keys + IDs
-                const parentNorm = window.fs.normalize(parentPath);
-
-                // Safe join (no mixed slashes)
-                const newFilePath = window.fs.join(parentNorm, v.name);
+                const parentNorm = path.normalize(parentPath);
+                const newFilePath = path.join(parentNorm, v.name);
 
                 try {
                     setIsCreating(true);

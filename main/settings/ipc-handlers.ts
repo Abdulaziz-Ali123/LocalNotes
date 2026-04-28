@@ -258,18 +258,66 @@ export function registerSettingsIpc(
         const controller = new AbortController();
         activeControllers.set(requestId, controller);
 
+        // Build the request body
+        const requestBody: any = {
+          model: modelString,
+          messages: [...messages], // Clone to avoid mutation
+          stream: true,
+        };
+
+        // If thinking is enabled, we need to pass the appropriate parameters
+        // and ensure the message history doesn't end with an assistant message (prefill),
+        // as thinking models generally require starting with a <thinking> block.
+        if (thinkingEnabled) {
+          // 1. Clean up message history: remove trailing non-user messages
+          // Thinking models generally require starting with a fresh user message
+          // and specifically forbid assistant pre-fill.
+          while (requestBody.messages.length > 0) {
+            const lastMsg = requestBody.messages[requestBody.messages.length - 1];
+            const role = (lastMsg.role || "").toLowerCase();
+            const content = typeof lastMsg.content === "string" ? lastMsg.content.trim() : "";
+            
+            if (role === "assistant" || role === "system" || !content) {
+              requestBody.messages.pop();
+            } else {
+              break;
+            }
+          }
+
+          // 2. Add provider-specific thinking parameters
+          if (currentModel.provider === "Anthropic" || modelString.toLowerCase().includes("claude-3-7")) {
+            requestBody.thinking = { type: "enabled", budget_tokens: 4000 };
+            // Anthropic models with thinking enabled require max_tokens instead of max_completion_tokens for now,
+            // but we'll stick to their specific spec.
+            requestBody.max_tokens = 8000; 
+          } else if (modelString.toLowerCase().startsWith("o1") || modelString.toLowerCase().startsWith("o3")) {
+             // OpenAI O-series doesn't use "enable_thinking" but "reasoning_effort"
+             requestBody.reasoning_effort = "medium";
+          } else {
+            // Generic/Other providers (like OpenRouter or custom proxies)
+            requestBody.enable_thinking = true;
+          }
+        }
+
+        // For Anthropic, move system message to top-level if it exists
+        if (currentModel.provider === "Anthropic") {
+          const systemMsgIdx = requestBody.messages.findIndex((m: any) => m.role === "system");
+          if (systemMsgIdx !== -1) {
+            const [systemMsg] = requestBody.messages.splice(systemMsgIdx, 1);
+            requestBody.system = systemMsg.content;
+          }
+        }
+
         const response = await fetch(endpoint, {
           method: "POST",
           signal: controller.signal,
           headers: {
             "Content-Type": "application/json",
             ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+            // Some providers (like Anthropic) require specific version headers
+            ...(currentModel.provider === "Anthropic" ? { "anthropic-version": "2023-06-01" } : {}),
           },
-          body: JSON.stringify({
-            model: modelString,
-            messages: messages,
-            stream: true,
-          }),
+          body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {
@@ -336,32 +384,6 @@ export function registerSettingsIpc(
             }
           }
         }
-
-        // If SSE parsing yielded nothing, the provider may have returned
-        // a plain (non-streaming) JSON response — try to extract content.
-        if (!fullContent && rawBody.trim()) {
-          try {
-            const plain = JSON.parse(rawBody.trim());
-            fullContent =
-              plain.choices?.[0]?.message?.content ||
-              plain.choices?.[0]?.delta?.content ||
-              plain.content ||
-              plain.response ||
-              "";
-          } catch {
-            // rawBody might not be valid JSON either — just use it as-is
-            console.warn("[LLM] Could not parse raw response as JSON, using raw text.");
-            fullContent = rawBody.trim();
-          }
-        }
-
-        if (!fullContent) {
-          console.error("[LLM] Empty response. Raw body:", rawBody.slice(0, 500));
-          throw new Error("LLM returned an empty response. Check your model configuration.");
-        }
-
-        console.log("[LLM] Response length:", fullContent.length);
-        console.log("[LLM] Response preview:", fullContent.slice(0, 500));
 
         // If SSE parsing yielded nothing, the provider may have returned
         // a plain (non-streaming) JSON response — try to extract content.

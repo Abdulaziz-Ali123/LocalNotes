@@ -83,7 +83,7 @@ export default function QuizRenderer({ payload }: QuizRendererProps) {
         return <FlashcardsView payload={payload} />;
     }
 
-    return <QuizView payload={payload} />;
+    return <QuizView key={payload.meta.topic + payload.items.length} payload={payload} />;
 }
 
 /**
@@ -191,7 +191,7 @@ function QuizView({ payload }: { payload: QuizDocument }) {
     const [selectedAnswers, setSelectedAnswers] = useState<Record<number, unknown>>({});
     const [showSummary, setShowSummary] = useState(false);
 
-    const currentItem = payload.items[currentIndex];
+    const currentItem = payload.items[currentIndex] || payload.items[0];
     const total = payload.items.length;
 
     const answeredCount = useMemo(
@@ -401,7 +401,7 @@ const handleRestart = () => {
                                 Question {currentIndex + 1}
                             </div>
                             <h2 className="text-lg sm:text-2xl font-semibold max-w-2xl mx-auto">
-                                {"question" in currentItem ? currentItem.question : ""}
+                                {currentItem && "question" in currentItem ? currentItem.question : "Question not found"}
                             </h2>
                         </div>
                         <div className="flex-shrink-0">

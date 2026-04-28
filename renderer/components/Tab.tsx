@@ -53,15 +53,15 @@ export const Tab = ({ item, onClick, onRemove, isSelected, showSeperator }: Prop
           ? "bg-secondary text-foreground"
           : "bg-background hover:bg-primary-foreground",
         "app-nodrag-region",
-        "w-full pl-4 relative cursor-pointer h-8 flex justify-between items-center flex-1 overflow-hidden select-none rounded-t-md"
+        "min-w-[120px] max-w-[200px] pl-4 relative cursor-pointer h-8 flex justify-between items-center flex-1 overflow-hidden select-none rounded-t-md border-r border-border/20"
       )}
       onClick={onClick}
     >
-      <motion.span className="truncate w-9/12">{`${item.name}`}</motion.span>
+      <motion.span className="truncate w-10/12 text-xs font-medium">{item.name}</motion.span>
 
       <motion.div
         layout
-        className="absolute top-0 bottom-0 right-[0px] flex algin-center items-center justify-end flex-shrink-0 pr-2"
+        className="absolute top-0 bottom-0 right-[0px] flex items-center justify-end pr-2"
       >
         <motion.button
           onPointerDown={(event) => {
@@ -69,10 +69,11 @@ export const Tab = ({ item, onClick, onRemove, isSelected, showSeperator }: Prop
             onRemove();
           }}
           initial={false}
+          className="hover:bg-accent/50 rounded-full p-0.5 transition-colors"
         >
           <X
-            color={"var(--foreground)"}
-            className={cn("rounded-full transition-all duratoin-300")}
+            size={14}
+            className={cn("transition-all duration-300")}
           ></X>
         </motion.button>
       </motion.div>

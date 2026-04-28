@@ -199,6 +199,28 @@ export function getDirectoryIdByPath(path: string): string | undefined {
 
 
 /**
+ * Functionality: getFileByAbsolutePath performs the get file by absolute path workflow used by main/database/documentRepository.ts.
+ * Parameters: filePath (string).
+ * Returns: Returns the value produced by the implementation, or void when used as an event handler or side-effect routine.
+ * Usage: Call getFileByAbsolutePath from the owning module or component when this behavior is required.
+ */
+export function getFileByAbsolutePath(filePath: string) {
+    const db = getDB();
+
+    try {
+        return db.prepare(`
+            SELECT *
+            FROM files
+            WHERE file_path = ?
+            LIMIT 1
+        `).get(filePath);
+    } catch (error) {
+        console.error("Failed to get file by absolute path:", error);
+        throw error;
+    }
+}
+
+/**
  * Functionality: addFile performs the add file workflow used by main/database/documentRepository.ts.
  * Parameters: directoryId (UUID); filePath (string); fileHash (string); lastModified (number).
  * Returns: Returns { id: UUID; result: any }.
@@ -211,8 +233,21 @@ export function addFile(
     lastModified: number
 ): { id: UUID; result: any } {
     const db = getDB();
-    const id: UUID = randomUUID();
+    
+    // Check if file already exists globally by path
+    const existing = getFileByAbsolutePath(filePath) as any;
+    if (existing) {
+        const sql = `
+            UPDATE files
+            SET directory_id = ?, file_hash = ?, last_modified = ?
+            WHERE id = ?
+        `;
+        const stmt = db.prepare(sql);
+        const result = stmt.run(directoryId, fileHash, lastModified, existing.id);
+        return { id: existing.id, result };
+    }
 
+    const id: UUID = randomUUID();
     const sql = `
         INSERT INTO files (
             id,

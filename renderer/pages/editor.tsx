@@ -583,29 +583,60 @@ export default function Editor() {
    * Called when user clicks file in FileSystemTree.
    */
   const handleFileSelect = useCallback(async (filePath: string) => {
+    const state = useBoundStore.getState();
+    const existingTabIndex = state.tabs.items.findIndex(t => t.filePath === filePath);
+
+    if (existingTabIndex !== -1) {
+      // File is already open, just switch to it
+      await state.tabs.setSelectedTab(state.tabs.items[existingTabIndex]);
+      return;
+    }
+
     const result = await window.fs.readFile(filePath);
     if (!result.success) {
       console.error("Failed to read file:", result.error);
       return;
     }
 
-    // For images, store as a data URL so editorSpace can render them directly
     const content =
       result.type === "binary" && result.mimeType
         ? `data:${result.mimeType};base64,${result.data}`
         : result.data;
 
-    useBoundStore.setState(
-      produce((state: TabsSlice) => {
-        const tab = state.tabs.items.find((t: any) => t.id === selectedTabId);
-        if (tab) {
-          tab.content = content;
-          tab.filePath = filePath;
-          tab.name = window.fs.basename(filePath);
-        }
-        return state;
-      })
-    );
+    const currentTab = state.tabs.items.find(t => t.id === state.tabs.selectedTabId);
+    
+    // If the current tab is an empty "Untitled" tab, reuse it
+    if (currentTab && !currentTab.filePath && currentTab.name === "Untitled" && currentTab.content === "") {
+       useBoundStore.setState(
+        produce((state: TabsSlice) => {
+          const tab = state.tabs.items.find((t: any) => t.id === currentTab.id);
+          if (tab) {
+            tab.content = content;
+            tab.filePath = filePath;
+            tab.name = window.fs.basename(filePath);
+          }
+          return state;
+        })
+      );
+    } else {
+      // Otherwise, create a new tab for this file
+      const newTabId = await window.tabs.new();
+      if (newTabId !== -1) {
+        useBoundStore.setState(
+          produce((state: TabsSlice) => {
+            state.tabs.items.push({
+              id: newTabId,
+              name: window.fs.basename(filePath),
+              content: content,
+              filePath: filePath,
+            });
+            state.tabs.selectedTabId = newTabId;
+            state.tabs.selectedTabIndex = state.tabs.items.length - 1;
+          })
+        );
+        await window.tabs.select(newTabId);
+      }
+    }
 
     setSelectedFile(filePath);
     setFileContent(result.data);
@@ -1714,7 +1745,7 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
                   </ResizablePanel>
                 )}
                 {!isFocusMode && <ResizableHandle className="w-0 hover:bg-accent hover:w-1 z-50 cursor-col-resize" />}
-                <ResizablePanel defaultSize={75} minSize={60} className="relative z-[45]">
+                <ResizablePanel defaultSize={80} minSize={60} className="relative z-[45]">
                   {/* Hidden tutorial view-switcher triggers — always in DOM so Driver.js steps can click them */}
                   <button data-tutorial="set-view-editor" className="hidden" aria-hidden="true" tabIndex={-1} onClick={() => setActiveMainView("editor")} />
                   <button data-tutorial="set-view-ai"     className="hidden" aria-hidden="true" tabIndex={-1} onClick={() => setActiveMainView("ai")} />
@@ -1758,7 +1789,7 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
                       <motion.div
                         layout
                         style={{ 
-                          width: isFocusMode ? `${globalSettings.editor.focusModeMaxWidth}px` : '100%',
+                          width: '100%',
                           maxWidth: '100%',
                           transition: 'width 0.3s ease-in-out'
                         }}
@@ -1785,7 +1816,7 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
               </>
             ) : (
               <>
-                <ResizablePanel defaultSize={75} minSize={60} className="relative z-[45]">
+                <ResizablePanel defaultSize={80} minSize={60} className="relative z-[45]">
                   {/* Hidden tutorial view-switcher triggers — always in DOM so Driver.js steps can click them */}
                   <button data-tutorial="set-view-editor" className="hidden" aria-hidden="true" tabIndex={-1} onClick={() => setActiveMainView("editor")} />
                   <button data-tutorial="set-view-ai"     className="hidden" aria-hidden="true" tabIndex={-1} onClick={() => setActiveMainView("ai")} />
@@ -1817,7 +1848,7 @@ const handleSidebarIconMouseDown = (event: React.MouseEvent<HTMLButtonElement>) 
                       <motion.div
                         layout
                         style={{ 
-                          width: isFocusMode ? `${globalSettings.editor.focusModeMaxWidth}px` : '100%',
+                          width: '100%',
                           maxWidth: '100%',
                           transition: 'width 0.3s ease-in-out'
                         }}

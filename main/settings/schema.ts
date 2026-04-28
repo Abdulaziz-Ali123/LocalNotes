@@ -75,6 +75,8 @@ export interface EditorSettings {
   autosaveIntervalMs: number;
   wordWrap: boolean;
   showLineNumbers: boolean;
+  focusModeMaxWidth:number;
+  focusModeDimLevel: number;
 }
 
 // ---------------------------------------------------------------------------

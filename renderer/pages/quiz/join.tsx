@@ -96,7 +96,18 @@ const joinSession = () => {
       return;
     }
 
-    const ws = new WebSocket(`ws://${host}`);
+    let targetHost = host.trim();
+    // Strip protocol if present
+    targetHost = targetHost.replace(/^https?:\/\//, "");
+    // Strip trailing path/query if present
+    targetHost = targetHost.split("/")[0];
+
+    if (!targetHost) {
+      setError("Invalid host address.");
+      return;
+    }
+
+    const ws = new WebSocket(`ws://${targetHost}`);
     wsRef.current = ws;
 
     ws.onopen = () => {
