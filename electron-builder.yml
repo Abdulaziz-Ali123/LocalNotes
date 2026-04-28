@@ -1,6 +1,6 @@
 appId: com.abdulaziz.localnotes
 productName: LocalNotes
-copyright: Copyright © 2018 Yoshihide Shiono
+copyright: Copyright © 2025 Abdulaziz Ali
 directories:
   output: dist
   buildResources: resources
@@ -9,4 +9,10 @@ files:
     filter:
       - package.json
       - app
+      - node_modules
+asar: true
+asarUnpack:
+  - "node_modules/sqlite-vec*/**"
+  - "node_modules/better-sqlite3/**"
+  - "node_modules/node-llama-cpp/**"
 publish: null
